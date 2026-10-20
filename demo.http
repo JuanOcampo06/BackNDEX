@@ -1,0 +1,23 @@
+### Sirve igual para la ejecución local y para el contenedor (mismo puerto 3000).
+@base = http://localhost:3000/api
+
+### 1. Health
+GET {{base}}/health
+
+### 2. Login correcto (200)
+POST {{base}}/dashboard/v1/auth/login
+Content-Type: application/json
+
+{
+  "email": "admin@demo.local",
+  "password": "demo1234"
+}
+
+### 3. Login con contraseña errónea (401)
+POST {{base}}/dashboard/v1/auth/login
+Content-Type: application/json
+
+{
+  "email": "admin@demo.local",
+  "password": "incorrecta"
+}
