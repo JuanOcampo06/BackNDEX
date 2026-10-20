@@ -21,3 +21,56 @@ Content-Type: application/json
   "email": "admin@demo.local",
   "password": "incorrecta"
 }
+
+### --- Tablero del dashboard ---
+### Todas aceptan los filtros opcionales mes_desde mes_hasta localidad_id tipo_vehiculo y fuente
+### sin filtros se usan los ultimos tres meses
+@tablero = {{base}}/dashboard/v1/tablero
+
+### 4. Opciones de los filtros
+GET {{tablero}}/filtros
+
+### 5. Tarjeta de siniestros con filtros
+GET {{tablero}}/tarjetas/siniestros?mes_desde=2026-08&mes_hasta=2026-10&localidad_id=4&tipo_vehiculo=bicicleta
+
+### 6. Tarjeta de usuarios
+GET {{tablero}}/tarjetas/usuarios
+
+### 7. Tarjeta de reportes
+GET {{tablero}}/tarjetas/reportes
+
+### 8. Tarjeta de boton de panico
+GET {{tablero}}/tarjetas/boton-panico
+
+### 9. Tarjeta de falsos positivos
+GET {{tablero}}/tarjetas/falsos-positivos
+
+### 10. Mapa de siniestros y ciclorutas
+GET {{tablero}}/mapa-siniestros
+
+### 11. Lugares con mas siniestros
+GET {{tablero}}/lugares-con-mas-siniestros
+
+### 12. Siniestros por hora del dia
+GET {{tablero}}/siniestros-por-hora
+
+### 13. Tendencia mensual
+GET {{tablero}}/tendencia-mensual
+
+### 14. Siniestros por sexo y edad
+GET {{tablero}}/siniestros-por-sexo-y-edad
+
+### 15. Usuarios por tipo con el selector Camaras
+GET {{tablero}}/usuarios-por-tipo?fuente=camaras
+
+### 16. Boton de panico
+GET {{tablero}}/boton-panico
+
+### 17. Reportes
+GET {{tablero}}/reportes
+
+### 18. Falsos positivos
+GET {{tablero}}/falsos-positivos
+
+### 19. Rango de meses al reves (400)
+GET {{tablero}}/tarjetas/siniestros?mes_desde=2026-10&mes_hasta=2026-08

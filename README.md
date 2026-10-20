@@ -1,7 +1,7 @@
 # Backend Safe Path Twin
 
 Un solo backend (NestJS + TypeScript) con **arquitectura hexagonal** y **BFF**, dividido en dos productos.
-Hoy incluye una sola demo: **el login del dashboard**.
+Hoy incluye el **login de demostración** del dashboard y los **endpoints de cada tarjeta y gráfica del tablero**, que leen de una base de datos **PostgreSQL local** con datos de prueba.
 
 ## 1. Qué es el backend
 
@@ -44,22 +44,37 @@ cp .env.example .env        # macOS, Linux o Git Bash
 copy .env.example .env      # Windows (CMD o PowerShell)
 ```
 
-`.env` guarda la configuración de tu máquina y **no se sube al repositorio**. El valor por defecto (`PORT=3000`) sirve para la demo.
+`.env` guarda la configuración de tu máquina y **no se sube al repositorio**. Los valores por defecto sirven tal cual: puerto `3000` para la API, `5432` para PostgreSQL y `8081` para Adminer, con usuario, contraseña y base `safepath`.
 
 ### Opción A: con Docker (la más fácil)
 
 Abre Docker Desktop y espera a que diga que está corriendo. Luego:
 
 ```bash
-docker compose up -d --build     # construye la imagen y la arranca en segundo plano
-docker compose ps                # en STATUS debe aparecer "(healthy)" (tarda unos segundos)
+docker compose up -d --build     # construye la imagen y arranca api, postgres y adminer
+docker compose ps                # api y postgres deben decir "(healthy)" (tarda unos segundos)
 docker compose logs -f api       # ver los logs (Ctrl + C para salir)
-docker compose down              # apagarlo cuando termines
+docker compose down              # apagarlo cuando termines (los datos se conservan)
 ```
 
-### Opción B: sin Docker
+La primera vez, PostgreSQL crea las tablas y carga los datos de prueba solo (scripts de `infra/postgres/`).
+
+### Opción B: sin Docker para la API
+
+La API necesita una base de datos PostgreSQL. Lo más fácil es levantar solo esa parte con Docker:
 
 ```bash
+docker compose up -d postgres adminer
+npm install
+npm run start:dev
+```
+
+Si prefieres tu propio PostgreSQL instalado, crea la base y carga los scripts (ajusta `DATABASE_URL` en `.env` si usas otro usuario):
+
+```bash
+psql -U postgres -c "CREATE USER safepath PASSWORD 'safepath'" -c "CREATE DATABASE safepath OWNER safepath"
+psql -U safepath -d safepath -f infra/postgres/01-esquema.sql
+psql -U safepath -d safepath -f infra/postgres/02-datos.sql
 npm install
 npm run start:dev
 ```
@@ -101,7 +116,19 @@ Invoke-RestMethod http://localhost:3000/api/health
 Invoke-RestMethod -Method Post -Uri http://localhost:3000/api/dashboard/v1/auth/login -ContentType "application/json" -Body '{"email":"admin@demo.local","password":"demo1234"}'
 ```
 
-**Con `demo.http`**: ábrelo en VS Code con la extensión *REST Client* y pulsa *Send Request* sobre cada petición.
+Un endpoint del tablero:
+
+```bash
+curl http://localhost:3000/api/dashboard/v1/tablero/tarjetas/siniestros
+```
+
+Respuesta esperada (los números cambian según la fecha en que se cargaron los datos):
+
+```json
+{"valor":1119,"valor_periodo_anterior":1090,"variacion_porcentual":2.7,"serie_semanal":[{"semana":"2026-07-27","total":33}]}
+```
+
+**Con `demo.http`**: ábrelo en VS Code con la extensión *REST Client* y pulsa *Send Request* sobre cada petición. Incluye todas las del tablero.
 
 ### Credenciales de la demo
 
@@ -125,8 +152,75 @@ npm run test
 | `npm install` avisa `EBADENGINE` o la app no arranca | Node es muy viejo: `node -v` debe ser `v22` o más. Instala la versión LTS. |
 | Cambiaste `PORT` pero la API sigue en el 3000 | Falta `.env` (o editaste `.env.example`): créalo con `cp .env.example .env` (o `copy` en Windows) y cambia el puerto ahí. |
 | Cambiaste código y en Docker no se ve | Reconstruye la imagen: `docker compose up -d --build`. |
+| "port is already allocated" en el `5432` o el `8081` | Ya tienes otro PostgreSQL o servicio en ese puerto: cambia `POSTGRES_PORT` o `ADMINER_PORT` en `.env` (y el puerto de `DATABASE_URL` si corres la API sin Docker). |
+| Los endpoints del tablero responden `500` | La API no llega a la base: revisa que `postgres` esté `(healthy)` en `docker compose ps` y, sin Docker, que `DATABASE_URL` en `.env` sea correcta. |
+| El tablero sale vacío o con meses sin datos | Los datos se generan hasta el día en que se creó la base. Vuelve a crearla con `docker compose down -v` y `docker compose up -d`. |
 
-## 3. Diagrama
+## 3. Base de datos
+
+PostgreSQL corre en su propio contenedor (`postgres`) y guarda los datos en el volumen `postgres-data`. Por eso los datos sobreviven a un `docker compose down`.
+
+**Cómo verla en el navegador (Adminer):** abre http://localhost:8081 e inicia sesión con:
+
+| Campo | Valor |
+|---|---|
+| Sistema | PostgreSQL |
+| Servidor | `postgres` |
+| Usuario / Contraseña | `safepath` / `safepath` |
+| Base de datos | `safepath` |
+
+**Desde la terminal:** `docker compose exec postgres psql -U safepath -d safepath`.
+**Desde un cliente de escritorio** (DBeaver, TablePlus, extensión de VS Code): `localhost:5432` con el mismo usuario.
+
+| Tabla | Qué guarda |
+|---|---|
+| `localidades` | Localidades del filtro *Localidad*. |
+| `lugares` | Intersecciones donde ocurren los eventos (con su localidad y coordenadas). |
+| `siniestros` | Fecha y hora, lugar, coordenadas, gravedad, clase, tipo de vehículo y, si hubo víctimas, sexo y edad. |
+| `ciclorutas` | Nombre, riesgo vial (`bajo`, `medio`, `alto`) y trazado como lista de `[latitud, longitud]`. |
+| `conteos_usuarios` | Usuarios por día, localidad, tipo de vehículo y fuente (`camaras` o `app`). |
+| `reportes` | Reportes ciudadanos con categoría; si `motivo_falso_positivo` tiene valor, es un falso positivo. |
+| `activaciones_panico` | Activaciones del botón de pánico con fecha, lugar y coordenadas. |
+
+Los scripts están en `infra/postgres/`: `01-esquema.sql` crea las tablas y `02-datos.sql` genera unos 20 meses de datos de prueba (desde el 1 de enero del año pasado hasta el día en que se crea la base). Solo se ejecutan cuando el volumen está vacío. Para **borrar todo y volver a cargarlo**: `docker compose down -v` y luego `docker compose up -d`.
+
+## 4. Endpoints del tablero
+
+Todos son `GET`, cuelgan de `http://localhost:3000/api/dashboard/v1/tablero` y responden JSON en `snake_case`. No piden token.
+
+**Filtros** (query string, todos opcionales; los mismos para cualquier endpoint):
+
+| Parámetro | Ejemplo | Qué hace |
+|---|---|---|
+| `mes_desde`, `mes_hasta` | `2026-08`, `2026-10` | Rango de meses (formato `AAAA-MM`). Sin ellos: los últimos 3 meses hasta el mes actual. |
+| `localidad_id` | `4` | Una localidad (los ids salen de `/filtros`). |
+| `tipo_vehiculo` | `bicicleta` | `bicicleta`, `bicicleta_electrica`, `patineta_electrica`, `patineta` u `otro`. Aplica a siniestros y usuarios. |
+| `fuente` | `camaras` | `camaras` o `app`. Aplica solo a usuarios (es el selector *Cámaras / App* de su gráfica). |
+
+Un filtro mal escrito responde `400` con el motivo.
+
+| Parte del mockup | Endpoint | Qué devuelve |
+|---|---|---|
+| Selectores de filtros | `/filtros` | `localidades` (`id`, `nombre`), `tipos_vehiculo`, `fuentes` |
+| Tarjeta Siniestros | `/tarjetas/siniestros` | `valor`, `valor_periodo_anterior`, `variacion_porcentual`, `serie_semanal` (para la minigráfica) |
+| Tarjeta Usuarios de micromovilidad | `/tarjetas/usuarios` | igual que la anterior |
+| Tarjeta Reportes | `/tarjetas/reportes` | igual que la anterior |
+| Tarjeta Botón de pánico | `/tarjetas/boton-panico` | igual que la anterior |
+| Tarjeta Falsos positivos | `/tarjetas/falsos-positivos` | igual que la anterior, más `porcentaje_de_reportes` |
+| Mapa de siniestros y ciclorutas | `/mapa-siniestros` | `siniestros` (puntos con `gravedad`, `clase`, `tipo_vehiculo`, `ocurrido_en`) y `ciclorutas` (con `riesgo` y `trazado`) |
+| Lugares con más siniestros | `/lugares-con-mas-siniestros` | Top 5: `posicion`, `lugar`, `localidad`, `franja_pico`, `total` |
+| Siniestros por hora del día | `/siniestros-por-hora` | 24 barras: `hora`, `franja`, `total` |
+| Tendencia mensual | `/tendencia-mensual` | `anio_actual`, `anio_anterior`, `meses_filtrados` y 12 `meses` con `total_anio_actual` y `total_anio_anterior` (`null` si el mes aún no tiene datos) |
+| Siniestros por sexo y edad | `/siniestros-por-sexo-y-edad` | `total_mujer`, `total_hombre` y `rangos` (`0-17` … `60+`) con `mujer` y `hombre` |
+| Usuarios por tipo | `/usuarios-por-tipo?fuente=camaras` | `total` y `tipos` (`tipo_vehiculo`, `total`) |
+| Botón de pánico | `/boton-panico` | `total`, `lugares` (círculos del mapa con coordenadas y `total`) y `top_ubicaciones` (las 5 primeras) |
+| Reportes | `/reportes` | `total`, `puntos` (mapa) y `por_categoria` |
+| Falsos positivos | `/falsos-positivos` | `total`, `porcentaje_de_reportes`, `por_motivo` (`motivo`, `total`, `porcentaje`) y `evolucion_mensual` (12 meses) |
+
+Las franjas horarias son `madrugada` (0–6), `manana` (6–12), `tarde` (12–18) y `noche` (18–24).
+La API acepta peticiones desde otro origen (CORS), así que el frontend puede llamarla desde su propio puerto. Para limitarlo a una sola dirección, pon `CORS_ORIGIN=http://localhost:5173` (o la que corresponda) en `.env`.
+
+## 5. Diagrama
 
 ```
             DASHBOARD                                   APP MÓVIL (futuro)
@@ -148,7 +242,7 @@ npm run test
         Los dos productos nunca se importan entre sí.
 ```
 
-## 4. Hexagonal y BFF en pocas palabras
+## 6. Hexagonal y BFF en pocas palabras
 
 **Hexagonal.** El negocio (dominio y casos de uso) vive en el centro y no sabe nada de bases de datos ni de HTTP.
 Para hablar con el exterior define **puertos** (interfaces); afuera, los **adaptadores** los implementan.
@@ -160,7 +254,7 @@ El BFF solo recibe la petición, la valida, llama al caso de uso y da forma a la
 Analogía: un mesero por tipo de cliente. La cocina (el negocio) es la misma; cada mesero sirve el plato como lo pide su mesa.
 Por eso el dashboard responde en `snake_case` y el móvil en `camelCase`, sin afectarse entre ellos.
 
-## 5. Reglas de dependencia
+## 7. Reglas de dependencia
 
 `npm run lint` falla si alguna se rompe.
 
@@ -173,7 +267,7 @@ Por eso el dashboard responde en `snake_case` y el móvil en `camelCase`, sin af
 | `dashboard/` ↔ `mobile/` | — | `import { SosModule } from '../../../mobile/modules/sos'` |
 | `platform/` | `import { DomainError } from '../../shared/domain-error'` | cualquier archivo de `dashboard/` o `mobile/` |
 
-## 6. Recorrido del login
+## 8. Recorrido del login
 
 1. `src/dashboard/bff/controllers/auth.controller.ts` recibe `POST /api/dashboard/v1/auth/login` y valida el cuerpo con `src/dashboard/bff/dto/login.request.ts`.
 2. Llama a `LoginUseCase` a través de `src/dashboard/modules/auth/index.ts` (la única puerta del módulo).
@@ -182,7 +276,7 @@ Por eso el dashboard responde en `snake_case` y el móvil en `camelCase`, sin af
 5. `auth.module.ts` conecta ese puerto con `InMemoryUsuarioRepository` (`infrastructure/in-memory-usuario.repository.ts`).
 6. Si algo falla, el caso de uso lanza `CredencialesInvalidasError`; el controlador la convierte en `401`. Si sale bien, responde en `snake_case`.
 
-## 7. Cómo agregar una funcionalidad nueva
+## 9. Cómo agregar una funcionalidad nueva
 
 1. **Dominio**: crea la entidad y sus errores en `modules/<modulo>/domain/` (TypeScript puro).
 2. **Aplicación**: crea el caso de uso (`<accion>.use-case.ts`, con `execute()`) y su puerto con token `Symbol` en `application/`.
@@ -190,21 +284,21 @@ Por eso el dashboard responde en `snake_case` y el móvil en `camelCase`, sin af
 4. **Módulo**: en `<modulo>.module.ts` conecta `{ provide: PUERTO, useClass: Adaptador }` y exporta el caso de uso desde `index.ts`.
 5. **BFF**: agrega el DTO y el controlador en `<producto>/bff/`, regístralo en `<producto>-bff.module.ts` y corre `npm run lint && npm run build && npm run test`.
 
-## 8. Hoja de ruta
+## 10. Hoja de ruta
 
 | Pendiente | Dónde va |
 |---|---|
 | JWT, guards y roles (reemplaza `token-de-prueba`) | `src/platform/auth/` |
 | Multi-tenant (una base de datos por entidad) | `src/platform/tenancy/` |
-| PostgreSQL y MongoDB (reemplazan los repositorios en memoria) | `src/platform/database/` + `infrastructure/` de cada módulo |
+| MongoDB y PostgreSQL para el resto de módulos (el tablero ya usa PostgreSQL) | `src/platform/database/` + `infrastructure/` de cada módulo |
 | Eventos con RabbitMQ (por ejemplo, reportes del móvil hacia el dashboard) | `src/platform/messaging/` |
 | Caché con Redis | `src/platform/cache/` |
-| Usuarios y KPIs del dashboard | `src/dashboard/modules/users/` y `kpis/` |
+| Usuarios del dashboard y botón *Exportar* del tablero | `src/dashboard/modules/users/` y `kpis/` |
 | Reportes y SOS de la app móvil, y su BFF | `src/mobile/modules/` y `src/mobile/bff/` |
-| Activar `postgres`, `mongo`, `redis` y `rabbitmq` | Descomentarlos en `docker-compose.yml` cuando exista su adaptador |
+| Activar `mongo`, `redis` y `rabbitmq` | Descomentarlos en `docker-compose.yml` cuando exista su adaptador |
 | Compose de otros entornos y Nginx | `infra/docker/` y `infra/nginx/` |
 
-## 9. Glosario
+## 11. Glosario
 
 - **Entidad**: objeto del negocio con sus reglas (por ejemplo, `Usuario`).
 - **Caso de uso**: una acción del negocio, con un método `execute()` (por ejemplo, `LoginUseCase`).
@@ -213,6 +307,6 @@ Por eso el dashboard responde en `snake_case` y el móvil en `camelCase`, sin af
 - **DTO**: forma de los datos que entran o salen por HTTP (por ejemplo, `LoginRequest`).
 - **BFF**: la puerta HTTP propia de cada producto.
 
-## 10. Más detalle
+## 12. Más detalle
 
 El mapa completo de carpetas y archivos está en [`estructura.md`](estructura.md).

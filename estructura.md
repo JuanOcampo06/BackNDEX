@@ -17,37 +17,44 @@ Toda carpeta vacía lleva un `.gitkeep` para que Git la conserve.
 ├── nest-cli.json                      [CONFIG]          Configuración del CLI de NestJS.
 ├── eslint.config.mjs                  [CONFIG]          Lint + eslint-plugin-boundaries con las reglas de dependencia.
 ├── Dockerfile                         [CONFIG]          Imagen única multietapa, USER node y HEALTHCHECK.
-├── docker-compose.yml                 [CONFIG]          Servicio api; postgres, mongo, redis y rabbitmq comentados.
+├── docker-compose.yml                 [CONFIG]          Servicios api, postgres (con datos de prueba) y adminer (puerto 8081); mongo, redis y rabbitmq comentados.
 ├── .dockerignore                      [CONFIG]          Lo que no entra a la imagen (node_modules, dist, .env...).
-├── .env.example                       [CONFIG]          Plantilla de variables (PORT=3000); se copia a .env.
+├── .env.example                       [CONFIG]          Plantilla de variables (puertos, PostgreSQL, DATABASE_URL, CORS_ORIGIN); se copia a .env.
 ├── .env                               [CONFIG]          Tu configuración local; no se versiona.
 ├── .gitignore                         [CONFIG]          Lo que Git ignora.
-├── demo.http                          [CONFIG]          3 peticiones de prueba (health, login bien, login mal).
-├── infra/                             [VACÍO - FUTURO]  Despliegue adicional.
+├── demo.http                          [CONFIG]          Peticiones de prueba: health, login y todos los endpoints del tablero.
+├── infra/                             [IMPLEMENTADO]    Despliegue adicional.
+│   ├── postgres/                      [IMPLEMENTADO]    Scripts que PostgreSQL ejecuta al crear la base por primera vez.
+│   │   ├── 01-esquema.sql             [IMPLEMENTADO]    Tablas del tablero (localidades, lugares, siniestros, ciclorutas, conteos_usuarios, reportes, activaciones_panico).
+│   │   └── 02-datos.sql               [IMPLEMENTADO]    Datos de prueba desde enero del año pasado hasta hoy.
 │   ├── docker/                        [VACÍO - FUTURO]  Compose de QA y producción (+ README.md de 2 líneas).
 │   └── nginx/                         [VACÍO - FUTURO]  Proxy inverso (+ README.md de 2 líneas).
 ├── test/                              [IMPLEMENTADO]    Pruebas e2e.
 │   └── auth.e2e-spec.ts               [IMPLEMENTADO]    Llama al login real y comprueba 200 y 401.
 └── src/
-    ├── main.ts                        [IMPLEMENTADO]    Arranque: lee .env, prefijo /api y puerto.
+    ├── main.ts                        [IMPLEMENTADO]    Arranque: lee .env, prefijo /api, CORS y puerto.
     ├── app.module.ts                  [IMPLEMENTADO]    Une los dos BFF y expone GET /api/health.
     ├── shared/                        [IMPLEMENTADO]    Código común en TypeScript simple.
     │   └── domain-error.ts            [IMPLEMENTADO]    Error base del negocio (codigo + mensaje).
-    ├── platform/                      [VACÍO - FUTURO]  Herramientas técnicas reutilizables.
+    ├── platform/                      [IMPLEMENTADO]    Herramientas técnicas reutilizables (solo database tiene código).
     │   ├── auth/                      [VACÍO - FUTURO]  JWT, guards y roles (+ README.md).
     │   ├── tenancy/                   [VACÍO - FUTURO]  Multi-tenant, una BD por entidad (+ README.md).
-    │   ├── database/                  [VACÍO - FUTURO]  PostgreSQL y MongoDB (+ README.md).
+    │   ├── database/                  [IMPLEMENTADO]    PostgreSQL (MongoDB pendiente) (+ README.md).
+    │   │   └── postgres.ts            [IMPLEMENTADO]    Crea la conexión a PostgreSQL con DATABASE_URL.
     │   ├── messaging/                 [VACÍO - FUTURO]  RabbitMQ / eventos (+ README.md).
     │   └── cache/                     [VACÍO - FUTURO]  Redis (+ README.md).
     ├── dashboard/                     [IMPLEMENTADO]    PRODUCTO 1: tablero institucional.
     │   ├── bff/                       [IMPLEMENTADO]    Única puerta HTTP: /api/dashboard/v1 (snake_case).
     │   │   ├── dashboard-bff.module.ts [IMPLEMENTADO]   Registra el prefijo, los módulos y los controladores.
+    │   │   ├── snake-case.ts          [IMPLEMENTADO]    Convierte las claves de las respuestas a snake_case.
     │   │   ├── controllers/
-    │   │   │   └── auth.controller.ts [IMPLEMENTADO]    POST auth/login: valida, llama al caso de uso, responde.
+    │   │   │   ├── auth.controller.ts [IMPLEMENTADO]    POST auth/login: valida, llama al caso de uso, responde.
+    │   │   │   └── tablero.controller.ts [IMPLEMENTADO] GET tablero/...: un endpoint por tarjeta y gráfica.
     │   │   └── dto/
-    │   │       └── login.request.ts   [IMPLEMENTADO]    email válido y password no vacía.
+    │   │       ├── login.request.ts   [IMPLEMENTADO]    email válido y password no vacía.
+    │   │       └── tablero.query.ts   [IMPLEMENTADO]    Filtros opcionales: mes_desde, mes_hasta, localidad_id, tipo_vehiculo, fuente.
     │   └── modules/                   [IMPLEMENTADO]    Negocio del dashboard, sin controladores.
-    │       ├── auth/                  [IMPLEMENTADO]    Login (único módulo con código).
+    │       ├── auth/                  [IMPLEMENTADO]    Login.
     │       │   ├── index.ts           [IMPLEMENTADO]    Lo único que el BFF puede importar del módulo.
     │       │   ├── auth.module.ts     [IMPLEMENTADO]    Conecta el puerto con su adaptador en memoria.
     │       │   ├── domain/
@@ -63,10 +70,21 @@ Toda carpeta vacía lleva un `.gitkeep` para que Git la conserve.
     │       │   ├── domain/ application/ infrastructure/ [VACÍO - FUTURO] Solo .gitkeep.
     │       │   ├── users.module.ts    [VACÍO - FUTURO]  Módulo Nest sin providers.
     │       │   └── index.ts           [VACÍO - FUTURO]  Exporta solo UsersModule.
-    │       └── kpis/                  [VACÍO - FUTURO]  Cifras y mapas.
-    │           ├── domain/ application/ infrastructure/ [VACÍO - FUTURO] Solo .gitkeep.
-    │           ├── kpis.module.ts     [VACÍO - FUTURO]  Módulo Nest sin providers.
-    │           └── index.ts           [VACÍO - FUTURO]  Exporta solo KpisModule.
+    │       └── kpis/                  [IMPLEMENTADO]    Cifras, gráficas y mapas del tablero.
+    │           ├── index.ts           [IMPLEMENTADO]    Exporta el módulo, los casos de uso, Periodo y los catálogos.
+    │           ├── kpis.module.ts     [IMPLEMENTADO]    Conecta el puerto con PostgresTableroRepository y arma los casos de uso.
+    │           ├── domain/
+    │           │   ├── periodo.ts     [IMPLEMENTADO]    Rango de meses, periodo anterior y años de comparación.
+    │           │   ├── periodo.spec.ts [IMPLEMENTADO]   Prueba unitaria de Periodo.
+    │           │   ├── filtros-tablero.ts [IMPLEMENTADO] Forma de los filtros del tablero.
+    │           │   ├── catalogos.ts   [IMPLEMENTADO]    Tipos de vehículo, fuentes e indicadores.
+    │           │   └── calculos.ts    [IMPLEMENTADO]    Porcentajes, variación, franjas horarias y rangos de edad.
+    │           ├── application/
+    │           │   ├── tablero.repository.port.ts [IMPLEMENTADO] Puerto y token TABLERO_REPOSITORY.
+    │           │   ├── obtener-*.use-case.ts      [IMPLEMENTADO] 11 casos de uso, uno por tarjeta o gráfica.
+    │           │   └── *.use-case.spec.ts         [IMPLEMENTADO] Pruebas unitarias con repositorio falso.
+    │           └── infrastructure/
+    │               └── postgres-tablero.repository.ts [IMPLEMENTADO] Consultas SQL a PostgreSQL.
     └── mobile/                        [VACÍO - FUTURO]  PRODUCTO 2: app ciudadana.
         ├── bff/                       [VACÍO - FUTURO]  Única puerta HTTP: /api/mobile/v1 (camelCase).
         │   ├── mobile-bff.module.ts   [VACÍO - FUTURO]  Registra el prefijo y los módulos; sin controladores.
@@ -88,6 +106,7 @@ Toda carpeta vacía lleva un `.gitkeep` para que Git la conserve.
 | Caso | Archivos y carpetas |
 |---|---|
 | Agregar un endpoint al dashboard | Caso de uso en `src/dashboard/modules/<modulo>/application/` (y dominio si hace falta) → exportarlo en su `index.ts` y registrarlo en `<modulo>.module.ts` → DTO en `src/dashboard/bff/dto/` → controlador en `src/dashboard/bff/controllers/` → agregarlo a `dashboard-bff.module.ts`. |
-| Conectar una base de datos real | Conexión en `src/platform/database/` → nuevo adaptador en `infrastructure/` del módulo → cambiar `useClass` en `<modulo>.module.ts` → descomentar `postgres` o `mongo` (y sus volúmenes) en `docker-compose.yml` → variables nuevas en `.env.example`. |
+| Conectar otro módulo a PostgreSQL | Usar `crearPoolPostgres()` de `src/platform/database/postgres.ts` en un adaptador nuevo de `infrastructure/` → cambiar `useClass` en `<modulo>.module.ts` → tablas nuevas en `infra/postgres/01-esquema.sql`. |
+| Cambiar una gráfica del tablero | Caso de uso en `src/dashboard/modules/kpis/application/` → consulta en `infrastructure/postgres-tablero.repository.ts` (y en el puerto si cambia la forma) → ruta en `src/dashboard/bff/controllers/tablero.controller.ts`. |
 | Activar JWT | Emisión y guards en `src/platform/auth/` → sustituir `TOKEN_DE_PRUEBA` en `login.use-case.ts` por un puerto de tokens → proteger los controladores de `src/dashboard/bff/controllers/` → secreto en `.env.example`. |
 | Empezar la app móvil | Dominio, aplicación e infraestructura en `src/mobile/modules/reports/` o `sos/` → exportar desde su `index.ts` → DTO y controlador en `src/mobile/bff/` (camelCase) → registrarlo en `mobile-bff.module.ts`. |

@@ -12,6 +12,9 @@ async function bootstrap(): Promise<void> {
   }
   const app = await NestFactory.create(AppModule);
   app.setGlobalPrefix(PREFIJO_API);
+  // Deja que el frontend llame a la api desde otro puerto
+  // con CORS_ORIGIN se limita a una sola direccion y sin ella se acepta cualquiera
+  app.enableCors({ origin: process.env.CORS_ORIGIN ?? true });
   await app.listen(Number(process.env.PORT ?? PUERTO_POR_DEFECTO));
 }
 

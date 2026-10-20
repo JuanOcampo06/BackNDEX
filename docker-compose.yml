@@ -1,12 +1,21 @@
-# Demo: solo la API. Los servicios comentados se activarán cuando existan sus adaptadores.
+# La api y la base de datos postgres del tablero corren juntas
+# Los servicios que siguen comentados se activaran cuando existan sus adaptadores
 services:
   api:
     build: .
     image: safe-path-twin-api:0.1.0
     environment:
       PORT: ${PORT:-3000}
+      # Dentro de docker la api encuentra a la base por el nombre del servicio postgres
+      DATABASE_URL: postgres://${POSTGRES_USER:-safepath}:${POSTGRES_PASSWORD:-safepath}@postgres:5432/${POSTGRES_DB:-safepath}
+      # Vacio deja entrar a cualquier frontend y con una direccion solo deja entrar a esa
+      CORS_ORIGIN: ${CORS_ORIGIN:-}
     ports:
       - "${PORT:-3000}:${PORT:-3000}"
+    # La api espera a que la base de datos este lista antes de arrancar
+    depends_on:
+      postgres:
+        condition: service_healthy
     healthcheck:
       test: ["CMD-SHELL", "wget -qO- http://127.0.0.1:$${PORT}/api/health || exit 1"]
       interval: 10s
@@ -15,18 +24,40 @@ services:
       retries: 3
     restart: unless-stopped
 
-  # --- Futuro: descomentar solo cuando exista su adaptador en platform/ ---
+  # Base de datos local del tablero
+  postgres:            # platform/database
+    image: postgres:17-alpine
+    environment:
+      POSTGRES_USER: ${POSTGRES_USER:-safepath}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-safepath}
+      POSTGRES_DB: ${POSTGRES_DB:-safepath}
+    ports:
+      - "${POSTGRES_PORT:-5432}:5432"
+    volumes:
+      - postgres-data:/var/lib/postgresql/data
+      # Los scripts de esta carpeta crean las tablas y cargan los datos solo la primera vez
+      - ./infra/postgres:/docker-entrypoint-initdb.d:ro
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U $${POSTGRES_USER} -d $${POSTGRES_DB}"]
+      interval: 5s
+      timeout: 3s
+      retries: 10
+    restart: unless-stopped
 
-  # postgres:            # platform/database
-  #   image: postgres:17-alpine
-  #   environment:
-  #     POSTGRES_USER: ${POSTGRES_USER}
-  #     POSTGRES_PASSWORD: ${POSTGRES_PASSWORD}
-  #     POSTGRES_DB: ${POSTGRES_DB}
-  #   ports:
-  #     - "5432:5432"
-  #   volumes:
-  #     - postgres-data:/var/lib/postgresql/data
+  # Pagina web para ver las tablas en el navegador en el puerto 8081
+  adminer:
+    image: adminer:4.8.1
+    # Escucha en ipv4 porque algunas maquinas no tienen ipv6 dentro de docker
+    command: ["php", "-S", "0.0.0.0:8080", "-t", "/var/www/html"]
+    ports:
+      - "${ADMINER_PORT:-8081}:8080"
+    environment:
+      ADMINER_DEFAULT_SERVER: postgres
+    depends_on:
+      - postgres
+    restart: unless-stopped
+
+  # --- Futuro: descomentar solo cuando exista su adaptador en platform/ ---
 
   # mongo:               # platform/database
   #   image: mongo:8
@@ -46,6 +77,7 @@ services:
   #     - "5672:5672"
   #     - "15672:15672"
 
-# volumes:
-#   postgres-data:
+volumes:
+  # Aqui quedan guardados los datos de postgres aunque se borre el contenedor
+  postgres-data:
 #   mongo-data:

@@ -1,2 +1,2 @@
 # platform/database — conexiones a PostgreSQL y MongoDB.
-Pendiente: los adaptadores de infrastructure/ la usarán cuando dejen de ser en memoria.
+`postgres.ts` crea la conexión a PostgreSQL con `DATABASE_URL`; hoy la usa `kpis/infrastructure/`. MongoDB sigue pendiente.

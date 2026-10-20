@@ -4,6 +4,8 @@ import { AuthModule } from '../modules/auth';
 import { UsersModule } from '../modules/users';
 import { KpisModule } from '../modules/kpis';
 import { AuthController } from './controllers/auth.controller';
+// Controlador nuevo con los endpoints de las tarjetas y graficas del tablero
+import { TableroController } from './controllers/tablero.controller';
 
 // Única puerta HTTP del dashboard: todo cuelga de /api/dashboard/v1.
 @Module({
@@ -13,6 +15,6 @@ import { AuthController } from './controllers/auth.controller';
     KpisModule,
     RouterModule.register([{ path: 'dashboard/v1', module: DashboardBffModule }]),
   ],
-  controllers: [AuthController],
+  controllers: [AuthController, TableroController],
 })
 export class DashboardBffModule {}
