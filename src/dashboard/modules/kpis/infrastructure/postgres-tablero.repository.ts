@@ -1,7 +1,6 @@
 import { Injectable, OnModuleDestroy } from '@nestjs/common';
 import { crearPoolPostgres } from '../../../../platform/database/postgres';
 import {
-  Cicloruta,
   ConteoLugarHora,
   ConteoMensual,
   ConteoPorLugar,
@@ -126,10 +125,6 @@ export class PostgresTableroRepository implements TableroRepositoryPort, OnModul
        FROM ${SINIESTROS.tabla} WHERE ${donde} ORDER BY s.ocurrido_en`,
       valores,
     );
-  }
-
-  listarCiclorutas(): Promise<Cicloruta[]> {
-    return this.consultar('SELECT id, nombre, riesgo, trazado FROM ciclorutas ORDER BY id', []);
   }
 
   contarSiniestrosPorLugarYHora(filtros: FiltrosTablero): Promise<ConteoLugarHora[]> {

@@ -52,16 +52,6 @@ FROM (VALUES
 JOIN localidades l ON l.nombre = v.localidad
 ORDER BY v.orden;
 
--- Trazados aproximados de algunas ciclorutas de la ciudad
-INSERT INTO ciclorutas (nombre, riesgo, trazado) VALUES
-  ('Cicloruta Calle 80', 'alto', '[[4.6880, -74.0620], [4.6960, -74.0800], [4.7005, -74.0905], [4.7090, -74.1100], [4.7180, -74.1250]]'),
-  ('Cicloruta Av. Americas', 'alto', '[[4.6200, -74.0900], [4.6260, -74.1050], [4.6300, -74.1170], [4.6380, -74.1400], [4.6450, -74.1600]]'),
-  ('Cicloruta Av. Boyaca', 'medio', '[[4.6070, -74.1340], [4.6420, -74.1220], [4.6680, -74.1110], [4.7005, -74.0905], [4.7330, -74.0780]]'),
-  ('Cicloruta Calle 26', 'bajo', '[[4.6150, -74.0700], [4.6300, -74.0780], [4.6380, -74.0820], [4.6550, -74.1000], [4.6680, -74.1110]]'),
-  ('Cicloruta Cra. 7', 'medio', '[[4.6100, -74.0700], [4.6350, -74.0640], [4.6560, -74.0560], [4.6860, -74.0420], [4.7100, -74.0330]]'),
-  ('Cicloruta Autonorte', 'bajo', '[[4.6860, -74.0560], [4.7130, -74.0520], [4.7350, -74.0480], [4.7550, -74.0450]]'),
-  ('Cicloruta Autopista Sur', 'alto', '[[4.6000, -74.1200], [4.6050, -74.1500], [4.6100, -74.1850]]');
-
 -- Entre 10 y 17 siniestros por dia con mas casos en horas pico
 -- el anio actual tiene un poco mas de casos que el anterior
 INSERT INTO siniestros (ocurrido_en, lugar_id, latitud, longitud, gravedad, clase, tipo_vehiculo, sexo, edad)

@@ -45,7 +45,7 @@ GET {{tablero}}/tarjetas/boton-panico
 ### 9. Tarjeta de falsos positivos
 GET {{tablero}}/tarjetas/falsos-positivos
 
-### 10. Mapa de siniestros y ciclorutas
+### 10. Mapa de siniestros (las ciclovias salen de su propio endpoint)
 GET {{tablero}}/mapa-siniestros
 
 ### 11. Lugares con mas siniestros
@@ -74,3 +74,18 @@ GET {{tablero}}/falsos-positivos
 
 ### 19. Rango de meses al reves (400)
 GET {{tablero}}/tarjetas/siniestros?mes_desde=2026-10&mes_hasta=2026-08
+
+### --- Ciclovias por zona del mapa (dashboard y app movil) ---
+### Las cuatro esquinas son las del mapa que se ve y tipo es opcional
+
+### 20. Ciclovias en el dashboard (snake_case)
+GET {{base}}/dashboard/v1/ciclovias?min_lat=4.66&min_lon=-74.06&max_lat=4.68&max_lon=-74.04
+
+### 21. Solo cruces en el dashboard
+GET {{base}}/dashboard/v1/ciclovias?min_lat=4.66&min_lon=-74.06&max_lat=4.68&max_lon=-74.04&tipo=cruce
+
+### 22. Ciclovias en la app movil (camelCase)
+GET {{base}}/mobile/v1/ciclovias?minLat=4.66&minLon=-74.06&maxLat=4.68&maxLon=-74.04
+
+### 23. Esquinas al reves (400)
+GET {{base}}/mobile/v1/ciclovias?minLat=4.68&minLon=-74.06&maxLat=4.66&maxLon=-74.04

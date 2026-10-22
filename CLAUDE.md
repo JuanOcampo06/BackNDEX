@@ -35,7 +35,13 @@ src/
         <modulo>.module.ts     conecta cada puerto con su adaptador
         index.ts               lo único que el BFF puede importar del módulo
 
-  mobile/                      PRODUCTO 2: app ciudadana (futuro, vacío)
+  common/                      negocio que leen los DOS productos (sin BFF propio)
+    modules/
+      ciclovias/               ciclovías de OpenStreetMap por zona del mapa
+        domain/  application/  infrastructure/
+        <modulo>.module.ts  index.ts
+
+  mobile/                      PRODUCTO 2: app ciudadana (solo ciclovías por ahora)
     bff/                       única puerta HTTP: /api/mobile/v1
       controllers/
       dto/
@@ -46,12 +52,13 @@ src/
         domain/  application/  infrastructure/
         <modulo>.module.ts  index.ts
 
-infra/                         despliegue adicional (futuro)
-  docker/                      otros compose (QA, producción)
+infra/                         despliegue adicional
+  postgres/                    scripts que crean y llenan la base la primera vez (+ datos/ con el JSON de ciclovías)
+  docker/                      otros compose (QA, producción) (futuro)
   nginx/
 test/                          pruebas e2e
 Dockerfile                     imagen de la API (multietapa, usuario no root)
-docker-compose.yml             solo el servicio `api`; el resto comentado
+docker-compose.yml             `api`, `postgres` y `adminer`; el resto comentado
 .dockerignore
 estructura.md                  mapa de carpetas y archivos
 README.md                      qué es, cómo probarlo, hoja de ruta
@@ -74,10 +81,12 @@ El proyecto corre en Docker, pero **solo la API**: la demo no usa bases de datos
 | `domain/` | su propio `domain/` y `shared/` | NestJS, bases de datos, `application/`, `infrastructure/` |
 | `application/` | `domain/` y `shared/` | NestJS, bases de datos, `infrastructure/`, `bff/` |
 | `infrastructure/` | su módulo, `platform/` y librerías externas | `bff/` |
-| `<producto>/bff/` | el `index.ts` de los módulos **de su mismo producto** y `platform/auth` | `domain/`, `application/`, `infrastructure/` directamente |
+| `<producto>/bff/` | el `index.ts` de los módulos **de su mismo producto**, el `index.ts` de los módulos de `common/` y `platform/auth` | `domain/`, `application/`, `infrastructure/` directamente |
+| `common/modules/` | las mismas reglas de capas que cualquier módulo | `dashboard/`, `mobile/` |
 | `platform/` | `shared/` y librerías externas | `dashboard/`, `mobile/` |
 
 **Los dos productos no se importan entre sí.** Si algún día necesitan compartir algo (por ejemplo, los reportes que crea el móvil y muestra el dashboard), se hará con eventos o contratos en `shared/`/`platform/messaging`, nunca importando archivos del otro producto.
+La excepción son los **datos de consulta que leen los dos** (por ejemplo, las ciclovías): su módulo vive en `common/modules/` y cada BFF expone su propio endpoint llamando al mismo caso de uso.
 
 ## Reglas hexagonales
 
@@ -123,6 +132,7 @@ docker compose down
 - Controladores dentro de `modules/`.
 - Importar NestJS, TypeORM o drivers en `domain/` o `application/`.
 - Que `dashboard/` importe de `mobile/` o al revés.
+- Que `common/` importe de `dashboard/` o de `mobile/`, o que tenga controladores.
 - Dividir el backend en varios servicios o imágenes Docker.
 - Activar en el compose bases de datos o brokers que aún no tienen adaptador.
 - Cualquier referencia a ML, cámaras, YOLO, GPU o nodos edge.

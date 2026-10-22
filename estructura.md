@@ -25,8 +25,11 @@ Toda carpeta vacía lleva un `.gitkeep` para que Git la conserve.
 ├── demo.http                          [CONFIG]          Peticiones de prueba: health, login y todos los endpoints del tablero.
 ├── infra/                             [IMPLEMENTADO]    Despliegue adicional.
 │   ├── postgres/                      [IMPLEMENTADO]    Scripts que PostgreSQL ejecuta al crear la base por primera vez.
-│   │   ├── 01-esquema.sql             [IMPLEMENTADO]    Tablas del tablero (localidades, lugares, siniestros, ciclorutas, conteos_usuarios, reportes, activaciones_panico).
-│   │   └── 02-datos.sql               [IMPLEMENTADO]    Datos de prueba desde enero del año pasado hasta hoy.
+│   │   ├── 01-esquema.sql             [IMPLEMENTADO]    Tablas del tablero (localidades, lugares, siniestros, conteos_usuarios, reportes, activaciones_panico).
+│   │   ├── 02-datos.sql               [IMPLEMENTADO]    Datos de prueba desde enero del año pasado hasta hoy.
+│   │   ├── 03-ciclovias.sql           [IMPLEMENTADO]    Crea ciclovias_fuente y ciclovias y carga el JSON; se puede volver a correr.
+│   │   └── datos/
+│   │       └── ciclovias-osm.json     [IMPLEMENTADO]    Export de OpenStreetMap (Overpass) con las 2.448 vías de ciclovía.
 │   ├── docker/                        [VACÍO - FUTURO]  Compose de QA y producción (+ README.md de 2 líneas).
 │   └── nginx/                         [VACÍO - FUTURO]  Proxy inverso (+ README.md de 2 líneas).
 ├── test/                              [IMPLEMENTADO]    Pruebas e2e.
@@ -43,16 +46,33 @@ Toda carpeta vacía lleva un `.gitkeep` para que Git la conserve.
     │   │   └── postgres.ts            [IMPLEMENTADO]    Crea la conexión a PostgreSQL con DATABASE_URL.
     │   ├── messaging/                 [VACÍO - FUTURO]  RabbitMQ / eventos (+ README.md).
     │   └── cache/                     [VACÍO - FUTURO]  Redis (+ README.md).
+    ├── common/                        [IMPLEMENTADO]    Negocio que leen los dos productos; sin controladores.
+    │   └── modules/
+    │       └── ciclovias/             [IMPLEMENTADO]    Ciclovías por zona del mapa.
+    │           ├── index.ts           [IMPLEMENTADO]    Lo único que los dos BFF pueden importar del módulo.
+    │           ├── ciclovias.module.ts [IMPLEMENTADO]   Conecta el puerto con PostgresCicloviaRepository.
+    │           ├── domain/
+    │           │   ├── ciclovia.ts    [IMPLEMENTADO]    Forma de una ciclovía y sus tipos (ciclovia, cruce).
+    │           │   ├── area-mapa.ts   [IMPLEMENTADO]    Rectángulo visible del mapa; valida las esquinas.
+    │           │   └── area-mapa.spec.ts [IMPLEMENTADO] Prueba unitaria de AreaMapa.
+    │           ├── application/
+    │           │   ├── ciclovia.repository.port.ts   [IMPLEMENTADO] Puerto y token CICLOVIA_REPOSITORY.
+    │           │   ├── obtener-ciclovias.use-case.ts [IMPLEMENTADO] ObtenerCicloviasUseCase.execute().
+    │           │   └── obtener-ciclovias.use-case.spec.ts [IMPLEMENTADO] Prueba con repositorio falso.
+    │           └── infrastructure/
+    │               └── postgres-ciclovia.repository.ts [IMPLEMENTADO] Consulta por rectángulo en PostgreSQL.
     ├── dashboard/                     [IMPLEMENTADO]    PRODUCTO 1: tablero institucional.
     │   ├── bff/                       [IMPLEMENTADO]    Única puerta HTTP: /api/dashboard/v1 (snake_case).
     │   │   ├── dashboard-bff.module.ts [IMPLEMENTADO]   Registra el prefijo, los módulos y los controladores.
     │   │   ├── snake-case.ts          [IMPLEMENTADO]    Convierte las claves de las respuestas a snake_case.
     │   │   ├── controllers/
     │   │   │   ├── auth.controller.ts [IMPLEMENTADO]    POST auth/login: valida, llama al caso de uso, responde.
-    │   │   │   └── tablero.controller.ts [IMPLEMENTADO] GET tablero/...: un endpoint por tarjeta y gráfica.
+    │   │   │   ├── tablero.controller.ts [IMPLEMENTADO] GET tablero/...: un endpoint por tarjeta y gráfica.
+    │   │   │   └── ciclovias.controller.ts [IMPLEMENTADO] GET ciclovias: ciclovías de la zona del mapa (snake_case).
     │   │   └── dto/
     │   │       ├── login.request.ts   [IMPLEMENTADO]    email válido y password no vacía.
-    │   │       └── tablero.query.ts   [IMPLEMENTADO]    Filtros opcionales: mes_desde, mes_hasta, localidad_id, tipo_vehiculo, fuente.
+    │   │       ├── tablero.query.ts   [IMPLEMENTADO]    Filtros opcionales: mes_desde, mes_hasta, localidad_id, tipo_vehiculo, fuente.
+    │   │       └── ciclovias.query.ts [IMPLEMENTADO]    min_lat, min_lon, max_lat, max_lon y tipo opcional.
     │   └── modules/                   [IMPLEMENTADO]    Negocio del dashboard, sin controladores.
     │       ├── auth/                  [IMPLEMENTADO]    Login.
     │       │   ├── index.ts           [IMPLEMENTADO]    Lo único que el BFF puede importar del módulo.
@@ -85,11 +105,13 @@ Toda carpeta vacía lleva un `.gitkeep` para que Git la conserve.
     │           │   └── *.use-case.spec.ts         [IMPLEMENTADO] Pruebas unitarias con repositorio falso.
     │           └── infrastructure/
     │               └── postgres-tablero.repository.ts [IMPLEMENTADO] Consultas SQL a PostgreSQL.
-    └── mobile/                        [VACÍO - FUTURO]  PRODUCTO 2: app ciudadana.
-        ├── bff/                       [VACÍO - FUTURO]  Única puerta HTTP: /api/mobile/v1 (camelCase).
-        │   ├── mobile-bff.module.ts   [VACÍO - FUTURO]  Registra el prefijo y los módulos; sin controladores.
-        │   ├── controllers/           [VACÍO - FUTURO]  Solo .gitkeep.
-        │   └── dto/                   [VACÍO - FUTURO]  Solo .gitkeep.
+    └── mobile/                        [IMPLEMENTADO]    PRODUCTO 2: app ciudadana (solo ciclovías por ahora).
+        ├── bff/                       [IMPLEMENTADO]    Única puerta HTTP: /api/mobile/v1 (camelCase).
+        │   ├── mobile-bff.module.ts   [IMPLEMENTADO]    Registra el prefijo, los módulos y el controlador de ciclovías.
+        │   ├── controllers/
+        │   │   └── ciclovias.controller.ts [IMPLEMENTADO] GET ciclovias: ciclovías de la zona del mapa (camelCase).
+        │   └── dto/
+        │       └── ciclovias.query.ts [IMPLEMENTADO]    minLat, minLon, maxLat, maxLon y tipo opcional.
         └── modules/
             ├── reports/               [VACÍO - FUTURO]  Reportes ciudadanos.
             │   ├── domain/ application/ infrastructure/ [VACÍO - FUTURO] Solo .gitkeep.
@@ -107,6 +129,7 @@ Toda carpeta vacía lleva un `.gitkeep` para que Git la conserve.
 |---|---|
 | Agregar un endpoint al dashboard | Caso de uso en `src/dashboard/modules/<modulo>/application/` (y dominio si hace falta) → exportarlo en su `index.ts` y registrarlo en `<modulo>.module.ts` → DTO en `src/dashboard/bff/dto/` → controlador en `src/dashboard/bff/controllers/` → agregarlo a `dashboard-bff.module.ts`. |
 | Conectar otro módulo a PostgreSQL | Usar `crearPoolPostgres()` de `src/platform/database/postgres.ts` en un adaptador nuevo de `infrastructure/` → cambiar `useClass` en `<modulo>.module.ts` → tablas nuevas en `infra/postgres/01-esquema.sql`. |
+| Compartir otro dato de consulta entre dashboard y móvil | Módulo nuevo en `src/common/modules/<modulo>/` (mismas capas) → exportar desde su `index.ts` → un controlador en cada BFF (`dashboard/bff/` en snake_case y `mobile/bff/` en camelCase) → importar el módulo en los dos `*-bff.module.ts`. |
 | Cambiar una gráfica del tablero | Caso de uso en `src/dashboard/modules/kpis/application/` → consulta en `infrastructure/postgres-tablero.repository.ts` (y en el puerto si cambia la forma) → ruta en `src/dashboard/bff/controllers/tablero.controller.ts`. |
 | Activar JWT | Emisión y guards en `src/platform/auth/` → sustituir `TOKEN_DE_PRUEBA` en `login.use-case.ts` por un puerto de tokens → proteger los controladores de `src/dashboard/bff/controllers/` → secreto en `.env.example`. |
 | Empezar la app móvil | Dominio, aplicación e infraestructura en `src/mobile/modules/reports/` o `sos/` → exportar desde su `index.ts` → DTO y controlador en `src/mobile/bff/` (camelCase) → registrarlo en `mobile-bff.module.ts`. |

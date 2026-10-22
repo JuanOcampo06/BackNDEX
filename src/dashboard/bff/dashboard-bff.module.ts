@@ -3,9 +3,12 @@ import { RouterModule } from '@nestjs/core';
 import { AuthModule } from '../modules/auth';
 import { UsersModule } from '../modules/users';
 import { KpisModule } from '../modules/kpis';
+// Modulo comun de ciclovias que tambien usa la app movil
+import { CicloviasModule } from '../../common/modules/ciclovias';
 import { AuthController } from './controllers/auth.controller';
 // Controlador nuevo con los endpoints de las tarjetas y graficas del tablero
 import { TableroController } from './controllers/tablero.controller';
+import { CicloviasController } from './controllers/ciclovias.controller';
 
 // Única puerta HTTP del dashboard: todo cuelga de /api/dashboard/v1.
 @Module({
@@ -13,8 +16,9 @@ import { TableroController } from './controllers/tablero.controller';
     AuthModule,
     UsersModule,
     KpisModule,
+    CicloviasModule,
     RouterModule.register([{ path: 'dashboard/v1', module: DashboardBffModule }]),
   ],
-  controllers: [AuthController, TableroController],
+  controllers: [AuthController, TableroController, CicloviasController],
 })
 export class DashboardBffModule {}

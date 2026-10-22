@@ -31,15 +31,6 @@ CREATE TABLE siniestros (
   edad int CHECK (edad BETWEEN 0 AND 110)
 );
 
--- Ciclorutas que se dibujan en el mapa con su nivel de riesgo vial
--- trazado es una lista de puntos con forma de latitud y longitud
-CREATE TABLE ciclorutas (
-  id serial PRIMARY KEY,
-  nombre text NOT NULL,
-  riesgo text NOT NULL CHECK (riesgo IN ('bajo', 'medio', 'alto')),
-  trazado jsonb NOT NULL
-);
-
 -- Conteo diario de usuarios de micromovilidad por localidad tipo de vehiculo y fuente
 CREATE TABLE conteos_usuarios (
   id serial PRIMARY KEY,

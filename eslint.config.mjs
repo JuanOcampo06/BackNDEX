@@ -69,6 +69,8 @@ export default tseslint.config(
                 to: [
                   elemento('bff', mismoProducto),
                   { element: { type: 'module', captured: mismoProducto, fileInternalPath: 'index.ts' } },
+                  // Los modulos de common son de los dos productos y tambien se usan solo por su index
+                  { element: { type: 'module', captured: { product: 'common' }, fileInternalPath: 'index.ts' } },
                   elemento('platform', { tool: 'auth' }),
                   ...externo,
                 ],

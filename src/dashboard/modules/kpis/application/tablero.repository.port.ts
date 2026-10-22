@@ -30,13 +30,6 @@ export interface SiniestroEnMapa {
   ocurridoEn: string;
 }
 
-export interface Cicloruta {
-  id: number;
-  nombre: string;
-  riesgo: string;
-  trazado: [number, number][];
-}
-
 export interface ConteoLugarHora {
   lugar: string;
   localidad: string;
@@ -80,7 +73,6 @@ export interface TableroRepositoryPort {
   listarLocalidades(): Promise<Localidad[]>;
   contarPorSemana(indicador: Indicador, filtros: FiltrosTablero): Promise<ConteoSemanal[]>;
   listarSiniestros(filtros: FiltrosTablero): Promise<SiniestroEnMapa[]>;
-  listarCiclorutas(): Promise<Cicloruta[]>;
   contarSiniestrosPorLugarYHora(filtros: FiltrosTablero): Promise<ConteoLugarHora[]>;
   contarSiniestrosPorMes(filtros: FiltrosTablero): Promise<ConteoMensual[]>;
   contarVictimasPorSexoYEdad(filtros: FiltrosTablero): Promise<ConteoSexoEdad[]>;
