@@ -185,9 +185,22 @@ PostgreSQL corre en su propio contenedor (`postgres`) y guarda los datos en el v
 | `ciclovias_fuente` | **Compartida.** El JSON de OpenStreetMap completo, tal cual, con su fecha de corte. |
 | `ciclovias` | **Compartida.** Una fila por vía (2.448): `tipo` (`ciclovia` o `cruce`), nombre, etiquetas de OpenStreetMap, nodos, coordenadas, `riesgo` (vacío hasta calcularlo) y el rectángulo que la contiene (`min_lat`, `min_lon`, `max_lat`, `max_lon`). |
 
-Las tablas del tablero las lee solo el dashboard; las dos de ciclovías las leen el dashboard y la app móvil.
+**App móvil** (en el *schema* `movil`, dentro de la misma base; en Adminer se elige en el selector *Schema*):
 
-Los scripts están en `infra/postgres/`: `01-esquema.sql` crea las tablas del tablero, `02-datos.sql` genera unos 20 meses de datos de prueba (desde el 1 de enero del año pasado hasta el día en que se crea la base) y `03-ciclovias.sql` carga `datos/ciclovias-osm.json`. Solo se ejecutan cuando el volumen está vacío. Para **borrar todo y volver a cargarlo**: `docker compose down -v` y luego `docker compose up -d`.
+| Tabla | Qué guarda |
+|---|---|
+| `movil.usuarios` | Ciudadanos de la app: nombre, correo (único) y teléfono. |
+| `movil.reportes` | Reportes que envía el ciudadano: categoría, descripción, coordenadas y `estado` (`recibido`, `en_revision`, `resuelto`, `descartado`). |
+| `movil.activaciones_sos` | Botón de pánico: coordenadas y `estado` (`activa`, `atendida`, `cancelada`). |
+
+Las tablas del tablero las lee solo el dashboard; las dos de ciclovías las leen el dashboard y la app móvil; las del *schema* `movil` son solo de la app. El *schema* existe para que `movil.reportes` no choque con la tabla `reportes` del dashboard.
+Para que el código del móvil use sus tablas sin escribir `movil.` en cada consulta, su conexión debe apuntar a la misma base con ese *schema* por defecto:
+
+```
+postgres://safepath:safepath@localhost:5432/safepath?options=-c%20search_path%3Dmovil
+```
+
+Los scripts están en `infra/postgres/`: `01-esquema.sql` crea las tablas del tablero, `02-datos.sql` genera unos 20 meses de datos de prueba (desde el 1 de enero del año pasado hasta el día en que se crea la base) `03-ciclovias.sql` carga `datos/ciclovias-osm.json`, y `04-movil-esquema.sql` y `05-movil-datos.sql` crean las tablas de la app móvil con 3 ciudadanos, 5 reportes y 3 activaciones de prueba. Solo se ejecutan cuando el volumen está vacío. Para **borrar todo y volver a cargarlo**: `docker compose down -v` y luego `docker compose up -d`.
 
 **Actualizar las ciclovías con un JSON nuevo** (sin tocar los demás datos): reemplaza `infra/postgres/datos/ciclovias-osm.json` por el nuevo export de Overpass (con `out geom`, para que traiga `bounds` y `geometry`) y corre:
 

@@ -28,6 +28,8 @@ Toda carpeta vacía lleva un `.gitkeep` para que Git la conserve.
 │   │   ├── 01-esquema.sql             [IMPLEMENTADO]    Tablas del tablero (localidades, lugares, siniestros, conteos_usuarios, reportes, activaciones_panico).
 │   │   ├── 02-datos.sql               [IMPLEMENTADO]    Datos de prueba desde enero del año pasado hasta hoy.
 │   │   ├── 03-ciclovias.sql           [IMPLEMENTADO]    Crea ciclovias_fuente y ciclovias y carga el JSON; se puede volver a correr.
+│   │   ├── 04-movil-esquema.sql       [IMPLEMENTADO]    Schema movil con usuarios, reportes y activaciones_sos de la app.
+│   │   ├── 05-movil-datos.sql         [IMPLEMENTADO]    Datos de prueba de la app (3 ciudadanos, 5 reportes, 3 SOS).
 │   │   └── datos/
 │   │       └── ciclovias-osm.json     [IMPLEMENTADO]    Export de OpenStreetMap (Overpass) con las 2.448 vías de ciclovía.
 │   ├── docker/                        [VACÍO - FUTURO]  Compose de QA y producción (+ README.md de 2 líneas).
