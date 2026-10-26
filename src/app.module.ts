@@ -4,7 +4,7 @@ import { DashboardBffModule } from './dashboard/bff/dashboard-bff.module';
 import { MobileBffModule } from './mobile/bff/mobile-bff.module';
 
 // Health común a todo el backend; no pertenece a ningún producto.
-@ApiTags('General')
+@ApiTags('Compartido - Estado de la api')
 @Controller('health')
 export class HealthController {
   @Get()

@@ -130,7 +130,7 @@ Respuesta esperada (los números cambian según la fecha en que se cargaron los 
 {"valor":1119,"valor_periodo_anterior":1090,"variacion_porcentual":2.7,"serie_semanal":[{"semana":"2026-07-27","total":33}]}
 ```
 
-**Con Swagger (en el navegador)**: abre http://localhost:3000/api/docs. Ahí están los 25 endpoints agrupados por producto; en cada uno pulsa *Try it out* y luego *Execute*. Los parámetros y cuerpos ya traen ejemplos que funcionan con los datos de prueba. El documento en JSON (para importarlo en Postman o en el frontend) está en http://localhost:3000/api/docs-json.
+**Con Swagger (en el navegador)**: abre http://localhost:3000/api/docs. Ahí están los 30 endpoints agrupados en este orden: compartidos, dashboard y app móvil; en cada uno pulsa *Try it out* y luego *Execute*. Los parámetros y cuerpos ya traen ejemplos que funcionan con los datos de prueba. El documento en JSON (para importarlo en Postman o en el frontend) está en http://localhost:3000/api/docs-json.
 
 **Con `demo.http`**: ábrelo en VS Code con la extensión *REST Client* y pulsa *Send Request* sobre cada petición. Incluye todas las del tablero.
 
@@ -184,6 +184,7 @@ PostgreSQL corre en su propio contenedor (`postgres`) y guarda los datos en el v
 | `conteos_usuarios` | Usuarios por día, localidad, tipo de vehículo y fuente (`camaras` o `app`). |
 | `reportes` | Reportes ciudadanos con categoría; si `motivo_falso_positivo` tiene valor, es un falso positivo. |
 | `activaciones_panico` | Activaciones del botón de pánico con fecha, lugar y coordenadas. |
+| `usuarios_dashboard` | Usuarios del dashboard: nombre, correo (único, en minúsculas) y `rol` (`admin` administra usuarios, `lector` solo consulta). No guarda contraseña todavía: llegará con el login real. No tiene que ver con `movil.usuarios`. |
 | `ciclovias_fuente` | **Compartida.** El JSON de OpenStreetMap completo, tal cual, con su fecha de corte. |
 | `ciclovias` | **Compartida.** Una fila por vía (2.448): `tipo` (`ciclovia` o `cruce`), nombre, etiquetas de OpenStreetMap, nodos, coordenadas, `riesgo` (vacío hasta calcularlo) y el rectángulo que la contiene (`min_lat`, `min_lon`, `max_lat`, `max_lon`). |
 
@@ -198,7 +199,7 @@ PostgreSQL corre en su propio contenedor (`postgres`) y guarda los datos en el v
 Las tablas del tablero las lee solo el dashboard; las dos de ciclovías las leen el dashboard y la app móvil; las del *schema* `movil` son solo de la app. El *schema* existe para que `movil.reportes` no choque con la tabla `reportes` del dashboard.
 El código del móvil usa la misma conexión (`DATABASE_URL`) y escribe `movil.` delante de sus tablas en cada consulta.
 
-Los scripts están en `infra/postgres/`: `01-esquema.sql` crea las tablas del tablero, `02-datos.sql` genera unos 20 meses de datos de prueba (desde el 1 de enero del año pasado hasta el día en que se crea la base) `03-ciclovias.sql` carga `datos/ciclovias-osm.json`, y `04-movil-esquema.sql` y `05-movil-datos.sql` crean las tablas de la app móvil con 3 ciudadanos, 5 reportes y 3 activaciones de prueba. Solo se ejecutan cuando el volumen está vacío. Para **borrar todo y volver a cargarlo**: `docker compose down -v` y luego `docker compose up -d`.
+Los scripts están en `infra/postgres/`: `01-esquema.sql` crea las tablas del tablero, `02-datos.sql` genera unos 20 meses de datos de prueba (desde el 1 de enero del año pasado hasta el día en que se crea la base) `03-ciclovias.sql` carga `datos/ciclovias-osm.json`, `04-movil-esquema.sql` y `05-movil-datos.sql` crean las tablas de la app móvil con 3 ciudadanos, 5 reportes y 3 activaciones de prueba, y `06-usuarios-dashboard.sql` crea `usuarios_dashboard` con 3 usuarios de prueba. Solo se ejecutan cuando el volumen está vacío. Para **borrar todo y volver a cargarlo**: `docker compose down -v` y luego `docker compose up -d`.
 
 **Actualizar las ciclovías con un JSON nuevo** (sin tocar los demás datos): reemplaza `infra/postgres/datos/ciclovias-osm.json` por el nuevo export de Overpass (con `out geom`, para que traiga `bounds` y `geometry`) y corre:
 
@@ -241,6 +242,26 @@ Un filtro mal escrito responde `400` con el motivo.
 
 Las franjas horarias son `madrugada` (0–6), `manana` (6–12), `tarde` (12–18) y `noche` (18–24).
 La API acepta peticiones desde otro origen (CORS), así que el frontend puede llamarla desde su propio puerto. Para limitarlo a una sola dirección, pon `CORS_ORIGIN=http://localhost:5173` (o la que corresponda) en `.env`.
+
+### Usuarios del dashboard
+
+Cuelgan de `http://localhost:3000/api/dashboard/v1/usuarios` y responden en `snake_case`. Todavía no piden token: los roles se harán cumplir cuando exista el login con JWT.
+
+| Método y ruta | Para qué | Datos que recibe |
+|---|---|---|
+| `GET /usuarios` | Listar usuarios | Opcional: `?rol=admin` o `?rol=lector` |
+| `GET /usuarios/:id` | Ver un usuario | — |
+| `POST /usuarios` | Crear un usuario (`201`) | Cuerpo: `nombre_completo`, `correo`, `rol` |
+| `PATCH /usuarios/:id` | Editar nombre, correo o rol (solo los campos que se envíen) | Cuerpo: cualquiera de `nombre_completo`, `correo`, `rol` |
+| `DELETE /usuarios/:id` | Eliminar un usuario (`204`, sin cuerpo) | — |
+
+Errores: datos inválidos o `PATCH` sin campos responden `400`; un id que no existe, `404`; un correo que ya usa otro usuario, `409` con `{"codigo":"CORREO_DUPLICADO",...}`.
+
+**Si ya tenías la base creada**, la tabla nueva se agrega sin borrar nada:
+
+```bash
+docker compose exec postgres psql -U safepath -d safepath -f /docker-entrypoint-initdb.d/06-usuarios-dashboard.sql
+```
 
 ## 5. Endpoint de ciclovías (dashboard y app móvil)
 
@@ -375,7 +396,8 @@ Por eso el dashboard responde en `snake_case` y el móvil en `camelCase`, sin af
 | MongoDB y PostgreSQL para el resto de módulos (el tablero ya usa PostgreSQL) | `src/platform/database/` + `infrastructure/` de cada módulo |
 | Eventos con RabbitMQ (por ejemplo, reportes del móvil hacia el dashboard) | `src/platform/messaging/` |
 | Caché con Redis | `src/platform/cache/` |
-| Usuarios del dashboard y botón *Exportar* del tablero | `src/dashboard/modules/users/` y `kpis/` |
+| Contraseña en `usuarios_dashboard`, login real con JWT y hacer cumplir los roles (`admin` / `lector`) | `src/platform/auth/` + `src/dashboard/modules/auth/` y `users/` |
+| Botón *Exportar* del tablero | `src/dashboard/modules/kpis/` |
 | Calcular el `riesgo` de cada ciclovía (por ejemplo, con los siniestros cercanos) | `src/common/modules/ciclovias/` + columna `riesgo` de `ciclovias` |
 | Que la entidad cambie el estado de reportes y SOS (`en_revision`, `atendida`...) y que el dashboard los muestre | `src/mobile/modules/` + eventos en `src/platform/messaging/` |
 | Activar `mongo`, `redis` y `rabbitmq` | Descomentarlos en `docker-compose.yml` cuando exista su adaptador |

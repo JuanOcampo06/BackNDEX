@@ -30,6 +30,7 @@ Toda carpeta vacía lleva un `.gitkeep` para que Git la conserve.
 │   │   ├── 03-ciclovias.sql           [IMPLEMENTADO]    Crea ciclovias_fuente y ciclovias y carga el JSON; se puede volver a correr.
 │   │   ├── 04-movil-esquema.sql       [IMPLEMENTADO]    Schema movil con usuarios, reportes y activaciones_sos de la app.
 │   │   ├── 05-movil-datos.sql         [IMPLEMENTADO]    Datos de prueba de la app (3 ciudadanos, 5 reportes, 3 SOS).
+│   │   ├── 06-usuarios-dashboard.sql  [IMPLEMENTADO]    Tabla usuarios_dashboard con 3 usuarios; se puede volver a correr.
 │   │   └── datos/
 │   │       └── ciclovias-osm.json     [IMPLEMENTADO]    Export de OpenStreetMap (Overpass) con las 2.448 vías de ciclovía.
 │   ├── docker/                        [VACÍO - FUTURO]  Compose de QA y producción (+ README.md de 2 líneas).
@@ -71,14 +72,19 @@ Toda carpeta vacía lleva un `.gitkeep` para que Git la conserve.
     │   ├── bff/                       [IMPLEMENTADO]    Única puerta HTTP: /api/dashboard/v1 (snake_case).
     │   │   ├── dashboard-bff.module.ts [IMPLEMENTADO]   Registra el prefijo, los módulos y los controladores.
     │   │   ├── snake-case.ts          [IMPLEMENTADO]    Convierte las claves de las respuestas a snake_case.
+    │   │   ├── domain-error.filter.ts [IMPLEMENTADO]    Errores del negocio a 404 (_NO_ENCONTRADO), 409 (_DUPLICADO) o 400.
     │   │   ├── controllers/
     │   │   │   ├── auth.controller.ts [IMPLEMENTADO]    POST auth/login: valida, llama al caso de uso, responde.
     │   │   │   ├── tablero.controller.ts [IMPLEMENTADO] GET tablero/...: un endpoint por tarjeta y gráfica.
-    │   │   │   └── ciclovias.controller.ts [IMPLEMENTADO] GET ciclovias: ciclovías de la zona del mapa (snake_case).
+    │   │   │   ├── ciclovias.controller.ts [IMPLEMENTADO] GET ciclovias: ciclovías de la zona del mapa (snake_case).
+    │   │   │   └── usuarios.controller.ts [IMPLEMENTADO] GET, POST, PATCH y DELETE de usuarios del dashboard.
     │   │   └── dto/
     │   │       ├── login.request.ts   [IMPLEMENTADO]    email válido y password no vacía.
     │   │       ├── tablero.query.ts   [IMPLEMENTADO]    Filtros opcionales: mes_desde, mes_hasta, localidad_id, tipo_vehiculo, fuente.
-    │   │       └── ciclovias.query.ts [IMPLEMENTADO]    min_lat, min_lon, max_lat, max_lon y tipo opcional.
+    │   │       ├── ciclovias.query.ts [IMPLEMENTADO]    min_lat, min_lon, max_lat, max_lon y tipo opcional.
+    │   │       ├── crear-usuario.request.ts / actualizar-usuario.request.ts [IMPLEMENTADO] Cuerpos de POST y PATCH.
+    │   │       ├── listar-usuarios.query.ts [IMPLEMENTADO] rol opcional.
+    │   │       └── usuario.response.ts [IMPLEMENTADO]   Forma del usuario (solo para Swagger).
     │   └── modules/                   [IMPLEMENTADO]    Negocio del dashboard, sin controladores.
     │       ├── auth/                  [IMPLEMENTADO]    Login.
     │       │   ├── index.ts           [IMPLEMENTADO]    Lo único que el BFF puede importar del módulo.
@@ -92,10 +98,11 @@ Toda carpeta vacía lleva un `.gitkeep` para que Git la conserve.
     │       │   │   └── usuario.repository.port.ts [IMPLEMENTADO] Puerto y token USUARIO_REPOSITORY.
     │       │   └── infrastructure/
     │       │       └── in-memory-usuario.repository.ts [IMPLEMENTADO] Un usuario de prueba en memoria.
-    │       ├── users/                 [VACÍO - FUTURO]  Gestión de usuarios.
-    │       │   ├── domain/ application/ infrastructure/ [VACÍO - FUTURO] Solo .gitkeep.
-    │       │   ├── users.module.ts    [VACÍO - FUTURO]  Módulo Nest sin providers.
-    │       │   └── index.ts           [VACÍO - FUTURO]  Exporta solo UsersModule.
+    │       ├── users/                 [IMPLEMENTADO]    Usuarios del dashboard con rol admin o lector (tabla usuarios_dashboard).
+    │       │   ├── index.ts / users.module.ts [IMPLEMENTADO] Puerta del módulo y conexión puerto-adaptador.
+    │       │   ├── domain/            [IMPLEMENTADO]    Usuario, roles, reglas de nombre, correo y rol, y errores.
+    │       │   ├── application/       [IMPLEMENTADO]    Listar, obtener, crear, actualizar y eliminar + puerto + pruebas.
+    │       │   └── infrastructure/    [IMPLEMENTADO]    postgres-usuarios.repository.ts.
     │       └── kpis/                  [IMPLEMENTADO]    Cifras, gráficas y mapas del tablero.
     │           ├── index.ts           [IMPLEMENTADO]    Exporta el módulo, los casos de uso, Periodo y los catálogos.
     │           ├── kpis.module.ts     [IMPLEMENTADO]    Conecta el puerto con PostgresTableroRepository y arma los casos de uso.

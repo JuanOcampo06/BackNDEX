@@ -129,3 +129,46 @@ GET {{movil}}/sos?estado=activa
 
 ### 30. Cancelar una activacion (la 3 de los datos de prueba esta activa)
 PATCH {{movil}}/sos/3/cancelar
+
+### --- Usuarios del dashboard (snake_case) ---
+@usuarios = {{base}}/dashboard/v1/usuarios
+
+### 31. Listar usuarios
+GET {{usuarios}}
+
+### 32. Listar solo los lectores
+GET {{usuarios}}?rol=lector
+
+### 33. Crear un usuario (201)
+POST {{usuarios}}
+Content-Type: application/json
+
+{
+  "nombre_completo": "Ana Lopez",
+  "correo": "ana.lopez@demo.local",
+  "rol": "lector"
+}
+
+### 34. Ver un usuario
+GET {{usuarios}}/1
+
+### 35. Cambiar el rol de un usuario
+PATCH {{usuarios}}/3
+Content-Type: application/json
+
+{
+  "rol": "admin"
+}
+
+### 36. Correo que ya existe (409)
+POST {{usuarios}}
+Content-Type: application/json
+
+{
+  "nombre_completo": "Otro",
+  "correo": "admin@demo.local",
+  "rol": "lector"
+}
+
+### 37. Eliminar un usuario (204)
+DELETE {{usuarios}}/3

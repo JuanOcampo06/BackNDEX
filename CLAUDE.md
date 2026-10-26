@@ -28,7 +28,7 @@ src/
       dashboard-bff.module.ts
     modules/                   negocio del dashboard, SIN controladores
       auth/                    login (único con código en la demo)
-      users/                   gestión de usuarios (futuro)
+      users/                   usuarios del dashboard con rol admin o lector (tabla usuarios_dashboard)
       kpis/                    cifras y mapas (futuro)
         domain/                entidades, reglas y errores (TypeScript puro)
         application/           casos de uso y puertos (interfaces)

@@ -4,13 +4,14 @@ import { DocumentBuilder, SwaggerModule } from '@nestjs/swagger';
 // Direccion de la pagina de Swagger dentro de la api
 const RUTA_SWAGGER = 'api/docs';
 
-// Grupos en el mismo orden en que se ven en la pagina
+// Grupos en el mismo orden en que se ven en la pagina primero lo compartido luego el dashboard y al final la app movil
 // cada controlador usa uno de estos nombres en su ApiTags
 const ETIQUETAS = [
-  { nombre: 'General', descripcion: 'Estado de la api' },
+  { nombre: 'Compartido - Estado de la api', descripcion: 'Comprobar que todo el backend esta vivo' },
+  { nombre: 'Compartido - Ciclovias', descripcion: 'Ciclovias por zona del mapa con una puerta en cada producto' },
   { nombre: 'Dashboard - Login', descripcion: 'Inicio de sesion de demostracion del dashboard' },
   { nombre: 'Dashboard - Tablero', descripcion: 'Tarjetas y graficas del tablero en snake_case' },
-  { nombre: 'Compartido - Ciclovias', descripcion: 'Ciclovias por zona del mapa con una puerta en cada producto' },
+  { nombre: 'Dashboard - Usuarios', descripcion: 'Crear editar y eliminar usuarios del dashboard en snake_case' },
   { nombre: 'App movil - Reportes', descripcion: 'Reportes ciudadanos en camelCase' },
   { nombre: 'App movil - Boton de panico', descripcion: 'Activaciones del boton de panico en camelCase' },
 ];
