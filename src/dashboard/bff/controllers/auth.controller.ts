@@ -7,6 +7,7 @@ import {
   UnauthorizedException,
   ValidationPipe,
 } from '@nestjs/common';
+import { ApiBadRequestResponse, ApiOkResponse, ApiOperation, ApiTags, ApiUnauthorizedResponse } from '@nestjs/swagger';
 import { DomainError, LoginResult, LoginUseCase } from '../../modules/auth';
 import { LoginRequest } from '../dto/login.request';
 
@@ -15,12 +16,17 @@ interface LoginResponse {
   user: { id: string; full_name: string; email: string; role: string };
 }
 
+@ApiTags('Dashboard - Login')
 @Controller('auth')
 export class AuthController {
   constructor(private readonly loginUseCase: LoginUseCase) {}
 
   @Post('login')
   @HttpCode(HttpStatus.OK)
+  @ApiOperation({ summary: 'Iniciar sesion con el usuario de demostracion' })
+  @ApiOkResponse({ description: 'Token de prueba y datos del usuario en snake_case' })
+  @ApiBadRequestResponse({ description: 'Correo con formato invalido o contrasena vacia' })
+  @ApiUnauthorizedResponse({ description: 'Correo o contrasena incorrectos' })
   async login(@Body(new ValidationPipe()) body: LoginRequest): Promise<LoginResponse> {
     try {
       const resultado = await this.loginUseCase.execute({

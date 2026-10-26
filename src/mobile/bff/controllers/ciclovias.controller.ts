@@ -1,15 +1,20 @@
 import { BadRequestException, Controller, Get, Query, ValidationPipe } from '@nestjs/common';
+import { ApiBadRequestResponse, ApiOkResponse, ApiOperation, ApiTags } from '@nestjs/swagger';
 import { AreaMapa, CicloviasEnArea, DomainError, ObtenerCicloviasUseCase } from '../../../common/modules/ciclovias';
 import { CicloviasQuery } from '../dto/ciclovias.query';
 
 // Ciclovias de la zona del mapa de la app en /api/mobile/v1/ciclovias
 // usa el mismo caso de uso que el dashboard y responde en camelCase tal como sale del negocio
+@ApiTags('Compartido - Ciclovias')
 @Controller('ciclovias')
 export class CicloviasController {
   constructor(private readonly obtenerCiclovias: ObtenerCicloviasUseCase) {}
 
   // El ValidationPipe convierte las esquinas a numero y rechaza parametros que no existen
   @Get()
+  @ApiOperation({ summary: 'Ciclovias de la zona visible del mapa para la app movil en camelCase' })
+  @ApiOkResponse({ description: 'Responde total y ciclovias con id tipo nombre riesgo nodos y coordenadas' })
+  @ApiBadRequestResponse({ description: 'Faltan esquinas o minLat minLon maxLat maxLon no tienen sentido' })
   listar(
     @Query(new ValidationPipe({ transform: true, whitelist: true, forbidNonWhitelisted: true }))
     consulta: CicloviasQuery,

@@ -38,7 +38,9 @@ Toda carpeta vacía lleva un `.gitkeep` para que Git la conserve.
 │   ├── auth.e2e-spec.ts               [IMPLEMENTADO]    Llama al login real y comprueba 200 y 401.
 │   └── mobile.e2e-spec.ts             [IMPLEMENTADO]    Reportes del móvil por HTTP con un repositorio falso (201, 400, 404).
 └── src/
-    ├── main.ts                        [IMPLEMENTADO]    Arranque: lee .env, prefijo /api, CORS y puerto.
+    ├── main.ts                        [IMPLEMENTADO]    Arranque: lee .env, prefijo /api, CORS, Swagger y puerto.
+    ├── swagger/
+    │   └── configurar-swagger.ts      [IMPLEMENTADO]    Página de Swagger con todos los endpoints en /api/docs (JSON en /api/docs-json).
     ├── app.module.ts                  [IMPLEMENTADO]    Une los dos BFF y expone GET /api/health.
     ├── shared/                        [IMPLEMENTADO]    Código común en TypeScript simple.
     │   ├── domain-error.ts            [IMPLEMENTADO]    Error base del negocio (codigo + mensaje).
@@ -122,6 +124,8 @@ Toda carpeta vacía lleva un `.gitkeep` para que Git la conserve.
         │       ├── crear-reporte.request.ts [IMPLEMENTADO] Cuerpo del POST /reports.
         │       ├── listar-reportes.query.ts [IMPLEMENTADO] usuarioId y categoria opcionales.
         │       ├── activar-sos.request.ts  [IMPLEMENTADO] Cuerpo del POST /sos.
+        │       ├── reporte.response.ts     [IMPLEMENTADO] Forma del reporte (solo para Swagger).
+        │       ├── activacion-sos.response.ts [IMPLEMENTADO] Forma de la activación (solo para Swagger).
         │       └── listar-sos.query.ts     [IMPLEMENTADO] usuarioId y estado opcionales.
         └── modules/
             ├── reports/               [IMPLEMENTADO]    Reportes ciudadanos (tablas movil.usuarios y movil.reportes).
@@ -145,4 +149,5 @@ Toda carpeta vacía lleva un `.gitkeep` para que Git la conserve.
 | Compartir otro dato de consulta entre dashboard y móvil | Módulo nuevo en `src/common/modules/<modulo>/` (mismas capas) → exportar desde su `index.ts` → un controlador en cada BFF (`dashboard/bff/` en snake_case y `mobile/bff/` en camelCase) → importar el módulo en los dos `*-bff.module.ts`. |
 | Cambiar una gráfica del tablero | Caso de uso en `src/dashboard/modules/kpis/application/` → consulta en `infrastructure/postgres-tablero.repository.ts` (y en el puerto si cambia la forma) → ruta en `src/dashboard/bff/controllers/tablero.controller.ts`. |
 | Activar JWT | Emisión y guards en `src/platform/auth/` → sustituir `TOKEN_DE_PRUEBA` en `login.use-case.ts` por un puerto de tokens → proteger los controladores de `src/dashboard/bff/controllers/` → secreto en `.env.example`. |
+| Que un endpoint nuevo salga en Swagger | En su controlador: `@ApiTags` con uno de los grupos de `src/swagger/configurar-swagger.ts`, `@ApiOperation` y las respuestas (`@ApiOkResponse`...); en sus DTO: `@ApiProperty` o `@ApiPropertyOptional` en cada campo. |
 | Agregar un endpoint a la app móvil | Caso de uso en `src/mobile/modules/<modulo>/application/` → exportarlo en su `index.ts` → DTO y controlador en `src/mobile/bff/` (camelCase) → registrarlo en `mobile-bff.module.ts`; sus tablas van en el schema `movil`. |

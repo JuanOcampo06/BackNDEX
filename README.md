@@ -130,6 +130,8 @@ Respuesta esperada (los números cambian según la fecha en que se cargaron los 
 {"valor":1119,"valor_periodo_anterior":1090,"variacion_porcentual":2.7,"serie_semanal":[{"semana":"2026-07-27","total":33}]}
 ```
 
+**Con Swagger (en el navegador)**: abre http://localhost:3000/api/docs. Ahí están los 25 endpoints agrupados por producto; en cada uno pulsa *Try it out* y luego *Execute*. Los parámetros y cuerpos ya traen ejemplos que funcionan con los datos de prueba. El documento en JSON (para importarlo en Postman o en el frontend) está en http://localhost:3000/api/docs-json.
+
 **Con `demo.http`**: ábrelo en VS Code con la extensión *REST Client* y pulsa *Send Request* sobre cada petición. Incluye todas las del tablero.
 
 ### Credenciales de la demo

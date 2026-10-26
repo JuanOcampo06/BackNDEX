@@ -12,6 +12,7 @@ Las carpetas marcadas "(futuro)" existen vacías con un `.gitkeep`. **No se impl
 src/
   main.ts
   app.module.ts
+  swagger/                     página de Swagger con todos los endpoints en /api/docs
   shared/                      errores base (TypeScript simple)
   platform/                    herramientas técnicas (futuro)
     auth/                      JWT, guards, roles
@@ -101,6 +102,7 @@ La excepción son los **datos de consulta que leen los dos** (por ejemplo, las c
 - Cada producto tiene su BFF; los módulos de negocio **no** tienen controladores.
 - El controlador solo: valida el DTO, llama al caso de uso y responde. Cero lógica de negocio.
 - BFF dashboard: JSON en `snake_case`. BFF móvil: `camelCase`.
+- Todo endpoint se documenta para Swagger: `@ApiTags` (uno de los grupos de `src/swagger/`), `@ApiOperation` y sus respuestas en el controlador, y `@ApiProperty`/`@ApiPropertyOptional` en sus DTO.
 - Un cambio en un BFF nunca debe obligar a cambiar el otro.
 
 ## Código limpio

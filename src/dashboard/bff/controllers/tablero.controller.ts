@@ -1,4 +1,5 @@
 import { BadRequestException, Controller, Get, Query, ValidationPipe } from '@nestjs/common';
+import { ApiBadRequestResponse, ApiOkResponse, ApiOperation, ApiTags } from '@nestjs/swagger';
 import {
   DomainError,
   FiltrosTablero,
@@ -24,6 +25,8 @@ const validarFiltros = new ValidationPipe({ transform: true, whitelist: true, fo
 
 // Endpoints de solo lectura para cada tarjeta y grafica del tablero
 // todos cuelgan de /api/dashboard/v1/tablero y responden en snake_case
+@ApiTags('Dashboard - Tablero')
+@ApiBadRequestResponse({ description: 'Algun filtro tiene formato invalido o el rango de meses esta al reves' })
 @Controller('tablero')
 export class TableroController {
   constructor(
@@ -42,78 +45,108 @@ export class TableroController {
 
   // Opciones de los selectores Localidad Vehiculo y Fuente
   @Get('filtros')
+  @ApiOperation({ summary: 'Opciones de los filtros Localidad Vehiculo y Fuente' })
+  @ApiOkResponse({ description: 'Responde localidades tipos_vehiculo y fuentes' })
   async filtros(): Promise<unknown> {
     return aSnakeCase(await this.obtenerFiltros.execute());
   }
 
   // Tarjetas de la parte de arriba
   @Get('tarjetas/siniestros')
+  @ApiOperation({ summary: 'Tarjeta Siniestros' })
+  @ApiOkResponse({ description: 'Responde valor valor_periodo_anterior variacion_porcentual y serie_semanal' })
   tarjetaSiniestros(@Query(validarFiltros) consulta: TableroQuery): Promise<unknown> {
     return this.tarjeta('siniestros', consulta);
   }
 
   @Get('tarjetas/usuarios')
+  @ApiOperation({ summary: 'Tarjeta Usuarios de micromovilidad' })
+  @ApiOkResponse({ description: 'Responde valor valor_periodo_anterior variacion_porcentual y serie_semanal' })
   tarjetaUsuarios(@Query(validarFiltros) consulta: TableroQuery): Promise<unknown> {
     return this.tarjeta('usuarios', consulta);
   }
 
   @Get('tarjetas/reportes')
+  @ApiOperation({ summary: 'Tarjeta Reportes' })
+  @ApiOkResponse({ description: 'Responde valor valor_periodo_anterior variacion_porcentual y serie_semanal' })
   tarjetaReportes(@Query(validarFiltros) consulta: TableroQuery): Promise<unknown> {
     return this.tarjeta('reportes', consulta);
   }
 
   @Get('tarjetas/boton-panico')
+  @ApiOperation({ summary: 'Tarjeta Boton de panico' })
+  @ApiOkResponse({ description: 'Responde valor valor_periodo_anterior variacion_porcentual y serie_semanal' })
   tarjetaBotonPanico(@Query(validarFiltros) consulta: TableroQuery): Promise<unknown> {
     return this.tarjeta('boton_panico', consulta);
   }
 
   @Get('tarjetas/falsos-positivos')
+  @ApiOperation({ summary: 'Tarjeta Falsos positivos' })
+  @ApiOkResponse({ description: 'Responde lo mismo que las demas tarjetas mas porcentaje_de_reportes' })
   tarjetaFalsosPositivos(@Query(validarFiltros) consulta: TableroQuery): Promise<unknown> {
     return this.tarjeta('falsos_positivos', consulta);
   }
 
   // Graficas del tablero
   @Get('mapa-siniestros')
+  @ApiOperation({ summary: 'Puntos del mapa de siniestros' })
+  @ApiOkResponse({ description: 'Responde siniestros con coordenadas gravedad clase tipo_vehiculo y ocurrido_en' })
   async mapaSiniestros(@Query(validarFiltros) consulta: TableroQuery): Promise<unknown> {
     return aSnakeCase(await this.obtenerMapaSiniestros.execute(aFiltros(consulta)));
   }
 
   @Get('lugares-con-mas-siniestros')
+  @ApiOperation({ summary: 'Los cinco lugares con mas siniestros' })
+  @ApiOkResponse({ description: 'Responde posicion lugar localidad franja_pico y total' })
   async lugaresConMasSiniestros(@Query(validarFiltros) consulta: TableroQuery): Promise<unknown> {
     return aSnakeCase(await this.obtenerLugaresConMasSiniestros.execute(aFiltros(consulta)));
   }
 
   @Get('siniestros-por-hora')
+  @ApiOperation({ summary: 'Siniestros por hora del dia' })
+  @ApiOkResponse({ description: 'Responde 24 barras con hora franja y total' })
   async siniestrosPorHora(@Query(validarFiltros) consulta: TableroQuery): Promise<unknown> {
     return aSnakeCase(await this.obtenerSiniestrosPorHora.execute(aFiltros(consulta)));
   }
 
   @Get('tendencia-mensual')
+  @ApiOperation({ summary: 'Tendencia mensual del anio actual contra el anterior' })
+  @ApiOkResponse({ description: 'Responde anio_actual anio_anterior meses_filtrados y 12 meses' })
   async tendenciaMensual(@Query(validarFiltros) consulta: TableroQuery): Promise<unknown> {
     return aSnakeCase(await this.obtenerTendenciaMensual.execute(aFiltros(consulta)));
   }
 
   @Get('siniestros-por-sexo-y-edad')
+  @ApiOperation({ summary: 'Siniestros por sexo y rango de edad' })
+  @ApiOkResponse({ description: 'Responde total_mujer total_hombre y rangos' })
   async siniestrosPorSexoYEdad(@Query(validarFiltros) consulta: TableroQuery): Promise<unknown> {
     return aSnakeCase(await this.obtenerSiniestrosPorSexoYEdad.execute(aFiltros(consulta)));
   }
 
   @Get('usuarios-por-tipo')
+  @ApiOperation({ summary: 'Usuarios de micromovilidad por tipo de vehiculo' })
+  @ApiOkResponse({ description: 'Responde total y tipos y el filtro fuente es el selector Camaras o App' })
   async usuariosPorTipo(@Query(validarFiltros) consulta: TableroQuery): Promise<unknown> {
     return aSnakeCase(await this.obtenerUsuariosPorTipo.execute(aFiltros(consulta)));
   }
 
   @Get('boton-panico')
+  @ApiOperation({ summary: 'Mapa y top de ubicaciones del boton de panico' })
+  @ApiOkResponse({ description: 'Responde total lugares y top_ubicaciones' })
   async botonPanico(@Query(validarFiltros) consulta: TableroQuery): Promise<unknown> {
     return aSnakeCase(await this.obtenerBotonPanico.execute(aFiltros(consulta)));
   }
 
   @Get('reportes')
+  @ApiOperation({ summary: 'Mapa y categorias de los reportes' })
+  @ApiOkResponse({ description: 'Responde total puntos y por_categoria' })
   async reportes(@Query(validarFiltros) consulta: TableroQuery): Promise<unknown> {
     return aSnakeCase(await this.obtenerReportes.execute(aFiltros(consulta)));
   }
 
   @Get('falsos-positivos')
+  @ApiOperation({ summary: 'Motivos y evolucion de los falsos positivos' })
+  @ApiOkResponse({ description: 'Responde total porcentaje_de_reportes por_motivo y evolucion_mensual' })
   async falsosPositivos(@Query(validarFiltros) consulta: TableroQuery): Promise<unknown> {
     return aSnakeCase(await this.obtenerFalsosPositivos.execute(aFiltros(consulta)));
   }
