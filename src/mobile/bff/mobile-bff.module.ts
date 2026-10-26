@@ -6,6 +6,9 @@ import { SosModule } from '../modules/sos';
 import { CicloviasModule } from '../../common/modules/ciclovias';
 // Primer controlador de la app movil con las ciclovias de la zona del mapa
 import { CicloviasController } from './controllers/ciclovias.controller';
+// Controladores de reportes ciudadanos y boton de panico de la app
+import { ReportsController } from './controllers/reports.controller';
+import { SosController } from './controllers/sos.controller';
 
 // Única puerta HTTP de la app móvil: todo cuelga de /api/mobile/v1.
 @Module({
@@ -15,6 +18,6 @@ import { CicloviasController } from './controllers/ciclovias.controller';
     CicloviasModule,
     RouterModule.register([{ path: 'mobile/v1', module: MobileBffModule }]),
   ],
-  controllers: [CicloviasController],
+  controllers: [CicloviasController, ReportsController, SosController],
 })
 export class MobileBffModule {}

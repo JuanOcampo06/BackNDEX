@@ -1,4 +1,4 @@
--- Datos de prueba de la app movil para poder probar sus endpoints cuando existan
+-- Datos de prueba de la app movil para poder probar sus endpoints
 -- los ids de los ciudadanos son 1 2 y 3
 
 INSERT INTO movil.usuarios (nombre_completo, correo, telefono) VALUES

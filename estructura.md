@@ -35,12 +35,14 @@ Toda carpeta vacía lleva un `.gitkeep` para que Git la conserve.
 │   ├── docker/                        [VACÍO - FUTURO]  Compose de QA y producción (+ README.md de 2 líneas).
 │   └── nginx/                         [VACÍO - FUTURO]  Proxy inverso (+ README.md de 2 líneas).
 ├── test/                              [IMPLEMENTADO]    Pruebas e2e.
-│   └── auth.e2e-spec.ts               [IMPLEMENTADO]    Llama al login real y comprueba 200 y 401.
+│   ├── auth.e2e-spec.ts               [IMPLEMENTADO]    Llama al login real y comprueba 200 y 401.
+│   └── mobile.e2e-spec.ts             [IMPLEMENTADO]    Reportes del móvil por HTTP con un repositorio falso (201, 400, 404).
 └── src/
     ├── main.ts                        [IMPLEMENTADO]    Arranque: lee .env, prefijo /api, CORS y puerto.
     ├── app.module.ts                  [IMPLEMENTADO]    Une los dos BFF y expone GET /api/health.
     ├── shared/                        [IMPLEMENTADO]    Código común en TypeScript simple.
-    │   └── domain-error.ts            [IMPLEMENTADO]    Error base del negocio (codigo + mensaje).
+    │   ├── domain-error.ts            [IMPLEMENTADO]    Error base del negocio (codigo + mensaje).
+    │   └── coordenadas.ts             [IMPLEMENTADO]    Valida latitud y longitud (lo usan reports y sos).
     ├── platform/                      [IMPLEMENTADO]    Herramientas técnicas reutilizables (solo database tiene código).
     │   ├── auth/                      [VACÍO - FUTURO]  JWT, guards y roles (+ README.md).
     │   ├── tenancy/                   [VACÍO - FUTURO]  Multi-tenant, una BD por entidad (+ README.md).
@@ -107,22 +109,31 @@ Toda carpeta vacía lleva un `.gitkeep` para que Git la conserve.
     │           │   └── *.use-case.spec.ts         [IMPLEMENTADO] Pruebas unitarias con repositorio falso.
     │           └── infrastructure/
     │               └── postgres-tablero.repository.ts [IMPLEMENTADO] Consultas SQL a PostgreSQL.
-    └── mobile/                        [IMPLEMENTADO]    PRODUCTO 2: app ciudadana (solo ciclovías por ahora).
+    └── mobile/                        [IMPLEMENTADO]    PRODUCTO 2: app ciudadana (reportes, SOS y ciclovías).
         ├── bff/                       [IMPLEMENTADO]    Única puerta HTTP: /api/mobile/v1 (camelCase).
-        │   ├── mobile-bff.module.ts   [IMPLEMENTADO]    Registra el prefijo, los módulos y el controlador de ciclovías.
+        │   ├── mobile-bff.module.ts   [IMPLEMENTADO]    Registra el prefijo, los módulos y los controladores.
+        │   ├── domain-error.filter.ts [IMPLEMENTADO]    Convierte los DomainError en 404 (_NO_ENCONTRADO) o 400.
         │   ├── controllers/
-        │   │   └── ciclovias.controller.ts [IMPLEMENTADO] GET ciclovias: ciclovías de la zona del mapa (camelCase).
+        │   │   ├── ciclovias.controller.ts [IMPLEMENTADO] GET ciclovias: ciclovías de la zona del mapa.
+        │   │   ├── reports.controller.ts   [IMPLEMENTADO] POST, GET y GET :id de reports.
+        │   │   └── sos.controller.ts       [IMPLEMENTADO] POST, GET y PATCH :id/cancelar de sos.
         │   └── dto/
-        │       └── ciclovias.query.ts [IMPLEMENTADO]    minLat, minLon, maxLat, maxLon y tipo opcional.
+        │       ├── ciclovias.query.ts      [IMPLEMENTADO] minLat, minLon, maxLat, maxLon y tipo opcional.
+        │       ├── crear-reporte.request.ts [IMPLEMENTADO] Cuerpo del POST /reports.
+        │       ├── listar-reportes.query.ts [IMPLEMENTADO] usuarioId y categoria opcionales.
+        │       ├── activar-sos.request.ts  [IMPLEMENTADO] Cuerpo del POST /sos.
+        │       └── listar-sos.query.ts     [IMPLEMENTADO] usuarioId y estado opcionales.
         └── modules/
-            ├── reports/               [VACÍO - FUTURO]  Reportes ciudadanos.
-            │   ├── domain/ application/ infrastructure/ [VACÍO - FUTURO] Solo .gitkeep.
-            │   ├── reports.module.ts  [VACÍO - FUTURO]  Módulo Nest sin providers.
-            │   └── index.ts           [VACÍO - FUTURO]  Exporta solo ReportsModule.
-            └── sos/                   [VACÍO - FUTURO]  Botón de pánico.
-                ├── domain/ application/ infrastructure/ [VACÍO - FUTURO] Solo .gitkeep.
-                ├── sos.module.ts      [VACÍO - FUTURO]  Módulo Nest sin providers.
-                └── index.ts           [VACÍO - FUTURO]  Exporta solo SosModule.
+            ├── reports/               [IMPLEMENTADO]    Reportes ciudadanos (tablas movil.usuarios y movil.reportes).
+            │   ├── index.ts / reports.module.ts [IMPLEMENTADO] Puerta del módulo y conexión puerto-adaptador.
+            │   ├── domain/            [IMPLEMENTADO]    Reporte, categorías, estados y errores.
+            │   ├── application/       [IMPLEMENTADO]    Crear, listar y obtener reporte + puerto + prueba.
+            │   └── infrastructure/    [IMPLEMENTADO]    postgres-reportes.repository.ts.
+            └── sos/                   [IMPLEMENTADO]    Botón de pánico (tabla movil.activaciones_sos).
+                ├── index.ts / sos.module.ts [IMPLEMENTADO] Puerta del módulo y conexión puerto-adaptador.
+                ├── domain/            [IMPLEMENTADO]    Activación, estados, regla de cancelación y errores.
+                ├── application/       [IMPLEMENTADO]    Activar, listar y cancelar + puerto + prueba.
+                └── infrastructure/    [IMPLEMENTADO]    postgres-sos.repository.ts.
 ```
 
 ## Qué hay que tocar para…
@@ -134,4 +145,4 @@ Toda carpeta vacía lleva un `.gitkeep` para que Git la conserve.
 | Compartir otro dato de consulta entre dashboard y móvil | Módulo nuevo en `src/common/modules/<modulo>/` (mismas capas) → exportar desde su `index.ts` → un controlador en cada BFF (`dashboard/bff/` en snake_case y `mobile/bff/` en camelCase) → importar el módulo en los dos `*-bff.module.ts`. |
 | Cambiar una gráfica del tablero | Caso de uso en `src/dashboard/modules/kpis/application/` → consulta en `infrastructure/postgres-tablero.repository.ts` (y en el puerto si cambia la forma) → ruta en `src/dashboard/bff/controllers/tablero.controller.ts`. |
 | Activar JWT | Emisión y guards en `src/platform/auth/` → sustituir `TOKEN_DE_PRUEBA` en `login.use-case.ts` por un puerto de tokens → proteger los controladores de `src/dashboard/bff/controllers/` → secreto en `.env.example`. |
-| Empezar la app móvil | Dominio, aplicación e infraestructura en `src/mobile/modules/reports/` o `sos/` → exportar desde su `index.ts` → DTO y controlador en `src/mobile/bff/` (camelCase) → registrarlo en `mobile-bff.module.ts`. |
+| Agregar un endpoint a la app móvil | Caso de uso en `src/mobile/modules/<modulo>/application/` → exportarlo en su `index.ts` → DTO y controlador en `src/mobile/bff/` (camelCase) → registrarlo en `mobile-bff.module.ts`; sus tablas van en el schema `movil`. |

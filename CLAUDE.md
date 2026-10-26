@@ -41,14 +41,14 @@ src/
         domain/  application/  infrastructure/
         <modulo>.module.ts  index.ts
 
-  mobile/                      PRODUCTO 2: app ciudadana (solo ciclovías por ahora)
+  mobile/                      PRODUCTO 2: app ciudadana
     bff/                       única puerta HTTP: /api/mobile/v1
       controllers/
       dto/
       mobile-bff.module.ts
     modules/
-      reports/                 reportes ciudadanos (futuro)
-      sos/                     botón de pánico (futuro)
+      reports/                 reportes ciudadanos (tablas en el schema movil)
+      sos/                     botón de pánico (tablas en el schema movil)
         domain/  application/  infrastructure/
         <modulo>.module.ts  index.ts
 

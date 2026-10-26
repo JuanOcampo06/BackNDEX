@@ -1,14 +1,14 @@
 # Backend Safe Path Twin
 
 Un solo backend (NestJS + TypeScript) con **arquitectura hexagonal** y **BFF**, dividido en dos productos.
-Hoy incluye el **login de demostración** del dashboard, los **endpoints de cada tarjeta y gráfica del tablero** y un endpoint de **ciclovías por zona del mapa** que comparten el dashboard y la app móvil. Todo lee de una base de datos **PostgreSQL local**.
+Hoy incluye el **login de demostración** del dashboard, los **endpoints de cada tarjeta y gráfica del tablero** los **endpoints de la app móvil** (reportes ciudadanos y botón de pánico) y un endpoint de **ciclovías por zona del mapa** que comparten el dashboard y la app móvil. Todo lee de una base de datos **PostgreSQL local**.
 
 ## 1. Qué es el backend
 
 | Producto | Qué es | Quién se encarga |
 |---|---|---|
 | **Dashboard** | Tablero institucional que usa el personal de la entidad. | `src/dashboard/`, con su puerta HTTP en `/api/dashboard/v1`. |
-| **App móvil** | App ciudadana para reportes y botón de pánico (por ahora solo expone las ciclovías). | `src/mobile/`, con su puerta HTTP en `/api/mobile/v1`. |
+| **App móvil** | App ciudadana: reportes, botón de pánico y ciclovías. | `src/mobile/`, con su puerta HTTP en `/api/mobile/v1`. |
 | **Común** | Negocio que leen los dos productos (hoy, las ciclovías). No tiene puerta HTTP propia. | `src/common/`; cada producto lo expone desde su BFF. |
 
 Ambos viajan en la misma aplicación y en la misma imagen Docker, pero no se importan entre sí.
@@ -194,11 +194,7 @@ PostgreSQL corre en su propio contenedor (`postgres`) y guarda los datos en el v
 | `movil.activaciones_sos` | Botón de pánico: coordenadas y `estado` (`activa`, `atendida`, `cancelada`). |
 
 Las tablas del tablero las lee solo el dashboard; las dos de ciclovías las leen el dashboard y la app móvil; las del *schema* `movil` son solo de la app. El *schema* existe para que `movil.reportes` no choque con la tabla `reportes` del dashboard.
-Para que el código del móvil use sus tablas sin escribir `movil.` en cada consulta, su conexión debe apuntar a la misma base con ese *schema* por defecto:
-
-```
-postgres://safepath:safepath@localhost:5432/safepath?options=-c%20search_path%3Dmovil
-```
+El código del móvil usa la misma conexión (`DATABASE_URL`) y escribe `movil.` delante de sus tablas en cada consulta.
 
 Los scripts están en `infra/postgres/`: `01-esquema.sql` crea las tablas del tablero, `02-datos.sql` genera unos 20 meses de datos de prueba (desde el 1 de enero del año pasado hasta el día en que se crea la base) `03-ciclovias.sql` carga `datos/ciclovias-osm.json`, y `04-movil-esquema.sql` y `05-movil-datos.sql` crean las tablas de la app móvil con 3 ciudadanos, 5 reportes y 3 activaciones de prueba. Solo se ejecutan cuando el volumen está vacío. Para **borrar todo y volver a cargarlo**: `docker compose down -v` y luego `docker compose up -d`.
 
@@ -279,7 +275,29 @@ Respuesta (recortada):
 
 Los datos son de © OpenStreetMap (licencia ODbL): el mapa debe mostrar ese crédito.
 
-## 6. Diagrama
+## 6. Endpoints de la app móvil
+
+Todos cuelgan de `http://localhost:3000/api/mobile/v1`, responden en `camelCase` y no piden token. Los datos de prueba traen los ciudadanos `1`, `2` y `3`.
+
+| Método y ruta | Para qué | Datos que recibe |
+|---|---|---|
+| `POST /reports` | Crear un reporte ciudadano (nace `recibido`) | Cuerpo: `usuarioId`, `categoria`, `latitud`, `longitud` y `descripcion` opcional (máx. 500) |
+| `GET /reports` | Listar reportes, los más recientes primero (máx. 100) | Opcionales: `?usuarioId=1&categoria=poca_iluminacion` |
+| `GET /reports/:id` | Ver un reporte | — |
+| `POST /sos` | Activar el botón de pánico (nace `activa`) | Cuerpo: `usuarioId`, `latitud`, `longitud` |
+| `GET /sos` | Listar activaciones, las más recientes primero (máx. 100) | Opcionales: `?usuarioId=1&estado=activa` |
+| `PATCH /sos/:id/cancelar` | Cancelar una activación que sigue activa | — |
+| `GET /ciclovias` | Ciclovías de la zona del mapa (ver sección 5) | `minLat`, `minLon`, `maxLat`, `maxLon` y `tipo` opcional |
+
+Categorías de reporte: `via_en_mal_estado`, `poca_iluminacion`, `obstaculo_en_cicloruta`, `conductor_imprudente`, `hurto_o_inseguridad`.
+
+Errores: datos inválidos responden `400`; un ciudadano, reporte o activación que no existe responde `404` con `{"codigo":"..._NO_ENCONTRADO","mensaje":"..."}`; cancelar una activación que ya no está activa responde `400` con `SOS_INVALIDO`.
+
+```bash
+curl -X POST http://localhost:3000/api/mobile/v1/reports -H "Content-Type: application/json" -d '{"usuarioId":1,"categoria":"via_en_mal_estado","descripcion":"Hueco","latitud":4.6486,"longitud":-74.0818}'
+```
+
+## 7. Diagrama
 
 ```
             DASHBOARD                                   APP MÓVIL
@@ -289,7 +307,7 @@ Los datos son de © OpenStreetMap (licencia ODbL): el mapa debe mostrar ese cré
   BFF dashboard (snake_case)                   BFF móvil (camelCase)
           │  solo por index.ts                         │  solo por index.ts
           ▼                                            ▼
-  Caso de uso (LoginUseCase)                   Caso de uso (reports, sos)
+  Caso de uso (LoginUseCase)                   Caso de uso (CrearReporteUseCase)
           │                                            │
           ▼                                            ▼
   Dominio (Usuario)                            Dominio
@@ -303,7 +321,7 @@ Los datos son de © OpenStreetMap (licencia ODbL): el mapa debe mostrar ese cré
         y cada BFF lo usa solo por su index.ts.
 ```
 
-## 7. Hexagonal y BFF en pocas palabras
+## 8. Hexagonal y BFF en pocas palabras
 
 **Hexagonal.** El negocio (dominio y casos de uso) vive en el centro y no sabe nada de bases de datos ni de HTTP.
 Para hablar con el exterior define **puertos** (interfaces); afuera, los **adaptadores** los implementan.
@@ -315,7 +333,7 @@ El BFF solo recibe la petición, la valida, llama al caso de uso y da forma a la
 Analogía: un mesero por tipo de cliente. La cocina (el negocio) es la misma; cada mesero sirve el plato como lo pide su mesa.
 Por eso el dashboard responde en `snake_case` y el móvil en `camelCase`, sin afectarse entre ellos.
 
-## 8. Reglas de dependencia
+## 9. Reglas de dependencia
 
 `npm run lint` falla si alguna se rompe.
 
@@ -329,7 +347,7 @@ Por eso el dashboard responde en `snake_case` y el móvil en `camelCase`, sin af
 | `dashboard/` ↔ `mobile/` | — | `import { SosModule } from '../../../mobile/modules/sos'` |
 | `platform/` | `import { DomainError } from '../../shared/domain-error'` | cualquier archivo de `dashboard/` o `mobile/` |
 
-## 9. Recorrido del login
+## 10. Recorrido del login
 
 1. `src/dashboard/bff/controllers/auth.controller.ts` recibe `POST /api/dashboard/v1/auth/login` y valida el cuerpo con `src/dashboard/bff/dto/login.request.ts`.
 2. Llama a `LoginUseCase` a través de `src/dashboard/modules/auth/index.ts` (la única puerta del módulo).
@@ -338,7 +356,7 @@ Por eso el dashboard responde en `snake_case` y el móvil en `camelCase`, sin af
 5. `auth.module.ts` conecta ese puerto con `InMemoryUsuarioRepository` (`infrastructure/in-memory-usuario.repository.ts`).
 6. Si algo falla, el caso de uso lanza `CredencialesInvalidasError`; el controlador la convierte en `401`. Si sale bien, responde en `snake_case`.
 
-## 10. Cómo agregar una funcionalidad nueva
+## 11. Cómo agregar una funcionalidad nueva
 
 1. **Dominio**: crea la entidad y sus errores en `modules/<modulo>/domain/` (TypeScript puro).
 2. **Aplicación**: crea el caso de uso (`<accion>.use-case.ts`, con `execute()`) y su puerto con token `Symbol` en `application/`.
@@ -346,7 +364,7 @@ Por eso el dashboard responde en `snake_case` y el móvil en `camelCase`, sin af
 4. **Módulo**: en `<modulo>.module.ts` conecta `{ provide: PUERTO, useClass: Adaptador }` y exporta el caso de uso desde `index.ts`.
 5. **BFF**: agrega el DTO y el controlador en `<producto>/bff/`, regístralo en `<producto>-bff.module.ts` y corre `npm run lint && npm run build && npm run test`.
 
-## 11. Hoja de ruta
+## 12. Hoja de ruta
 
 | Pendiente | Dónde va |
 |---|---|
@@ -357,11 +375,11 @@ Por eso el dashboard responde en `snake_case` y el móvil en `camelCase`, sin af
 | Caché con Redis | `src/platform/cache/` |
 | Usuarios del dashboard y botón *Exportar* del tablero | `src/dashboard/modules/users/` y `kpis/` |
 | Calcular el `riesgo` de cada ciclovía (por ejemplo, con los siniestros cercanos) | `src/common/modules/ciclovias/` + columna `riesgo` de `ciclovias` |
-| Reportes y SOS de la app móvil, y su BFF | `src/mobile/modules/` y `src/mobile/bff/` |
+| Que la entidad cambie el estado de reportes y SOS (`en_revision`, `atendida`...) y que el dashboard los muestre | `src/mobile/modules/` + eventos en `src/platform/messaging/` |
 | Activar `mongo`, `redis` y `rabbitmq` | Descomentarlos en `docker-compose.yml` cuando exista su adaptador |
 | Compose de otros entornos y Nginx | `infra/docker/` y `infra/nginx/` |
 
-## 12. Glosario
+## 13. Glosario
 
 - **Entidad**: objeto del negocio con sus reglas (por ejemplo, `Usuario`).
 - **Caso de uso**: una acción del negocio, con un método `execute()` (por ejemplo, `LoginUseCase`).
@@ -370,6 +388,6 @@ Por eso el dashboard responde en `snake_case` y el móvil en `camelCase`, sin af
 - **DTO**: forma de los datos que entran o salen por HTTP (por ejemplo, `LoginRequest`).
 - **BFF**: la puerta HTTP propia de cada producto.
 
-## 13. Más detalle
+## 14. Más detalle
 
 El mapa completo de carpetas y archivos está en [`estructura.md`](estructura.md).
