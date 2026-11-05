@@ -242,6 +242,11 @@ export const CONSTRUCTORES_HOJA: Record<KpiExportable, ConstructorHoja> = {
   },
 };
 
+// Los valores elegidos salen separados por coma y sin ninguno el filtro no se aplico
+function valoresOTodos(valores: readonly string[] | undefined, textoDeTodos: string): string {
+  return valores === undefined || valores.length === 0 ? textoDeTodos : valores.join(', ');
+}
+
 // Primera hoja del libro con los filtros con los que se calcularon las cifras y la lista de hojas incluidas
 export function hojaDeFiltros(
   filtros: FiltrosTablero,
@@ -249,7 +254,7 @@ export function hojaDeFiltros(
   hojas: readonly HojaExcel[],
 ): HojaExcel {
   const meses = filtros.periodo.meses();
-  const localidad = localidades.find((l) => l.id === filtros.localidadId);
+  const nombreDeLocalidad = (id: number) => localidades.find((l) => l.id === id)?.nombre ?? `Id ${id}`;
   return {
     nombre: 'Filtros aplicados',
     secciones: [
@@ -259,9 +264,9 @@ export function hojaDeFiltros(
         filas: [
           ['Mes desde', meses[0]],
           ['Mes hasta', meses[meses.length - 1]],
-          ['Localidad', filtros.localidadId === undefined ? 'Todas' : (localidad?.nombre ?? `Id ${filtros.localidadId}`)],
-          ['Tipo de vehículo', filtros.tipoVehiculo === undefined ? 'Todos' : etiqueta(filtros.tipoVehiculo)],
-          ['Fuente', filtros.fuente === undefined ? 'Todas' : etiqueta(filtros.fuente)],
+          ['Localidad', valoresOTodos(filtros.localidadId?.map(nombreDeLocalidad), 'Todas')],
+          ['Tipo de vehículo', valoresOTodos(filtros.tipoVehiculo?.map((tipo) => etiqueta(tipo)), 'Todos')],
+          ['Fuente', valoresOTodos(filtros.fuente?.map((fuente) => etiqueta(fuente)), 'Todas')],
         ],
       },
       { titulo: 'Hojas incluidas', columnas: ['Hoja'], filas: hojas.map((hoja) => [hoja.nombre]) },

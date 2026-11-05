@@ -38,7 +38,8 @@ Toda carpeta vacía lleva un `.gitkeep` para que Git la conserve.
 ├── test/                              [IMPLEMENTADO]    Pruebas e2e.
 │   ├── auth.e2e-spec.ts               [IMPLEMENTADO]    Llama al login real y comprueba 200 y 401.
 │   ├── mobile.e2e-spec.ts             [IMPLEMENTADO]    Reportes del móvil por HTTP con un repositorio falso (201, 400, 404).
-│   └── exportar-kpis.e2e-spec.ts      [IMPLEMENTADO]    Descarga el Excel por HTTP, lo abre y comprueba sus hojas y los 400.
+│   ├── exportar-kpis.e2e-spec.ts      [IMPLEMENTADO]    Descarga el Excel por HTTP, lo abre y comprueba sus hojas y los 400.
+│   └── filtros-multiples.e2e-spec.ts  [IMPLEMENTADO]    Comprueba que los filtros con varios valores llegan como lista y que un valor inválido da 400.
 └── src/
     ├── main.ts                        [IMPLEMENTADO]    Arranque: lee .env, prefijo /api, CORS, Swagger y puerto.
     ├── swagger/
@@ -82,7 +83,7 @@ Toda carpeta vacía lleva un `.gitkeep` para que Git la conserve.
     │   │   │   └── usuarios.controller.ts [IMPLEMENTADO] GET, POST, PATCH y DELETE de usuarios del dashboard.
     │   │   └── dto/
     │   │       ├── login.request.ts   [IMPLEMENTADO]    email válido y password no vacía.
-    │   │       ├── tablero.query.ts   [IMPLEMENTADO]    Filtros opcionales: mes_desde, mes_hasta, localidad_id, tipo_vehiculo, fuente.
+    │   │       ├── tablero.query.ts   [IMPLEMENTADO]    Filtros opcionales: mes_desde, mes_hasta y listas de localidad_id, tipo_vehiculo y fuente.
     │   │       ├── exportar-kpis.query.ts [IMPLEMENTADO] Esos mismos filtros más la lista de KPIs a exportar.
     │   │       ├── ciclovias.query.ts [IMPLEMENTADO]    min_lat, min_lon, max_lat, max_lon y tipo opcional.
     │   │       ├── crear-usuario.request.ts / actualizar-usuario.request.ts [IMPLEMENTADO] Cuerpos de POST y PATCH.

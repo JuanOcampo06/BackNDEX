@@ -97,7 +97,7 @@ describe('ExportarKpisUseCase', () => {
 
     await new ExportarKpisUseCase(crearCasos(), generador).execute({
       kpis: ['mapa_siniestros'],
-      filtros: { ...filtros, localidadId: 4, tipoVehiculo: 'bicicleta_electrica' },
+      filtros: { ...filtros, localidadId: [4], tipoVehiculo: ['bicicleta_electrica'] },
     });
 
     const [hojaFiltros, hojaMapa] = generador.libro?.hojas ?? [];
@@ -108,6 +108,22 @@ describe('ExportarKpisUseCase', () => {
       ['Localidad', 'Engativa'],
       ['Tipo de vehículo', 'Bicicleta electrica'],
       ['Fuente', 'Todas'],
+    ]);
+  });
+
+  it('la hoja de filtros muestra separados por coma los varios valores de cada filtro', async () => {
+    const generador = new FakeGeneradorExcel();
+
+    await new ExportarKpisUseCase(crearCasos(), generador).execute({
+      kpis: ['tarjeta_siniestros'],
+      filtros: { ...filtros, localidadId: [4, 9], tipoVehiculo: ['bicicleta', 'patineta'], fuente: ['app'] },
+    });
+
+    const [hojaFiltros] = generador.libro?.hojas ?? [];
+    expect(hojaFiltros.secciones[0].filas.slice(2)).toEqual([
+      ['Localidad', 'Engativa, Id 9'],
+      ['Tipo de vehículo', 'Bicicleta, Patineta'],
+      ['Fuente', 'App'],
     ]);
   });
 

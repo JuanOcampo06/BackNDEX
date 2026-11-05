@@ -216,11 +216,23 @@ Todos son `GET`, cuelgan de `http://localhost:3001/api/dashboard/v1/tablero` y r
 | Parámetro | Ejemplo | Qué hace |
 |---|---|---|
 | `mes_desde`, `mes_hasta` | `2026-08`, `2026-10` | Rango de meses (formato `AAAA-MM`). Sin ellos: los últimos 3 meses hasta el mes actual. |
-| `localidad_id` | `4` | Una localidad (los ids salen de `/filtros`). |
-| `tipo_vehiculo` | `bicicleta` | `bicicleta`, `bicicleta_electrica`, `patineta_electrica`, `patineta` u `otro`. Aplica a siniestros y usuarios. |
-| `fuente` | `app` | `app` o `camaras`. Aplica solo a usuarios. Hoy los conteos solo tienen la fuente `app`, así que `camaras` devuelve ceros. |
+| `localidad_id` | `4` o `4,6` | Una o varias localidades (los ids salen de `/filtros`). |
+| `tipo_vehiculo` | `bicicleta` o `bicicleta,patineta` | Uno o varios de: `bicicleta`, `bicicleta_electrica`, `patineta_electrica`, `patineta`, `otro`. Aplica a siniestros y usuarios. |
+| `fuente` | `app` | Una o varias de: `app`, `camaras`. Aplica solo a usuarios. Hoy los conteos solo tienen la fuente `app`, así que `camaras` devuelve ceros. |
 
-Un filtro mal escrito responde `400` con el motivo.
+**Varios valores en un filtro.** `localidad_id`, `tipo_vehiculo` y `fuente` aceptan uno o varios valores, repetidos o separados por comas (también se pueden mezclar):
+
+```
+?tipo_vehiculo=bicicleta&tipo_vehiculo=patineta&localidad_id=4,6
+```
+
+- Dentro de un filtro los valores se suman (**o**): `bicicleta,patineta` trae siniestros de bicicleta **o** de patineta.
+- Entre filtros distintos se combinan (**y**): el ejemplo trae los de las localidades 4 **o** 6, y de esas, los de bicicleta **o** patineta.
+- Un solo valor funciona igual que siempre.
+- Los **meses** son un rango continuo (`mes_desde` a `mes_hasta`): para ver dos meses seguidos, `mes_desde=2026-08&mes_hasta=2026-09`.
+- Los mismos filtros sirven en `/tablero/exportar`, donde la hoja *Filtros aplicados* los muestra separados por coma.
+
+Un filtro mal escrito responde `400` con el motivo, y basta con que **uno** de los valores de la lista sea inválido.
 
 | Parte del mockup | Endpoint | Qué devuelve |
 |---|---|---|

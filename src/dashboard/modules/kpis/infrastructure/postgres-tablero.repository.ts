@@ -77,10 +77,11 @@ interface Condiciones {
 function armarCondiciones(origen: Origen, filtros: FiltrosTablero): Condiciones {
   const valores: unknown[] = [filtros.periodo.fechaInicio(), filtros.periodo.fechaFinExclusiva()];
   const condiciones = [`${origen.fecha} >= $1`, `${origen.fecha} < $2`];
-  const agregar = (columna: string | undefined, valor: unknown) => {
-    if (columna && valor !== undefined) {
-      valores.push(valor);
-      condiciones.push(`${columna} = $${valores.length}`);
+  // Cada filtro es una lista y ANY deja pasar los registros que coinciden con cualquiera de sus valores
+  const agregar = (columna: string | undefined, lista: readonly unknown[] | undefined) => {
+    if (columna && lista !== undefined && lista.length > 0) {
+      valores.push(lista);
+      condiciones.push(`${columna} = ANY($${valores.length})`);
     }
   };
   agregar(origen.localidad, filtros.localidadId);

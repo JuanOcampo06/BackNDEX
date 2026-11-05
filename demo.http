@@ -30,7 +30,7 @@ Content-Type: application/json
 ### 4. Opciones de los filtros
 GET {{tablero}}/filtros
 
-### 5. Tarjeta de siniestros con filtros
+### 5. Tarjeta de siniestros con filtros de un valor
 GET {{tablero}}/tarjetas/siniestros?mes_desde=2026-08&mes_hasta=2026-10&localidad_id=4&tipo_vehiculo=bicicleta
 
 ### 6. Tarjeta de usuarios
@@ -184,3 +184,15 @@ GET {{base}}/dashboard/v1/tablero/exportar?kpis=tarjeta_siniestros,mapa_siniestr
 
 ### 40. Sin KPIs (400)
 GET {{base}}/dashboard/v1/tablero/exportar
+
+### --- Filtros con varios valores ---
+### localidad_id tipo_vehiculo y fuente aceptan uno o varios valores repetidos o separados por comas
+
+### 41. Siniestros de dos localidades y dos tipos de vehiculo
+GET {{tablero}}/tarjetas/siniestros?localidad_id=4&localidad_id=6&tipo_vehiculo=bicicleta,patineta
+
+### 42. Dos meses seguidos con varios vehiculos
+GET {{tablero}}/siniestros-por-hora?mes_desde=2026-08&mes_hasta=2026-09&tipo_vehiculo=bicicleta,patineta_electrica
+
+### 43. Un valor invalido dentro de la lista (400)
+GET {{tablero}}/tarjetas/siniestros?tipo_vehiculo=bicicleta,carro
