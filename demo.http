@@ -112,7 +112,7 @@ GET {{movil}}/reports?usuarioId=1
 GET {{movil}}/reports/1
 
 ### 27. Reporte que no existe (404)
-GET {{movil}}/reports/999
+GET {{movil}}/reports/999999
 
 ### 28. Activar el boton de panico (201)
 POST {{movil}}/sos

@@ -176,30 +176,56 @@ PostgreSQL corre en su propio contenedor (`postgres`) y guarda los datos en el v
 **Desde la terminal:** `docker compose exec postgres psql -U safepath -d safepath`.
 **Desde un cliente de escritorio** (DBeaver, TablePlus, extensión de VS Code): `localhost:5432` con el mismo usuario.
 
+Es **una sola base** (`safepath`) dividida en **tres esquemas** según quién usa cada tabla. En Adminer se cambia de esquema con el selector *Schema*.
+
+```
+            APP MÓVIL                                   DASHBOARD
+  escribe reportes y activaciones              lee esas mismas tablas para sus gráficas
+               │                                            │
+               ▼                                            ▼
+   ┌──────────────────────── compartido ────────────────────────┐
+   │ reportes  activaciones_panico  localidades  lugares  ciclovias │
+   └─────────────────────────────────────────────────────────────┘
+        movil (solo la app)                 dashboard (solo el tablero)
+        usuarios (ciudadanos)               usuarios, siniestros, conteos_usuarios
+```
+
+**`compartido`**: lo que usan los dos productos.
+
 | Tabla | Qué guarda |
 |---|---|
-| `localidades` | Localidades del filtro *Localidad*. |
-| `lugares` | Intersecciones donde ocurren los eventos (con su localidad y coordenadas). |
-| `siniestros` | Fecha y hora, lugar, coordenadas, gravedad, clase, tipo de vehículo y, si hubo víctimas, sexo y edad. |
-| `conteos_usuarios` | Usuarios por día, localidad, tipo de vehículo y fuente. La única fuente es `app` (la base rechaza cualquier otra). |
-| `reportes` | Reportes ciudadanos con categoría; si `motivo_falso_positivo` tiene valor, es un falso positivo. |
-| `activaciones_panico` | Activaciones del botón de pánico con fecha, lugar y coordenadas. |
-| `usuarios_dashboard` | Usuarios del dashboard: nombre, correo (único, en minúsculas) y `rol` (`admin` administra usuarios, `lector` solo consulta). No guarda contraseña todavía: llegará con el login real. No tiene que ver con `movil.usuarios`. |
-| `ciclovias_fuente` | **Compartida.** El JSON de OpenStreetMap completo, tal cual, con su fecha de corte. |
-| `ciclovias` | **Compartida.** Una fila por vía (2.448): `tipo` (`ciclovia` o `cruce`), nombre, etiquetas de OpenStreetMap, nodos, coordenadas, `riesgo` (vacío hasta calcularlo) y el rectángulo que la contiene (`min_lat`, `min_lon`, `max_lat`, `max_lon`). |
+| `compartido.reportes` | **Tabla maestra** de reportes ciudadanos: la app los crea y el dashboard los lee. Autor (`usuario_id` → `movil.usuarios`), lugar, categoría, descripción, coordenadas, `estado` (`recibido`, `en_revision`, `resuelto`, `descartado`) y fecha. Un reporte `descartado` es un **falso positivo** y siempre lleva su `motivo_falso_positivo`: la base no acepta uno sin el otro. |
+| `compartido.activaciones_panico` | **Tabla maestra** del botón de pánico: la app las crea y el dashboard las lee. Autor, lugar, coordenadas, `estado` (`activa`, `atendida`, `cancelada`) y fecha. |
+| `compartido.localidades` | Localidades del filtro *Localidad*. |
+| `compartido.lugares` | Intersecciones conocidas, con su localidad y coordenadas. Sirven para ubicar reportes, activaciones y siniestros. |
+| `compartido.ciclovias_fuente` | El JSON de OpenStreetMap completo, tal cual, con su fecha de corte. |
+| `compartido.ciclovias` | Una fila por vía (2.448): `tipo` (`ciclovia` o `cruce`), nombre, etiquetas de OpenStreetMap, nodos, coordenadas, `riesgo` (vacío hasta calcularlo) y el rectángulo que la contiene (`min_lat`, `min_lon`, `max_lat`, `max_lon`). |
 
-**App móvil** (en el *schema* `movil`, dentro de la misma base; en Adminer se elige en el selector *Schema*):
+**`dashboard`**: solo del tablero.
 
 | Tabla | Qué guarda |
 |---|---|
-| `movil.usuarios` | Ciudadanos de la app: nombre, correo (único) y teléfono. |
-| `movil.reportes` | Reportes que envía el ciudadano: categoría, descripción, coordenadas y `estado` (`recibido`, `en_revision`, `resuelto`, `descartado`). |
-| `movil.activaciones_sos` | Botón de pánico: coordenadas y `estado` (`activa`, `atendida`, `cancelada`). |
+| `dashboard.usuarios` | Usuarios del dashboard: nombre, correo (único, en minúsculas) y `rol` (`admin` administra usuarios, `lector` solo consulta). No guarda contraseña todavía: llegará con el login real. |
+| `dashboard.siniestros` | Siniestros de la secretaría de movilidad: fecha y hora, lugar, coordenadas, gravedad, clase, tipo de vehículo y, si hubo víctimas, sexo y edad. |
+| `dashboard.conteos_usuarios` | Usuarios de micromovilidad por día, localidad, tipo de vehículo y fuente. La única fuente es `app` (la base rechaza cualquier otra). |
 
-Las tablas del tablero las lee solo el dashboard; las dos de ciclovías las leen el dashboard y la app móvil; las del *schema* `movil` son solo de la app. El *schema* existe para que `movil.reportes` no choque con la tabla `reportes` del dashboard.
-El código del móvil usa la misma conexión (`DATABASE_URL`) y escribe `movil.` delante de sus tablas en cada consulta.
+**`movil`**: solo de la app.
 
-Los scripts están en `infra/postgres/`: `01-esquema.sql` crea las tablas del tablero, `02-datos.sql` genera unos 20 meses de datos de prueba (desde el 1 de enero del año pasado hasta el día en que se crea la base) `03-ciclovias.sql` carga `datos/ciclovias-osm.json`, `04-movil-esquema.sql` y `05-movil-datos.sql` crean las tablas de la app móvil con 3 ciudadanos, 5 reportes y 3 activaciones de prueba, y `06-usuarios-dashboard.sql` crea `usuarios_dashboard` con 3 usuarios de prueba. Solo se ejecutan cuando el volumen está vacío. Para **borrar todo y volver a cargarlo**: `docker compose down -v` y luego `docker compose up -d`.
+| Tabla | Qué guarda |
+|---|---|
+| `movil.usuarios` | Ciudadanos de la app (nombre, correo único y teléfono). Son los autores de los reportes y activaciones: la base no deja borrar uno que tenga registros. |
+
+**Cómo se ubica un evento de la app.** La app solo manda latitud y longitud. Al guardar, la base le asigna el **lugar conocido más cercano** (función `compartido.lugar_mas_cercano`), y ese lugar trae su localidad. Así el dashboard puede filtrar por localidad y agrupar el botón de pánico por ubicación.
+
+Cada producto lee y escribe con sus propios adaptadores (`infrastructure/`); ninguno importa código del otro. Todos usan la misma conexión (`DATABASE_URL`) y escriben el esquema delante de cada tabla (por ejemplo `compartido.reportes`).
+
+Los scripts están en `infra/postgres/` y solo se ejecutan cuando el volumen está vacío:
+
+- **`01-esquema.sql`** crea los tres esquemas, sus tablas, restricciones e índices.
+- **`02-datos.sql`** genera unos 20 meses de datos de prueba (desde el 1 de enero del año pasado hasta el día en que se crea la base). Primero van los 3 ciudadanos, 5 reportes y 3 activaciones de ejemplo de la app (ids 1 a 3, 1 a 5 y 1 a 3), luego 300 ciudadanos de prueba con su historial, los siniestros, los conteos y los 3 usuarios del dashboard.
+- **`03-ciclovias.sql`** carga `datos/ciclovias-osm.json`.
+
+Para **borrar todo y volver a cargarlo**: `docker compose down -v` y luego `docker compose up -d`.
 
 **Actualizar las ciclovías con un JSON nuevo** (sin tocar los demás datos): reemplaza `infra/postgres/datos/ciclovias-osm.json` por el nuevo export de Overpass (con `out geom`, para que traiga `bounds` y `geometry`) y corre:
 
@@ -300,12 +326,6 @@ Cuelgan de `http://localhost:3001/api/dashboard/v1/usuarios` y responden en `sna
 
 Errores: datos inválidos o `PATCH` sin campos responden `400`; un id que no existe, `404`; un correo que ya usa otro usuario, `409` con `{"codigo":"CORREO_DUPLICADO",...}`.
 
-**Si ya tenías la base creada**, la tabla nueva se agrega sin borrar nada:
-
-```bash
-docker compose exec postgres psql -U safepath -d safepath -f /docker-entrypoint-initdb.d/06-usuarios-dashboard.sql
-```
-
 ## 5. Endpoint de ciclovías (dashboard y app móvil)
 
 Un mismo caso de uso (`src/common/modules/ciclovias/`) con una puerta en cada BFF. Devuelve solo las vías que tocan la parte del mapa que el usuario ve en pantalla, para no mandar la ciudad completa en cada petición.
@@ -343,7 +363,7 @@ Los datos son de © OpenStreetMap (licencia ODbL): el mapa debe mostrar ese cré
 
 ## 6. Endpoints de la app móvil
 
-Todos cuelgan de `http://localhost:3001/api/mobile/v1`, responden en `camelCase` y no piden token. Los datos de prueba traen los ciudadanos `1`, `2` y `3`.
+Todos cuelgan de `http://localhost:3001/api/mobile/v1`, responden en `camelCase` y no piden token. Los reportes y activaciones se guardan en las tablas maestras del esquema `compartido`, así que **aparecen de inmediato en las gráficas del dashboard**. Los datos de prueba traen los ciudadanos de ejemplo `1`, `2` y `3` (más 300 de prueba), y la activación `3` está `activa` para probar la cancelación.
 
 | Método y ruta | Para qué | Datos que recibe |
 |---|---|---|
@@ -439,10 +459,10 @@ Por eso el dashboard responde en `snake_case` y el móvil en `camelCase`, sin af
 | MongoDB y PostgreSQL para el resto de módulos (el tablero ya usa PostgreSQL) | `src/platform/database/` + `infrastructure/` de cada módulo |
 | Eventos con RabbitMQ (por ejemplo, reportes del móvil hacia el dashboard) | `src/platform/messaging/` |
 | Caché con Redis | `src/platform/cache/` |
-| Contraseña en `usuarios_dashboard`, login real con JWT y hacer cumplir los roles (`admin` / `lector`) | `src/platform/auth/` + `src/dashboard/modules/auth/` y `users/` |
+| Contraseña en `dashboard.usuarios`, login real con JWT y hacer cumplir los roles (`admin` / `lector`) |
+| Que la entidad cambie desde el dashboard el estado de un reporte (por ejemplo, descartarlo como falso positivo con su motivo) o atienda una activación | `src/dashboard/modules/` + `compartido.reportes` y `compartido.activaciones_panico` | `src/platform/auth/` + `src/dashboard/modules/auth/` y `users/` |
 | Botón *Exportar* del tablero | `src/dashboard/modules/kpis/` |
 | Calcular el `riesgo` de cada ciclovía (por ejemplo, con los siniestros cercanos) | `src/common/modules/ciclovias/` + columna `riesgo` de `ciclovias` |
-| Que la entidad cambie el estado de reportes y SOS (`en_revision`, `atendida`...) y que el dashboard los muestre | `src/mobile/modules/` + eventos en `src/platform/messaging/` |
 | Activar `mongo`, `redis` y `rabbitmq` | Descomentarlos en `docker-compose.yml` cuando exista su adaptador |
 | Compose de otros entornos y Nginx | `infra/docker/` y `infra/nginx/` |
 

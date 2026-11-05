@@ -28,7 +28,7 @@ src/
       dashboard-bff.module.ts
     modules/                   negocio del dashboard, SIN controladores
       auth/                    login (único con código en la demo)
-      users/                   usuarios del dashboard con rol admin o lector (tabla usuarios_dashboard)
+      users/                   usuarios del dashboard con rol admin o lector (tabla dashboard.usuarios)
       kpis/                    cifras y mapas (futuro)
         domain/                entidades, reglas y errores (TypeScript puro)
         application/           casos de uso y puertos (interfaces)
@@ -48,8 +48,8 @@ src/
       dto/
       mobile-bff.module.ts
     modules/
-      reports/                 reportes ciudadanos (tablas en el schema movil)
-      sos/                     botón de pánico (tablas en el schema movil)
+      reports/                 reportes ciudadanos (escribe en compartido.reportes)
+      sos/                     botón de pánico (escribe en compartido.activaciones_panico)
         domain/  application/  infrastructure/
         <modulo>.module.ts  index.ts
 
@@ -86,8 +86,18 @@ El proyecto corre en Docker, pero **solo la API**: la demo no usa bases de datos
 | `common/modules/` | las mismas reglas de capas que cualquier módulo | `dashboard/`, `mobile/` |
 | `platform/` | `shared/` y librerías externas | `dashboard/`, `mobile/` |
 
-**Los dos productos no se importan entre sí.** Si algún día necesitan compartir algo (por ejemplo, los reportes que crea el móvil y muestra el dashboard), se hará con eventos o contratos en `shared/`/`platform/messaging`, nunca importando archivos del otro producto.
+**Los dos productos no se importan entre sí**, nunca se importan archivos del otro producto.
 La excepción son los **datos de consulta que leen los dos** (por ejemplo, las ciclovías): su módulo vive en `common/modules/` y cada BFF expone su propio endpoint llamando al mismo caso de uso.
+
+## Base de datos
+
+Una sola base PostgreSQL (`safepath`) con tres esquemas, según quién usa cada tabla:
+
+- `compartido`: lo que usan los dos productos. Aquí están las **tablas maestras** `reportes` y `activaciones_panico`: la app móvil las escribe y el dashboard las lee. También `localidades`, `lugares` y `ciclovias`.
+- `dashboard`: solo del tablero (`usuarios`, `siniestros`, `conteos_usuarios`).
+- `movil`: solo de la app (`usuarios`, los ciudadanos autores de reportes y activaciones).
+
+Cada producto accede a las tablas compartidas con su **propio adaptador** en `infrastructure/`, sin importar código del otro. Nunca se duplica una tabla en dos esquemas. Toda consulta escribe el esquema delante de la tabla (`compartido.reportes`). Las reglas que se puedan expresar en la base (claves foráneas, `CHECK`) van también en la base.
 
 ## Reglas hexagonales
 

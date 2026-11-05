@@ -25,12 +25,9 @@ Toda carpeta vacía lleva un `.gitkeep` para que Git la conserve.
 ├── demo.http                          [CONFIG]          Peticiones de prueba: health, login y todos los endpoints del tablero.
 ├── infra/                             [IMPLEMENTADO]    Despliegue adicional.
 │   ├── postgres/                      [IMPLEMENTADO]    Scripts que PostgreSQL ejecuta al crear la base por primera vez.
-│   │   ├── 01-esquema.sql             [IMPLEMENTADO]    Tablas del tablero (localidades, lugares, siniestros, conteos_usuarios, reportes, activaciones_panico).
-│   │   ├── 02-datos.sql               [IMPLEMENTADO]    Datos de prueba desde enero del año pasado hasta hoy.
-│   │   ├── 03-ciclovias.sql           [IMPLEMENTADO]    Crea ciclovias_fuente y ciclovias y carga el JSON; se puede volver a correr.
-│   │   ├── 04-movil-esquema.sql       [IMPLEMENTADO]    Schema movil con usuarios, reportes y activaciones_sos de la app.
-│   │   ├── 05-movil-datos.sql         [IMPLEMENTADO]    Datos de prueba de la app (3 ciudadanos, 5 reportes, 3 SOS).
-│   │   ├── 06-usuarios-dashboard.sql  [IMPLEMENTADO]    Tabla usuarios_dashboard con 3 usuarios; se puede volver a correr.
+│   │   ├── 01-esquema.sql             [IMPLEMENTADO]    Esquemas compartido, dashboard y movil con sus tablas, restricciones e índices.
+│   │   ├── 02-datos.sql               [IMPLEMENTADO]    Datos de prueba: ejemplos de la app, 300 ciudadanos con su historial, siniestros, conteos y usuarios del dashboard.
+│   │   ├── 03-ciclovias.sql           [IMPLEMENTADO]    Crea compartido.ciclovias_fuente y compartido.ciclovias y carga el JSON; se puede volver a correr.
 │   │   └── datos/
 │   │       └── ciclovias-osm.json     [IMPLEMENTADO]    Export de OpenStreetMap (Overpass) con las 2.448 vías de ciclovía.
 │   ├── docker/                        [VACÍO - FUTURO]  Compose de QA y producción (+ README.md de 2 líneas).
@@ -102,7 +99,7 @@ Toda carpeta vacía lleva un `.gitkeep` para que Git la conserve.
     │       │   │   └── usuario.repository.port.ts [IMPLEMENTADO] Puerto y token USUARIO_REPOSITORY.
     │       │   └── infrastructure/
     │       │       └── in-memory-usuario.repository.ts [IMPLEMENTADO] Un usuario de prueba en memoria.
-    │       ├── users/                 [IMPLEMENTADO]    Usuarios del dashboard con rol admin o lector (tabla usuarios_dashboard).
+    │       ├── users/                 [IMPLEMENTADO]    Usuarios del dashboard con rol admin o lector (tabla dashboard.usuarios).
     │       │   ├── index.ts / users.module.ts [IMPLEMENTADO] Puerta del módulo y conexión puerto-adaptador.
     │       │   ├── domain/            [IMPLEMENTADO]    Usuario, roles, reglas de nombre, correo y rol, y errores.
     │       │   ├── application/       [IMPLEMENTADO]    Listar, obtener, crear, actualizar y eliminar + puerto + pruebas.
@@ -146,12 +143,12 @@ Toda carpeta vacía lleva un `.gitkeep` para que Git la conserve.
         │       ├── activacion-sos.response.ts [IMPLEMENTADO] Forma de la activación (solo para Swagger).
         │       └── listar-sos.query.ts     [IMPLEMENTADO] usuarioId y estado opcionales.
         └── modules/
-            ├── reports/               [IMPLEMENTADO]    Reportes ciudadanos (tablas movil.usuarios y movil.reportes).
+            ├── reports/               [IMPLEMENTADO]    Reportes ciudadanos: escribe en la tabla maestra compartido.reportes (autores en movil.usuarios).
             │   ├── index.ts / reports.module.ts [IMPLEMENTADO] Puerta del módulo y conexión puerto-adaptador.
             │   ├── domain/            [IMPLEMENTADO]    Reporte, categorías, estados y errores.
             │   ├── application/       [IMPLEMENTADO]    Crear, listar y obtener reporte + puerto + prueba.
             │   └── infrastructure/    [IMPLEMENTADO]    postgres-reportes.repository.ts.
-            └── sos/                   [IMPLEMENTADO]    Botón de pánico (tabla movil.activaciones_sos).
+            └── sos/                   [IMPLEMENTADO]    Botón de pánico: escribe en la tabla maestra compartido.activaciones_panico.
                 ├── index.ts / sos.module.ts [IMPLEMENTADO] Puerta del módulo y conexión puerto-adaptador.
                 ├── domain/            [IMPLEMENTADO]    Activación, estados, regla de cancelación y errores.
                 ├── application/       [IMPLEMENTADO]    Activar, listar y cancelar + puerto + prueba.
@@ -169,4 +166,4 @@ Toda carpeta vacía lleva un `.gitkeep` para que Git la conserve.
 | Cambiar una gráfica del tablero | Caso de uso en `src/dashboard/modules/kpis/application/` → consulta en `infrastructure/postgres-tablero.repository.ts` (y en el puerto si cambia la forma) → ruta en `src/dashboard/bff/controllers/tablero.controller.ts`. |
 | Activar JWT | Emisión y guards en `src/platform/auth/` → sustituir `TOKEN_DE_PRUEBA` en `login.use-case.ts` por un puerto de tokens → proteger los controladores de `src/dashboard/bff/controllers/` → secreto en `.env.example`. |
 | Que un endpoint nuevo salga en Swagger | En su controlador: `@ApiTags` con uno de los grupos de `src/swagger/configurar-swagger.ts`, `@ApiOperation` y las respuestas (`@ApiOkResponse`...); en sus DTO: `@ApiProperty` o `@ApiPropertyOptional` en cada campo. |
-| Agregar un endpoint a la app móvil | Caso de uso en `src/mobile/modules/<modulo>/application/` → exportarlo en su `index.ts` → DTO y controlador en `src/mobile/bff/` (camelCase) → registrarlo en `mobile-bff.module.ts`; sus tablas van en el schema `movil`. |
+| Agregar un endpoint a la app móvil | Caso de uso en `src/mobile/modules/<modulo>/application/` → exportarlo en su `index.ts` → DTO y controlador en `src/mobile/bff/` (camelCase) → registrarlo en `mobile-bff.module.ts`; sus tablas van en el esquema `movil` si solo las usa la app, o en `compartido` si también las lee el dashboard. |

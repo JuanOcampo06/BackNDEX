@@ -24,7 +24,7 @@ function aUsuario(fila: FilaUsuario): Usuario {
   return { ...fila, creadoEn: fila.creadoEn.toISOString(), actualizadoEn: fila.actualizadoEn.toISOString() };
 }
 
-// Guarda y lee los usuarios del dashboard en la tabla usuarios_dashboard
+// Guarda y lee los usuarios del dashboard en la tabla dashboard.usuarios
 @Injectable()
 export class PostgresUsuariosRepository implements UsuariosRepositoryPort, OnModuleDestroy {
   private readonly pool = crearPoolPostgres();
@@ -36,20 +36,20 @@ export class PostgresUsuariosRepository implements UsuariosRepositoryPort, OnMod
 
   async listar(filtros: FiltrosUsuarios): Promise<Usuario[]> {
     const resultado = await this.pool.query<FilaUsuario>(
-      `SELECT ${COLUMNAS} FROM usuarios_dashboard WHERE ($1::text IS NULL OR rol = $1) ORDER BY id`,
+      `SELECT ${COLUMNAS} FROM dashboard.usuarios WHERE ($1::text IS NULL OR rol = $1) ORDER BY id`,
       [filtros.rol ?? null],
     );
     return resultado.rows.map(aUsuario);
   }
 
   async buscarPorId(id: number): Promise<Usuario | null> {
-    const resultado = await this.pool.query<FilaUsuario>(`SELECT ${COLUMNAS} FROM usuarios_dashboard WHERE id = $1`, [id]);
+    const resultado = await this.pool.query<FilaUsuario>(`SELECT ${COLUMNAS} FROM dashboard.usuarios WHERE id = $1`, [id]);
     return resultado.rows.length > 0 ? aUsuario(resultado.rows[0]) : null;
   }
 
   async existeCorreo(correo: string, idExcluido?: number): Promise<boolean> {
     const resultado = await this.pool.query(
-      'SELECT 1 FROM usuarios_dashboard WHERE correo = $1 AND ($2::int IS NULL OR id <> $2)',
+      'SELECT 1 FROM dashboard.usuarios WHERE correo = $1 AND ($2::int IS NULL OR id <> $2)',
       [correo, idExcluido ?? null],
     );
     return (resultado.rowCount ?? 0) > 0;
@@ -57,7 +57,7 @@ export class PostgresUsuariosRepository implements UsuariosRepositoryPort, OnMod
 
   async crear(usuario: NuevoUsuario): Promise<Usuario> {
     const resultado = await this.pool.query<FilaUsuario>(
-      `INSERT INTO usuarios_dashboard (nombre_completo, correo, rol) VALUES ($1, $2, $3) RETURNING ${COLUMNAS}`,
+      `INSERT INTO dashboard.usuarios (nombre_completo, correo, rol) VALUES ($1, $2, $3) RETURNING ${COLUMNAS}`,
       [usuario.nombreCompleto, usuario.correo, usuario.rol],
     );
     return aUsuario(resultado.rows[0]);
@@ -68,14 +68,14 @@ export class PostgresUsuariosRepository implements UsuariosRepositoryPort, OnMod
     const campos = Object.keys(cambios) as (keyof CambiosUsuario)[];
     const asignaciones = campos.map((campo, posicion) => `${COLUMNA_POR_CAMPO[campo]} = $${posicion + 2}`);
     const resultado = await this.pool.query<FilaUsuario>(
-      `UPDATE usuarios_dashboard SET ${asignaciones.join(', ')}, actualizado_en = now() WHERE id = $1 RETURNING ${COLUMNAS}`,
+      `UPDATE dashboard.usuarios SET ${asignaciones.join(', ')}, actualizado_en = now() WHERE id = $1 RETURNING ${COLUMNAS}`,
       [id, ...campos.map((campo) => cambios[campo])],
     );
     return aUsuario(resultado.rows[0]);
   }
 
   async eliminar(id: number): Promise<boolean> {
-    const resultado = await this.pool.query('DELETE FROM usuarios_dashboard WHERE id = $1', [id]);
+    const resultado = await this.pool.query('DELETE FROM dashboard.usuarios WHERE id = $1', [id]);
     return (resultado.rowCount ?? 0) > 0;
   }
 }

@@ -27,8 +27,11 @@ interface Origen {
   condicion?: string;
 }
 
+// Siniestros y conteos son solo del tablero y viven en el schema dashboard
+// reportes y activaciones son las tablas maestras del schema compartido que llena la app movil
 const SINIESTROS: Origen = {
-  tabla: 'siniestros s JOIN lugares l ON l.id = s.lugar_id JOIN localidades lo ON lo.id = l.localidad_id',
+  tabla:
+    'dashboard.siniestros s JOIN compartido.lugares l ON l.id = s.lugar_id JOIN compartido.localidades lo ON lo.id = l.localidad_id',
   fecha: 's.ocurrido_en',
   valor: 'count(*)',
   localidad: 'l.localidad_id',
@@ -36,7 +39,7 @@ const SINIESTROS: Origen = {
 };
 
 const USUARIOS: Origen = {
-  tabla: 'conteos_usuarios c',
+  tabla: 'dashboard.conteos_usuarios c',
   fecha: 'c.fecha',
   valor: 'sum(c.cantidad)',
   localidad: 'c.localidad_id',
@@ -45,7 +48,7 @@ const USUARIOS: Origen = {
 };
 
 const REPORTES: Origen = {
-  tabla: 'reportes r JOIN lugares l ON l.id = r.lugar_id',
+  tabla: 'compartido.reportes r JOIN compartido.lugares l ON l.id = r.lugar_id',
   fecha: 'r.creado_en',
   valor: 'count(*)',
   localidad: 'l.localidad_id',
@@ -54,7 +57,8 @@ const REPORTES: Origen = {
 const FALSOS_POSITIVOS: Origen = { ...REPORTES, condicion: 'r.motivo_falso_positivo IS NOT NULL' };
 
 const PANICO: Origen = {
-  tabla: 'activaciones_panico a JOIN lugares l ON l.id = a.lugar_id JOIN localidades lo ON lo.id = l.localidad_id',
+  tabla:
+    'compartido.activaciones_panico a JOIN compartido.lugares l ON l.id = a.lugar_id JOIN compartido.localidades lo ON lo.id = l.localidad_id',
   fecha: 'a.activado_en',
   valor: 'count(*)',
   localidad: 'l.localidad_id',
@@ -105,7 +109,7 @@ export class PostgresTableroRepository implements TableroRepositoryPort, OnModul
   }
 
   listarLocalidades(): Promise<Localidad[]> {
-    return this.consultar('SELECT id, nombre FROM localidades ORDER BY nombre', []);
+    return this.consultar('SELECT id, nombre FROM compartido.localidades ORDER BY nombre', []);
   }
 
   contarPorSemana(indicador: Indicador, filtros: FiltrosTablero): Promise<ConteoSemanal[]> {

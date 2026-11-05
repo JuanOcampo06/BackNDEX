@@ -17,7 +17,7 @@ interface FilaCiclovia {
 // Una via toca el area cuando su rectangulo se cruza con el rectangulo del mapa
 const CONSULTA_POR_AREA = `
   SELECT id, tipo, nombre, riesgo, nodos, coordenadas
-  FROM ciclovias
+  FROM compartido.ciclovias
   WHERE max_lat >= $1 AND min_lat <= $2 AND max_lon >= $3 AND min_lon <= $4
     AND ($5::text IS NULL OR tipo = $5)
   ORDER BY id`;
