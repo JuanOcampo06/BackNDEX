@@ -5,7 +5,7 @@ import { AppModule } from './app.module';
 import { configurarSwagger } from './swagger/configurar-swagger';
 
 const PREFIJO_API = 'api';
-const PUERTO_POR_DEFECTO = 3000;
+const PUERTO_POR_DEFECTO = 3001;
 
 async function bootstrap(): Promise<void> {
   // En local se lee .env; en Docker las variables llegan desde docker-compose.
@@ -16,7 +16,7 @@ async function bootstrap(): Promise<void> {
   app.setGlobalPrefix(PREFIJO_API);
   // Deja que el frontend llame a la api desde otro puerto
   // con CORS_ORIGIN se limita a una sola direccion y sin ella se acepta cualquiera
-  app.enableCors({ origin: process.env.CORS_ORIGIN ?? true });
+  app.enableCors({ origin: process.env.CORS_ORIGIN || true });
   // Va despues del prefijo para que Swagger muestre las rutas completas con /api
   configurarSwagger(app);
   await app.listen(Number(process.env.PORT ?? PUERTO_POR_DEFECTO));

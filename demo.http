@@ -1,5 +1,5 @@
-### Sirve igual para la ejecución local y para el contenedor (mismo puerto 3000).
-@base = http://localhost:3000/api
+### Sirve igual para la ejecución local y para el contenedor (mismo puerto 3001).
+@base = http://localhost:3001/api
 
 ### 1. Health
 GET {{base}}/health

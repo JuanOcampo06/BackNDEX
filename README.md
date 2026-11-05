@@ -45,7 +45,7 @@ cp .env.example .env        # macOS, Linux o Git Bash
 copy .env.example .env      # Windows (CMD o PowerShell)
 ```
 
-`.env` guarda la configuración de tu máquina y **no se sube al repositorio**. Los valores por defecto sirven tal cual: puerto `3000` para la API, `5432` para PostgreSQL y `8081` para Adminer, con usuario, contraseña y base `safepath`.
+`.env` guarda la configuración de tu máquina y **no se sube al repositorio**. Los valores por defecto sirven tal cual: puerto `3001` para la API, `5432` para PostgreSQL y `8081` para Adminer, con usuario, contraseña y base `safepath`.
 
 ### Opción A: con Docker (la más fácil)
 
@@ -85,16 +85,16 @@ Está listo cuando la consola muestra `Nest application successfully started`. D
 
 ### Comprobar que funciona
 
-Funciona igual con la opción A o la B (puerto 3000).
+Funciona igual con la opción A o la B (puerto 3001).
 
 ```bash
-curl http://localhost:3000/api/health
+curl http://localhost:3001/api/health
 ```
 
 Respuesta esperada: `{"status":"ok"}`
 
 ```bash
-curl.exe -X POST http://localhost:3000/api/dashboard/v1/auth/login -H "Content-Type: application/json" -d "{\`"email\`":\`"admin@demo.local\`",\`"password\`":\`"demo1234\`"}"
+curl.exe -X POST http://localhost:3001/api/dashboard/v1/auth/login -H "Content-Type: application/json" -d "{\`"email\`":\`"admin@demo.local\`",\`"password\`":\`"demo1234\`"}"
 ```
 
 Respuesta esperada:
@@ -106,7 +106,7 @@ Respuesta esperada:
 Con una contraseña errónea:
 
 ```bash
-curl.exe -X POST http://localhost:3000/api/dashboard/v1/auth/login -H "Content-Type: application/json" -d "{\`"email\`":\`"admin@demo.local\`",\`"password\`":\`"incorrecta\`"}"
+curl.exe -X POST http://localhost:3001/api/dashboard/v1/auth/login -H "Content-Type: application/json" -d "{\`"email\`":\`"admin@demo.local\`",\`"password\`":\`"incorrecta\`"}"
 ```
 
 Respuesta esperada (código `401`): `{"codigo":"CREDENCIALES_INVALIDAS","mensaje":"Correo o contraseña incorrectos"}`
@@ -114,14 +114,14 @@ Respuesta esperada (código `401`): `{"codigo":"CREDENCIALES_INVALIDAS","mensaje
 **Desde PowerShell** (allí `curl` es otro comando; usa `Invoke-RestMethod`):
 
 ```powershell
-Invoke-RestMethod http://localhost:3000/api/health
-Invoke-RestMethod -Method Post -Uri http://localhost:3000/api/dashboard/v1/auth/login -ContentType "application/json" -Body '{"email":"admin@demo.local","password":"demo1234"}'
+Invoke-RestMethod http://localhost:3001/api/health
+Invoke-RestMethod -Method Post -Uri http://localhost:3001/api/dashboard/v1/auth/login -ContentType "application/json" -Body '{"email":"admin@demo.local","password":"demo1234"}'
 ```
 
 Un endpoint del tablero:
 
 ```bash
-curl http://localhost:3000/api/dashboard/v1/tablero/tarjetas/siniestros
+curl http://localhost:3001/api/dashboard/v1/tablero/tarjetas/siniestros
 ```
 
 Respuesta esperada (los números cambian según la fecha en que se cargaron los datos):
@@ -130,7 +130,7 @@ Respuesta esperada (los números cambian según la fecha en que se cargaron los 
 {"valor":1119,"valor_periodo_anterior":1090,"variacion_porcentual":2.7,"serie_semanal":[{"semana":"2026-07-27","total":33}]}
 ```
 
-**Con Swagger (en el navegador)**: abre http://localhost:3000/api/docs. Ahí están los 30 endpoints agrupados en este orden: compartidos, dashboard y app móvil; en cada uno pulsa *Try it out* y luego *Execute*. Los parámetros y cuerpos ya traen ejemplos que funcionan con los datos de prueba. El documento en JSON (para importarlo en Postman o en el frontend) está en http://localhost:3000/api/docs-json.
+**Con Swagger (en el navegador)**: abre http://localhost:3001/api/docs. Ahí están los 30 endpoints agrupados en este orden: compartidos, dashboard y app móvil; en cada uno pulsa *Try it out* y luego *Execute*. Los parámetros y cuerpos ya traen ejemplos que funcionan con los datos de prueba. El documento en JSON (para importarlo en Postman o en el frontend) está en http://localhost:3001/api/docs-json.
 
 **Con `demo.http`**: ábrelo en VS Code con la extensión *REST Client* y pulsa *Send Request* sobre cada petición. Incluye todas las del tablero.
 
@@ -151,10 +151,10 @@ npm run test
 
 | Síntoma | Solución |
 |---|---|
-| `EADDRINUSE` o "port is already allocated" (puerto 3000 ocupado) | Cambia `PORT` en `.env` (por ejemplo `PORT=3001`), vuelve a arrancar y usa ese puerto en los `curl`. |
+| `EADDRINUSE` o "port is already allocated" (puerto 3001 ocupado) | Cambia `PORT` en `.env` (por ejemplo `PORT=3002`), vuelve a arrancar y usa ese puerto en los `curl`. |
 | `Cannot connect to the Docker daemon` o `failed to connect to the docker API` | Docker no está corriendo: abre Docker Desktop y espera a que inicie. |
 | `npm install` avisa `EBADENGINE` o la app no arranca | Node es muy viejo: `node -v` debe ser `v22` o más. Instala la versión LTS. |
-| Cambiaste `PORT` pero la API sigue en el 3000 | Falta `.env` (o editaste `.env.example`): créalo con `cp .env.example .env` (o `copy` en Windows) y cambia el puerto ahí. |
+| Cambiaste `PORT` pero la API sigue en el 3001 | Falta `.env` (o editaste `.env.example`): créalo con `cp .env.example .env` (o `copy` en Windows) y cambia el puerto ahí. |
 | Cambiaste código y en Docker no se ve | Reconstruye la imagen: `docker compose up -d --build`. |
 | "port is already allocated" en el `5432` o el `8081` | Ya tienes otro PostgreSQL o servicio en ese puerto: cambia `POSTGRES_PORT` o `ADMINER_PORT` en `.env` (y el puerto de `DATABASE_URL` si corres la API sin Docker). |
 | Los endpoints del tablero responden `500` | La API no llega a la base: revisa que `postgres` esté `(healthy)` en `docker compose ps` y, sin Docker, que `DATABASE_URL` en `.env` sea correcta. |
@@ -209,7 +209,7 @@ docker compose exec postgres psql -U safepath -d safepath -f /docker-entrypoint-
 
 ## 4. Endpoints del tablero
 
-Todos son `GET`, cuelgan de `http://localhost:3000/api/dashboard/v1/tablero` y responden JSON en `snake_case`. No piden token.
+Todos son `GET`, cuelgan de `http://localhost:3001/api/dashboard/v1/tablero` y responden JSON en `snake_case`. No piden token.
 
 **Filtros** (query string, todos opcionales; los mismos para cualquier endpoint):
 
@@ -245,7 +245,7 @@ La API acepta peticiones desde otro origen (CORS), así que el frontend puede ll
 
 ### Usuarios del dashboard
 
-Cuelgan de `http://localhost:3000/api/dashboard/v1/usuarios` y responden en `snake_case`. Todavía no piden token: los roles se harán cumplir cuando exista el login con JWT.
+Cuelgan de `http://localhost:3001/api/dashboard/v1/usuarios` y responden en `snake_case`. Todavía no piden token: los roles se harán cumplir cuando exista el login con JWT.
 
 | Método y ruta | Para qué | Datos que recibe |
 |---|---|---|
@@ -277,7 +277,7 @@ Un mismo caso de uso (`src/common/modules/ciclovias/`) con una puerta en cada BF
 - Esquinas fuera del planeta, mínimo mayor que el máximo o parámetros de más responden `400`.
 
 ```bash
-curl "http://localhost:3000/api/mobile/v1/ciclovias?minLat=4.66&minLon=-74.06&maxLat=4.68&maxLon=-74.04"
+curl "http://localhost:3001/api/mobile/v1/ciclovias?minLat=4.66&minLon=-74.06&maxLat=4.68&maxLon=-74.04"
 ```
 
 Respuesta (recortada):
@@ -300,7 +300,7 @@ Los datos son de © OpenStreetMap (licencia ODbL): el mapa debe mostrar ese cré
 
 ## 6. Endpoints de la app móvil
 
-Todos cuelgan de `http://localhost:3000/api/mobile/v1`, responden en `camelCase` y no piden token. Los datos de prueba traen los ciudadanos `1`, `2` y `3`.
+Todos cuelgan de `http://localhost:3001/api/mobile/v1`, responden en `camelCase` y no piden token. Los datos de prueba traen los ciudadanos `1`, `2` y `3`.
 
 | Método y ruta | Para qué | Datos que recibe |
 |---|---|---|
@@ -317,7 +317,7 @@ Categorías de reporte: `via_en_mal_estado`, `poca_iluminacion`, `obstaculo_en_c
 Errores: datos inválidos responden `400`; un ciudadano, reporte o activación que no existe responde `404` con `{"codigo":"..._NO_ENCONTRADO","mensaje":"..."}`; cancelar una activación que ya no está activa responde `400` con `SOS_INVALIDO`.
 
 ```bash
-curl -X POST http://localhost:3000/api/mobile/v1/reports -H "Content-Type: application/json" -d '{"usuarioId":1,"categoria":"via_en_mal_estado","descripcion":"Hueco","latitud":4.6486,"longitud":-74.0818}'
+curl -X POST http://localhost:3001/api/mobile/v1/reports -H "Content-Type: application/json" -d '{"usuarioId":1,"categoria":"via_en_mal_estado","descripcion":"Hueco","latitud":4.6486,"longitud":-74.0818}'
 ```
 
 ## 7. Diagrama

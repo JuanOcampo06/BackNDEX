@@ -5,13 +5,13 @@ services:
     build: .
     image: safe-path-twin-api:0.1.0
     environment:
-      PORT: ${PORT:-3000}
+      PORT: ${PORT:-3001}
       # Dentro de docker la api encuentra a la base por el nombre del servicio postgres
       DATABASE_URL: postgres://${POSTGRES_USER:-safepath}:${POSTGRES_PASSWORD:-safepath}@postgres:5432/${POSTGRES_DB:-safepath}
       # Vacio deja entrar a cualquier frontend y con una direccion solo deja entrar a esa
       CORS_ORIGIN: ${CORS_ORIGIN:-}
     ports:
-      - "${PORT:-3000}:${PORT:-3000}"
+      - "${PORT:-3001}:${PORT:-3001}"
     # La api espera a que la base de datos este lista antes de arrancar
     depends_on:
       postgres:
