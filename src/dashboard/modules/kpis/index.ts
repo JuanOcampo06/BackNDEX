@@ -1,7 +1,7 @@
 // Unica puerta del modulo y lo unico que el BFF puede importar de aqui
 export { KpisModule } from './kpis.module';
-export { FUENTES, TIPOS_VEHICULO } from './domain/catalogos';
-export type { Fuente, Indicador, TipoVehiculo } from './domain/catalogos';
+export { TIPOS_VEHICULO } from './domain/catalogos';
+export type { Indicador, TipoVehiculo } from './domain/catalogos';
 export { KPIS_EXPORTABLES } from './domain/kpis-exportables';
 export type { KpiExportable } from './domain/kpis-exportables';
 export { Periodo } from './domain/periodo';

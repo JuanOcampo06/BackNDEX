@@ -107,7 +107,6 @@ describe('ExportarKpisUseCase', () => {
       ['Mes hasta', '2026-10'],
       ['Localidad', 'Engativa'],
       ['Tipo de vehículo', 'Bicicleta electrica'],
-      ['Fuente', 'Todas'],
     ]);
   });
 
@@ -116,14 +115,13 @@ describe('ExportarKpisUseCase', () => {
 
     await new ExportarKpisUseCase(crearCasos(), generador).execute({
       kpis: ['tarjeta_siniestros'],
-      filtros: { ...filtros, localidadId: [4, 9], tipoVehiculo: ['bicicleta', 'patineta'], fuente: ['app'] },
+      filtros: { ...filtros, localidadId: [4, 9], tipoVehiculo: ['bicicleta', 'patineta'] },
     });
 
     const [hojaFiltros] = generador.libro?.hojas ?? [];
     expect(hojaFiltros.secciones[0].filas.slice(2)).toEqual([
       ['Localidad', 'Engativa, Id 9'],
       ['Tipo de vehículo', 'Bicicleta, Patineta'],
-      ['Fuente', 'App'],
     ]);
   });
 

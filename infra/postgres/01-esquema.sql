@@ -22,16 +22,18 @@ CREATE TABLE movil.usuarios (
 -- ============================== compartido ==============================
 
 -- Localidades de la ciudad que aparecen en el filtro Localidad
+-- el id es el codigo oficial de cada localidad de Bogota
 CREATE TABLE compartido.localidades (
-  id serial PRIMARY KEY,
+  id int PRIMARY KEY,
   nombre text NOT NULL UNIQUE
 );
 
--- Intersecciones o puntos conocidos de referencia para ubicar los eventos
+-- Direcciones del anuario de siniestralidad que sirven de referencia para ubicar los eventos
+-- la localidad puede faltar porque el anuario no la trae en todos los siniestros
 CREATE TABLE compartido.lugares (
   id serial PRIMARY KEY,
   nombre text NOT NULL UNIQUE,
-  localidad_id int NOT NULL REFERENCES compartido.localidades (id),
+  localidad_id int REFERENCES compartido.localidades (id),
   latitud double precision NOT NULL,
   longitud double precision NOT NULL
 );
@@ -72,29 +74,39 @@ CREATE TABLE compartido.activaciones_panico (
 
 -- ============================== dashboard ==============================
 
--- Siniestros viales que reporta la secretaria de movilidad
--- sexo y edad solo existen cuando hubo heridos o muertos
+-- Siniestros viales del anuario de siniestralidad de la secretaria de movilidad
+-- el id es el codigo del siniestro en el anuario y la localidad puede faltar porque el anuario no siempre la trae
+-- tipo_vehiculo es bicicleta cuando en el siniestro hubo una bicicleta y otro en los demas casos
 CREATE TABLE dashboard.siniestros (
-  id serial PRIMARY KEY,
+  id bigint PRIMARY KEY,
   ocurrido_en timestamp NOT NULL,
   lugar_id int NOT NULL REFERENCES compartido.lugares (id),
+  localidad_id int REFERENCES compartido.localidades (id),
   latitud double precision NOT NULL,
   longitud double precision NOT NULL,
   gravedad text NOT NULL CHECK (gravedad IN ('con_muertos', 'con_heridos', 'solo_danos')),
   clase text NOT NULL CHECK (clase IN ('choque', 'atropello', 'caida', 'volcamiento', 'otro')),
-  tipo_vehiculo text NOT NULL CHECK (tipo_vehiculo IN ('bicicleta', 'bicicleta_electrica', 'patineta_electrica', 'patineta', 'otro')),
+  tipo_vehiculo text NOT NULL CHECK (tipo_vehiculo IN ('bicicleta', 'bicicleta_electrica', 'patineta_electrica', 'patineta', 'otro'))
+);
+
+-- Personas que estuvieron en cada siniestro del anuario con su sexo edad y gravedad
+-- el anuario no trae sexo o edad de algunas personas y por eso pueden faltar
+CREATE TABLE dashboard.actores_viales (
+  id bigint PRIMARY KEY,
+  siniestro_id bigint NOT NULL REFERENCES dashboard.siniestros (id),
+  condicion text NOT NULL CHECK (condicion IN ('conductor', 'motociclista', 'ciclista', 'pasajero', 'peaton')),
+  gravedad text CHECK (gravedad IN ('ileso', 'herido', 'muerto')),
   sexo text CHECK (sexo IN ('mujer', 'hombre')),
   edad int CHECK (edad BETWEEN 0 AND 110)
 );
 
--- Conteo diario de usuarios de micromovilidad por localidad tipo de vehiculo y fuente
--- la app movil es la unica fuente de conteo y por eso la columna solo acepta app
+-- Conteo diario de usuarios de micromovilidad por localidad y tipo de vehiculo
+-- queda vacia hasta que la app movil empiece a contar usuarios
 CREATE TABLE dashboard.conteos_usuarios (
   id serial PRIMARY KEY,
   fecha date NOT NULL,
   localidad_id int NOT NULL REFERENCES compartido.localidades (id),
   tipo_vehiculo text NOT NULL CHECK (tipo_vehiculo IN ('bicicleta', 'bicicleta_electrica', 'patineta_electrica', 'patineta', 'otro')),
-  fuente text NOT NULL DEFAULT 'app' CHECK (fuente = 'app'),
   cantidad int NOT NULL CHECK (cantidad >= 0)
 );
 
@@ -117,6 +129,9 @@ CREATE INDEX reportes_creado_en_idx ON compartido.reportes (creado_en);
 CREATE INDEX activaciones_panico_activado_en_idx ON compartido.activaciones_panico (activado_en);
 CREATE INDEX siniestros_ocurrido_en_idx ON dashboard.siniestros (ocurrido_en);
 CREATE INDEX conteos_usuarios_fecha_idx ON dashboard.conteos_usuarios (fecha);
+
+-- Por siniestro porque la grafica de sexo y edad une cada siniestro con sus personas
+CREATE INDEX actores_viales_siniestro_id_idx ON dashboard.actores_viales (siniestro_id);
 
 -- Por ciudadano porque la app lista los reportes y activaciones de un usuario
 CREATE INDEX reportes_usuario_id_idx ON compartido.reportes (usuario_id);

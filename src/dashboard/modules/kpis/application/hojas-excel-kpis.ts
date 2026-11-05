@@ -266,7 +266,6 @@ export function hojaDeFiltros(
           ['Mes hasta', meses[meses.length - 1]],
           ['Localidad', valoresOTodos(filtros.localidadId?.map(nombreDeLocalidad), 'Todas')],
           ['Tipo de vehículo', valoresOTodos(filtros.tipoVehiculo?.map((tipo) => etiqueta(tipo)), 'Todos')],
-          ['Fuente', valoresOTodos(filtros.fuente?.map((fuente) => etiqueta(fuente)), 'Todas')],
         ],
       },
       { titulo: 'Hojas incluidas', columnas: ['Hoja'], filas: hojas.map((hoja) => [hoja.nombre]) },

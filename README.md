@@ -58,7 +58,7 @@ docker compose logs -f api       # ver los logs (Ctrl + C para salir)
 docker compose down              # apagarlo cuando termines (los datos se conservan)
 ```
 
-La primera vez, PostgreSQL crea las tablas y carga los datos de prueba solo (scripts de `infra/postgres/`).
+La primera vez, PostgreSQL crea las tablas y carga solo los datos del **Anuario de Siniestralidad Vial 2025** y los usuarios del dashboard (scripts de `infra/postgres/`).
 
 ### Opción B: sin Docker para la API
 
@@ -75,7 +75,7 @@ Si prefieres tu propio PostgreSQL instalado, crea la base y carga los scripts (a
 ```bash
 psql -U postgres -c "CREATE USER safepath PASSWORD 'safepath'" -c "CREATE DATABASE safepath OWNER safepath"
 psql -U safepath -d safepath -f infra/postgres/01-esquema.sql
-psql -U safepath -d safepath -f infra/postgres/02-datos.sql
+psql -U safepath -d safepath -v carpeta=infra/postgres -f infra/postgres/02-datos.sql
 psql -U safepath -d safepath -v carpeta=infra/postgres -f infra/postgres/03-ciclovias.sql
 npm install
 npm run start:dev
@@ -121,16 +121,16 @@ Invoke-RestMethod -Method Post -Uri http://localhost:3001/api/dashboard/v1/auth/
 Un endpoint del tablero:
 
 ```bash
-curl http://localhost:3001/api/dashboard/v1/tablero/tarjetas/siniestros
+curl "http://localhost:3001/api/dashboard/v1/tablero/tarjetas/siniestros?mes_desde=2025-10&mes_hasta=2025-12"
 ```
 
-Respuesta esperada (los números cambian según la fecha en que se cargaron los datos):
+Respuesta esperada (siniestros del último trimestre del anuario 2025 comparados con el trimestre anterior; la serie semanal viene recortada):
 
 ```json
-{"valor":1119,"valor_periodo_anterior":1090,"variacion_porcentual":2.7,"serie_semanal":[{"semana":"2026-07-27","total":33}]}
+{"valor":2832,"valor_periodo_anterior":2958,"variacion_porcentual":-4.3,"serie_semanal":[{"semana":"2025-09-29","total":169}]}
 ```
 
-**Con Swagger (en el navegador)**: abre http://localhost:3001/api/docs. Ahí están los 31 endpoints agrupados en este orden: compartidos, dashboard y app móvil; en cada uno pulsa *Try it out* y luego *Execute*. Los parámetros y cuerpos ya traen ejemplos que funcionan con los datos de prueba. El documento en JSON (para importarlo en Postman o en el frontend) está en http://localhost:3001/api/docs-json.
+**Con Swagger (en el navegador)**: abre http://localhost:3001/api/docs. Ahí están los 31 endpoints agrupados en este orden: compartidos, dashboard y app móvil; en cada uno pulsa *Try it out* y luego *Execute*. Los parámetros y cuerpos ya traen ejemplos; para ver cifras del anuario en el tablero usa `mes_desde=2025-01` y `mes_hasta=2025-12`. El documento en JSON (para importarlo en Postman o en el frontend) está en http://localhost:3001/api/docs-json.
 
 **Con `demo.http`**: ábrelo en VS Code con la extensión *REST Client* y pulsa *Send Request* sobre cada petición. Incluye todas las del tablero.
 
@@ -187,7 +187,8 @@ Es **una sola base** (`safepath`) dividida en **tres esquemas** según quién us
    │ reportes  activaciones_panico  localidades  lugares  ciclovias │
    └─────────────────────────────────────────────────────────────┘
         movil (solo la app)                 dashboard (solo el tablero)
-        usuarios (ciudadanos)               usuarios, siniestros, conteos_usuarios
+        usuarios (ciudadanos)               usuarios, siniestros, actores_viales,
+                                            conteos_usuarios
 ```
 
 **`compartido`**: lo que usan los dos productos.
@@ -196,8 +197,8 @@ Es **una sola base** (`safepath`) dividida en **tres esquemas** según quién us
 |---|---|
 | `compartido.reportes` | **Tabla maestra** de reportes ciudadanos: la app los crea y el dashboard los lee. Autor (`usuario_id` → `movil.usuarios`), lugar, categoría, descripción, coordenadas, `estado` (`recibido`, `en_revision`, `resuelto`, `descartado`) y fecha. Un reporte `descartado` es un **falso positivo** y siempre lleva su `motivo_falso_positivo`: la base no acepta uno sin el otro. |
 | `compartido.activaciones_panico` | **Tabla maestra** del botón de pánico: la app las crea y el dashboard las lee. Autor, lugar, coordenadas, `estado` (`activa`, `atendida`, `cancelada`) y fecha. |
-| `compartido.localidades` | Localidades del filtro *Localidad*. |
-| `compartido.lugares` | Intersecciones conocidas, con su localidad y coordenadas. Sirven para ubicar reportes, activaciones y siniestros. |
+| `compartido.localidades` | Las 20 localidades de Bogotá del filtro *Localidad*. El `id` es el código oficial (1 Usaquén … 8 Kennedy … 20 Sumapaz). |
+| `compartido.lugares` | Las 8.608 direcciones del anuario, con su localidad y el punto medio de sus siniestros. Sirven para ubicar siniestros, reportes y activaciones. |
 | `compartido.ciclovias_fuente` | El JSON de OpenStreetMap completo, tal cual, con su fecha de corte. |
 | `compartido.ciclovias` | Una fila por vía (2.448): `tipo` (`ciclovia` o `cruce`), nombre, etiquetas de OpenStreetMap, nodos, coordenadas, `riesgo` (vacío hasta calcularlo) y el rectángulo que la contiene (`min_lat`, `min_lon`, `max_lat`, `max_lon`). |
 
@@ -206,14 +207,15 @@ Es **una sola base** (`safepath`) dividida en **tres esquemas** según quién us
 | Tabla | Qué guarda |
 |---|---|
 | `dashboard.usuarios` | Usuarios del dashboard: nombre, correo (único, en minúsculas) y `rol` (`admin` administra usuarios, `lector` solo consulta). No guarda contraseña todavía: llegará con el login real. |
-| `dashboard.siniestros` | Siniestros de la secretaría de movilidad: fecha y hora, lugar, coordenadas, gravedad, clase, tipo de vehículo y, si hubo víctimas, sexo y edad. |
-| `dashboard.conteos_usuarios` | Usuarios de micromovilidad por día, localidad, tipo de vehículo y fuente. La única fuente es `app` (la base rechaza cualquier otra). |
+| `dashboard.siniestros` | Los 11.573 siniestros del anuario 2025: código del anuario como `id`, fecha y hora, lugar (dirección), localidad, coordenadas, gravedad, clase y tipo de vehículo. |
+| `dashboard.actores_viales` | Las 28.029 personas de esos siniestros: condición (`conductor`, `motociclista`, `ciclista`, `pasajero`, `peaton`), gravedad (`ileso`, `herido`, `muerto`), sexo y edad. |
+| `dashboard.conteos_usuarios` | Usuarios de micromovilidad por día, localidad y tipo de vehículo. **Vacía** hasta que la app empiece a contarlos. |
 
 **`movil`**: solo de la app.
 
 | Tabla | Qué guarda |
 |---|---|
-| `movil.usuarios` | Ciudadanos de la app (nombre, correo único y teléfono). Son los autores de los reportes y activaciones: la base no deja borrar uno que tenga registros. |
+| `movil.usuarios` | Ciudadanos de la app (nombre, correo único y teléfono). Son los autores de los reportes y activaciones: la base no deja borrar uno que tenga registros. **Vacía**: no hay ciudadanos de prueba. |
 
 **Cómo se ubica un evento de la app.** La app solo manda latitud y longitud. Al guardar, la base le asigna el **lugar conocido más cercano** (función `compartido.lugar_mas_cercano`), y ese lugar trae su localidad. Así el dashboard puede filtrar por localidad y agrupar el botón de pánico por ubicación.
 
@@ -222,7 +224,21 @@ Cada producto lee y escribe con sus propios adaptadores (`infrastructure/`); nin
 Los scripts están en `infra/postgres/` y solo se ejecutan cuando el volumen está vacío:
 
 - **`01-esquema.sql`** crea los tres esquemas, sus tablas, restricciones e índices.
-- **`02-datos.sql`** genera unos 20 meses de datos de prueba (desde el 1 de enero del año pasado hasta el día en que se crea la base). Primero van los 3 ciudadanos, 5 reportes y 3 activaciones de ejemplo de la app (ids 1 a 3, 1 a 5 y 1 a 3), luego 300 ciudadanos de prueba con su historial, los siniestros, los conteos y los 3 usuarios del dashboard.
+- **`02-datos.sql`** carga las 20 localidades y el **Anuario de Siniestralidad Vial 2025** desde `datos/anuario-siniestros.csv` y `datos/anuario-actores-viales.csv`, y crea los 3 usuarios del dashboard (los únicos datos de prueba, para el login). No hay datos inventados: **reportes, botón de pánico, falsos positivos, conteos de usuarios y ciudadanos de la app quedan en cero** hasta que existan datos reales.
+
+**Datos del anuario.** Los dos CSV son las columnas que usa la base, copiadas tal cual del Excel del anuario (hojas *Siniestros* y *Actor vial*); `02-datos.sql` hace la conversión:
+
+| Anuario | Base |
+|---|---|
+| `Codigo_Siniestro`, `Fecha_Siniestro` + `Hora_Siniestro` + `Min_Siniestro` | `siniestros.id`, `ocurrido_en` |
+| `Localidad` (`KENNEDY`, `ENGATIVÁ`…) | `localidad_id` con el código oficial (un siniestro del anuario no trae localidad y sale como *Sin localidad*) |
+| `Latitud`, `Longitud` con coma decimal | `latitud`, `longitud` |
+| `Gravedad_indicador_30d`: `Con Muertos`, `Con Heridos` | `gravedad`: `con_muertos`, `con_heridos` |
+| `Clase_Siniestro`: `Choque`, `Atropello`, `Caida de ocupante`, `Volcamiento`, `Otro` | `clase`: `choque`, `atropello`, `caida`, `volcamiento`, `otro` |
+| `Con_Bicicleta` = `SI` | `tipo_vehiculo` = `bicicleta`; los demás quedan en `otro` (el anuario no distingue bicicleta eléctrica ni patinetas, así que esos tipos dan cero) |
+| *Actor vial*: `Condicion`, `Gravedad_Indicador_30d`, `Sexo`, `Edad` | `actores_viales`; la gráfica de sexo y edad cuenta los heridos y muertos que traen sexo y edad |
+
+Para cargar un anuario nuevo, exporta esas mismas columnas a los dos CSV y vuelve a crear la base (`docker compose down -v`).
 - **`03-ciclovias.sql`** carga `datos/ciclovias-osm.json`.
 
 Para **borrar todo y volver a cargarlo**: `docker compose down -v` y luego `docker compose up -d`.
@@ -241,28 +257,27 @@ Todos son `GET`, cuelgan de `http://localhost:3001/api/dashboard/v1/tablero` y r
 
 | Parámetro | Ejemplo | Qué hace |
 |---|---|---|
-| `mes_desde`, `mes_hasta` | `2026-08`, `2026-10` | Rango de meses (formato `AAAA-MM`). Sin ellos: los últimos 3 meses hasta el mes actual. |
-| `localidad_id` | `4` o `4,6` | Una o varias localidades (los ids salen de `/filtros`). |
+| `mes_desde`, `mes_hasta` | `2025-01`, `2025-12` | Rango de meses (formato `AAAA-MM`). Sin ellos: los últimos 3 meses hasta el mes actual. **El anuario solo trae 2025**, así que para ver cifras hay que pedir meses de 2025. |
+| `localidad_id` | `8` o `8,10` | Una o varias localidades (los ids salen de `/filtros`). |
 | `tipo_vehiculo` | `bicicleta` o `bicicleta,patineta` | Uno o varios de: `bicicleta`, `bicicleta_electrica`, `patineta_electrica`, `patineta`, `otro`. Aplica a siniestros y usuarios. |
-| `fuente` | `app` | Una o varias de: `app`, `camaras`. Aplica solo a usuarios. Hoy los conteos solo tienen la fuente `app`, así que `camaras` devuelve ceros. |
 
-**Varios valores en un filtro.** `localidad_id`, `tipo_vehiculo` y `fuente` aceptan uno o varios valores, repetidos o separados por comas (también se pueden mezclar):
+**Varios valores en un filtro.** `localidad_id` y `tipo_vehiculo` aceptan uno o varios valores, repetidos o separados por comas (también se pueden mezclar):
 
 ```
-?tipo_vehiculo=bicicleta&tipo_vehiculo=patineta&localidad_id=4,6
+?tipo_vehiculo=bicicleta&tipo_vehiculo=patineta&localidad_id=8,10
 ```
 
 - Dentro de un filtro los valores se suman (**o**): `bicicleta,patineta` trae siniestros de bicicleta **o** de patineta.
-- Entre filtros distintos se combinan (**y**): el ejemplo trae los de las localidades 4 **o** 6, y de esas, los de bicicleta **o** patineta.
+- Entre filtros distintos se combinan (**y**): el ejemplo trae los de las localidades 8 **o** 10, y de esas, los de bicicleta **o** patineta.
 - Un solo valor funciona igual que siempre.
-- Los **meses** son un rango continuo (`mes_desde` a `mes_hasta`): para ver dos meses seguidos, `mes_desde=2026-08&mes_hasta=2026-09`.
+- Los **meses** son un rango continuo (`mes_desde` a `mes_hasta`): para ver dos meses seguidos, `mes_desde=2025-08&mes_hasta=2025-09`.
 - Los mismos filtros sirven en `/tablero/exportar`, donde la hoja *Filtros aplicados* los muestra separados por coma.
 
 Un filtro mal escrito responde `400` con el motivo, y basta con que **uno** de los valores de la lista sea inválido.
 
 | Parte del mockup | Endpoint | Qué devuelve |
 |---|---|---|
-| Selectores de filtros | `/filtros` | `localidades` (`id`, `nombre`), `tipos_vehiculo`, `fuentes` |
+| Selectores de filtros | `/filtros` | `localidades` (`id`, `nombre`) y `tipos_vehiculo` |
 | Tarjeta Siniestros | `/tarjetas/siniestros` | `valor`, `valor_periodo_anterior`, `variacion_porcentual`, `serie_semanal` (para la minigráfica) |
 | Tarjeta Usuarios de micromovilidad | `/tarjetas/usuarios` | igual que la anterior |
 | Tarjeta Reportes | `/tarjetas/reportes` | igual que la anterior |
@@ -273,7 +288,7 @@ Un filtro mal escrito responde `400` con el motivo, y basta con que **uno** de l
 | Siniestros por hora del día | `/siniestros-por-hora` | 24 barras: `hora`, `franja`, `total` |
 | Tendencia mensual | `/tendencia-mensual` | `anio_actual`, `anio_anterior`, `meses_filtrados` y 12 `meses` con `total_anio_actual` y `total_anio_anterior` (`null` si el mes aún no tiene datos) |
 | Siniestros por sexo y edad | `/siniestros-por-sexo-y-edad` | `total_mujer`, `total_hombre` y `rangos` (`0-17` … `60+`) con `mujer` y `hombre` |
-| Usuarios por tipo | `/usuarios-por-tipo?fuente=app` | `total` y `tipos` (`tipo_vehiculo`, `total`) |
+| Usuarios por tipo | `/usuarios-por-tipo` | `total` y `tipos` (`tipo_vehiculo`, `total`) |
 | Botón de pánico | `/boton-panico` | `total`, `lugares` (círculos del mapa con coordenadas y `total`) y `top_ubicaciones` (las 5 primeras) |
 | Reportes | `/reportes` | `total`, `puntos` (mapa) y `por_categoria` |
 | Falsos positivos | `/falsos-positivos` | `total`, `porcentaje_de_reportes`, `por_motivo` (`motivo`, `total`, `porcentaje`) y `evolucion_mensual` (12 meses) |
@@ -283,7 +298,7 @@ La API acepta peticiones desde otro origen (CORS), así que el frontend puede ll
 
 ### Exportar KPIs a Excel (botón *Exportar*)
 
-`GET /api/dashboard/v1/tablero/exportar` descarga un archivo `.xlsx` con los KPIs que el usuario elija. Usa los **mismos filtros** que el resto del tablero (`mes_desde`, `mes_hasta`, `localidad_id`, `tipo_vehiculo`, `fuente`) y los mismos casos de uso, así que las cifras del Excel son exactamente las de la pantalla.
+`GET /api/dashboard/v1/tablero/exportar` descarga un archivo `.xlsx` con los KPIs que el usuario elija. Usa los **mismos filtros** que el resto del tablero (`mes_desde`, `mes_hasta`, `localidad_id`, `tipo_vehiculo`) y los mismos casos de uso, así que las cifras del Excel son exactamente las de la pantalla.
 
 El parámetro `kpis` es obligatorio y se puede mandar repetido (`?kpis=a&kpis=b`) o separado por comas (`?kpis=a,b`):
 
@@ -304,10 +319,10 @@ El parámetro `kpis` es obligatorio y se puede mandar repetido (`?kpis=a&kpis=b`
 | `reportes` | Reportes | Total, por categoría y cada reporte del mapa |
 | `falsos_positivos` | Falsos positivos | Total, por motivo y evolución mensual |
 
-El archivo siempre trae una primera hoja **Filtros aplicados** (período, localidad, vehículo y fuente usados, y las hojas incluidas), y después una hoja por KPI, en el orden de la tabla anterior aunque se pidan desordenados. Se llama `kpis_<mes desde>_<mes hasta>.xlsx`.
+El archivo siempre trae una primera hoja **Filtros aplicados** (período, localidad y vehículo usados, y las hojas incluidas), y después una hoja por KPI, en el orden de la tabla anterior aunque se pidan desordenados. Se llama `kpis_<mes desde>_<mes hasta>.xlsx`.
 
 ```bash
-curl -o kpis.xlsx "http://localhost:3001/api/dashboard/v1/tablero/exportar?kpis=tarjeta_siniestros&kpis=siniestros_por_hora&mes_desde=2026-08&mes_hasta=2026-10"
+curl -o kpis.xlsx "http://localhost:3001/api/dashboard/v1/tablero/exportar?kpis=tarjeta_siniestros&kpis=siniestros_por_hora&mes_desde=2025-08&mes_hasta=2025-10"
 ```
 
 Errores (`400`): falta `kpis`, algún KPI no existe, un filtro es inválido o el rango de meses está al revés. La API expone la cabecera `Content-Disposition` por CORS, así que el frontend puede leer el nombre del archivo; si hace `fetch`, recibe el archivo con `respuesta.blob()`. En Swagger el resultado aparece como un enlace *Download file*.
@@ -363,7 +378,7 @@ Los datos son de © OpenStreetMap (licencia ODbL): el mapa debe mostrar ese cré
 
 ## 6. Endpoints de la app móvil
 
-Todos cuelgan de `http://localhost:3001/api/mobile/v1`, responden en `camelCase` y no piden token. Los reportes y activaciones se guardan en las tablas maestras del esquema `compartido`, así que **aparecen de inmediato en las gráficas del dashboard**. Los datos de prueba traen los ciudadanos de ejemplo `1`, `2` y `3` (más 300 de prueba), y la activación `3` está `activa` para probar la cancelación.
+Todos cuelgan de `http://localhost:3001/api/mobile/v1`, responden en `camelCase` y no piden token. Los reportes y activaciones se guardan en las tablas maestras del esquema `compartido`, así que **aparecen de inmediato en las gráficas del dashboard**. **No hay ciudadanos de prueba**: `movil.usuarios` empieza vacía, así que crear un reporte o una activación responde `404` (`USUARIO_NO_ENCONTRADO`) hasta que existan ciudadanos reales.
 
 | Método y ruta | Para qué | Datos que recibe |
 |---|---|---|

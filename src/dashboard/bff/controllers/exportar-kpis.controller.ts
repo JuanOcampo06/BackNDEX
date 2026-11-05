@@ -33,7 +33,6 @@ export class ExportarKpisController {
         periodo: Periodo.desdeFiltro(new Date(), consulta.mes_desde, consulta.mes_hasta),
         localidadId: consulta.localidad_id,
         tipoVehiculo: consulta.tipo_vehiculo,
-        fuente: consulta.fuente,
       },
     });
     return new StreamableFile(archivo.contenido, {

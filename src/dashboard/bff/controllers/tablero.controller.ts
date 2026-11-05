@@ -43,10 +43,10 @@ export class TableroController {
     private readonly obtenerFalsosPositivos: ObtenerFalsosPositivosUseCase,
   ) {}
 
-  // Opciones de los selectores Localidad Vehiculo y Fuente
+  // Opciones de los selectores Localidad y Vehiculo
   @Get('filtros')
-  @ApiOperation({ summary: 'Opciones de los filtros Localidad Vehiculo y Fuente' })
-  @ApiOkResponse({ description: 'Responde localidades tipos_vehiculo y fuentes' })
+  @ApiOperation({ summary: 'Opciones de los filtros Localidad y Vehiculo' })
+  @ApiOkResponse({ description: 'Responde localidades y tipos_vehiculo' })
   async filtros(): Promise<unknown> {
     return aSnakeCase(await this.obtenerFiltros.execute());
   }
@@ -125,7 +125,7 @@ export class TableroController {
 
   @Get('usuarios-por-tipo')
   @ApiOperation({ summary: 'Usuarios de micromovilidad por tipo de vehiculo' })
-  @ApiOkResponse({ description: 'Responde total y tipos y el filtro fuente es el selector Camaras o App' })
+  @ApiOkResponse({ description: 'Responde total y tipos de los usuarios que cuenta la app movil' })
   async usuariosPorTipo(@Query(validarFiltros) consulta: TableroQuery): Promise<unknown> {
     return aSnakeCase(await this.obtenerUsuariosPorTipo.execute(aFiltros(consulta)));
   }
@@ -163,7 +163,6 @@ function aFiltros(consulta: TableroQuery): FiltrosTablero {
       periodo: Periodo.desdeFiltro(new Date(), consulta.mes_desde, consulta.mes_hasta),
       localidadId: consulta.localidad_id,
       tipoVehiculo: consulta.tipo_vehiculo,
-      fuente: consulta.fuente,
     };
   } catch (error) {
     if (error instanceof DomainError) {

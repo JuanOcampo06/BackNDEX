@@ -17,7 +17,7 @@ Toda carpeta vacía lleva un `.gitkeep` para que Git la conserve.
 ├── nest-cli.json                      [CONFIG]          Configuración del CLI de NestJS.
 ├── eslint.config.mjs                  [CONFIG]          Lint + eslint-plugin-boundaries con las reglas de dependencia.
 ├── Dockerfile                         [CONFIG]          Imagen única multietapa, USER node y HEALTHCHECK.
-├── docker-compose.yml                 [CONFIG]          Servicios api, postgres (con datos de prueba) y adminer (puerto 8081); mongo, redis y rabbitmq comentados.
+├── docker-compose.yml                 [CONFIG]          Servicios api, postgres (con el anuario 2025) y adminer (puerto 8081); mongo, redis y rabbitmq comentados.
 ├── .dockerignore                      [CONFIG]          Lo que no entra a la imagen (node_modules, dist, .env...).
 ├── .env.example                       [CONFIG]          Plantilla de variables (puertos, PostgreSQL, DATABASE_URL, CORS_ORIGIN); se copia a .env.
 ├── .env                               [CONFIG]          Tu configuración local; no se versiona.
@@ -26,9 +26,11 @@ Toda carpeta vacía lleva un `.gitkeep` para que Git la conserve.
 ├── infra/                             [IMPLEMENTADO]    Despliegue adicional.
 │   ├── postgres/                      [IMPLEMENTADO]    Scripts que PostgreSQL ejecuta al crear la base por primera vez.
 │   │   ├── 01-esquema.sql             [IMPLEMENTADO]    Esquemas compartido, dashboard y movil con sus tablas, restricciones e índices.
-│   │   ├── 02-datos.sql               [IMPLEMENTADO]    Datos de prueba: ejemplos de la app, 300 ciudadanos con su historial, siniestros, conteos y usuarios del dashboard.
+│   │   ├── 02-datos.sql               [IMPLEMENTADO]    Localidades, anuario de siniestralidad 2025 (lugares, siniestros y actores viales) y usuarios del dashboard; lo demás queda vacío.
 │   │   ├── 03-ciclovias.sql           [IMPLEMENTADO]    Crea compartido.ciclovias_fuente y compartido.ciclovias y carga el JSON; se puede volver a correr.
 │   │   └── datos/
+│   │       ├── anuario-siniestros.csv [IMPLEMENTADO]    Hoja Siniestros del anuario 2025 (11.573 filas, solo las columnas que usa la base).
+│   │       ├── anuario-actores-viales.csv [IMPLEMENTADO] Hoja Actor vial del anuario 2025 (28.029 filas).
 │   │       └── ciclovias-osm.json     [IMPLEMENTADO]    Export de OpenStreetMap (Overpass) con las 2.448 vías de ciclovía.
 │   ├── docker/                        [VACÍO - FUTURO]  Compose de QA y producción (+ README.md de 2 líneas).
 │   └── nginx/                         [VACÍO - FUTURO]  Proxy inverso (+ README.md de 2 líneas).
@@ -80,7 +82,7 @@ Toda carpeta vacía lleva un `.gitkeep` para que Git la conserve.
     │   │   │   └── usuarios.controller.ts [IMPLEMENTADO] GET, POST, PATCH y DELETE de usuarios del dashboard.
     │   │   └── dto/
     │   │       ├── login.request.ts   [IMPLEMENTADO]    email válido y password no vacía.
-    │   │       ├── tablero.query.ts   [IMPLEMENTADO]    Filtros opcionales: mes_desde, mes_hasta y listas de localidad_id, tipo_vehiculo y fuente.
+    │   │       ├── tablero.query.ts   [IMPLEMENTADO]    Filtros opcionales: mes_desde, mes_hasta y listas de localidad_id y tipo_vehiculo.
     │   │       ├── exportar-kpis.query.ts [IMPLEMENTADO] Esos mismos filtros más la lista de KPIs a exportar.
     │   │       ├── ciclovias.query.ts [IMPLEMENTADO]    min_lat, min_lon, max_lat, max_lon y tipo opcional.
     │   │       ├── crear-usuario.request.ts / actualizar-usuario.request.ts [IMPLEMENTADO] Cuerpos de POST y PATCH.
@@ -113,7 +115,7 @@ Toda carpeta vacía lleva un `.gitkeep` para que Git la conserve.
     │           │   ├── kpis-exportables.ts [IMPLEMENTADO] Catálogo de KPIs exportables y validación de la selección.
     │           │   ├── kpis-exportables.spec.ts [IMPLEMENTADO] Prueba unitaria de la selección.
     │           │   ├── filtros-tablero.ts [IMPLEMENTADO] Forma de los filtros del tablero.
-    │           │   ├── catalogos.ts   [IMPLEMENTADO]    Tipos de vehículo, fuentes e indicadores.
+    │           │   ├── catalogos.ts   [IMPLEMENTADO]    Tipos de vehículo e indicadores.
     │           │   └── calculos.ts    [IMPLEMENTADO]    Porcentajes, variación, franjas horarias y rangos de edad.
     │           ├── application/
     │           │   ├── tablero.repository.port.ts [IMPLEMENTADO] Puerto y token TABLERO_REPOSITORY.

@@ -54,7 +54,7 @@ src/
         <modulo>.module.ts  index.ts
 
 infra/                         despliegue adicional
-  postgres/                    scripts que crean y llenan la base la primera vez (+ datos/ con el JSON de ciclovías)
+  postgres/                    scripts que crean y llenan la base la primera vez (+ datos/ con el anuario en CSV y el JSON de ciclovías)
   docker/                      otros compose (QA, producción) (futuro)
   nginx/
 test/                          pruebas e2e
@@ -94,7 +94,9 @@ La excepción son los **datos de consulta que leen los dos** (por ejemplo, las c
 Una sola base PostgreSQL (`safepath`) con tres esquemas, según quién usa cada tabla:
 
 - `compartido`: lo que usan los dos productos. Aquí están las **tablas maestras** `reportes` y `activaciones_panico`: la app móvil las escribe y el dashboard las lee. También `localidades`, `lugares` y `ciclovias`.
-- `dashboard`: solo del tablero (`usuarios`, `siniestros`, `conteos_usuarios`).
+- `dashboard`: solo del tablero (`usuarios`, `siniestros`, `actores_viales`, `conteos_usuarios`).
+
+Los datos del tablero salen **solo del Anuario de Siniestralidad Vial** (`infra/postgres/datos/`). No hay datos inventados: lo que el anuario no trae (reportes, botón de pánico, conteos de usuarios, ciudadanos) queda vacío. Los únicos datos de prueba son los usuarios del dashboard para el login.
 - `movil`: solo de la app (`usuarios`, los ciudadanos autores de reportes y activaciones).
 
 Cada producto accede a las tablas compartidas con su **propio adaptador** en `infrastructure/`, sin importar código del otro. Nunca se duplica una tabla en dos esquemas. Toda consulta escribe el esquema delante de la tabla (`compartido.reportes`). Las reglas que se puedan expresar en la base (claves foráneas, `CHECK`) van también en la base.
