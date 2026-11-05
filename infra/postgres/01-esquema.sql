@@ -32,12 +32,13 @@ CREATE TABLE siniestros (
 );
 
 -- Conteo diario de usuarios de micromovilidad por localidad tipo de vehiculo y fuente
+-- la app movil es la unica fuente de conteo y por eso la columna solo acepta app
 CREATE TABLE conteos_usuarios (
   id serial PRIMARY KEY,
   fecha date NOT NULL,
   localidad_id int NOT NULL REFERENCES localidades (id),
   tipo_vehiculo text NOT NULL CHECK (tipo_vehiculo IN ('bicicleta', 'bicicleta_electrica', 'patineta_electrica', 'patineta', 'otro')),
-  fuente text NOT NULL CHECK (fuente IN ('camaras', 'app')),
+  fuente text NOT NULL DEFAULT 'app' CHECK (fuente = 'app'),
   cantidad int NOT NULL CHECK (cantidad >= 0)
 );
 

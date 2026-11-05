@@ -181,7 +181,7 @@ PostgreSQL corre en su propio contenedor (`postgres`) y guarda los datos en el v
 | `localidades` | Localidades del filtro *Localidad*. |
 | `lugares` | Intersecciones donde ocurren los eventos (con su localidad y coordenadas). |
 | `siniestros` | Fecha y hora, lugar, coordenadas, gravedad, clase, tipo de vehículo y, si hubo víctimas, sexo y edad. |
-| `conteos_usuarios` | Usuarios por día, localidad, tipo de vehículo y fuente (`camaras` o `app`). |
+| `conteos_usuarios` | Usuarios por día, localidad, tipo de vehículo y fuente. La única fuente es `app` (la base rechaza cualquier otra). |
 | `reportes` | Reportes ciudadanos con categoría; si `motivo_falso_positivo` tiene valor, es un falso positivo. |
 | `activaciones_panico` | Activaciones del botón de pánico con fecha, lugar y coordenadas. |
 | `usuarios_dashboard` | Usuarios del dashboard: nombre, correo (único, en minúsculas) y `rol` (`admin` administra usuarios, `lector` solo consulta). No guarda contraseña todavía: llegará con el login real. No tiene que ver con `movil.usuarios`. |
@@ -218,7 +218,7 @@ Todos son `GET`, cuelgan de `http://localhost:3001/api/dashboard/v1/tablero` y r
 | `mes_desde`, `mes_hasta` | `2026-08`, `2026-10` | Rango de meses (formato `AAAA-MM`). Sin ellos: los últimos 3 meses hasta el mes actual. |
 | `localidad_id` | `4` | Una localidad (los ids salen de `/filtros`). |
 | `tipo_vehiculo` | `bicicleta` | `bicicleta`, `bicicleta_electrica`, `patineta_electrica`, `patineta` u `otro`. Aplica a siniestros y usuarios. |
-| `fuente` | `camaras` | `camaras` o `app`. Aplica solo a usuarios (es el selector *Cámaras / App* de su gráfica). |
+| `fuente` | `app` | `app` o `camaras`. Aplica solo a usuarios. Hoy los conteos solo tienen la fuente `app`, así que `camaras` devuelve ceros. |
 
 Un filtro mal escrito responde `400` con el motivo.
 
@@ -235,7 +235,7 @@ Un filtro mal escrito responde `400` con el motivo.
 | Siniestros por hora del día | `/siniestros-por-hora` | 24 barras: `hora`, `franja`, `total` |
 | Tendencia mensual | `/tendencia-mensual` | `anio_actual`, `anio_anterior`, `meses_filtrados` y 12 `meses` con `total_anio_actual` y `total_anio_anterior` (`null` si el mes aún no tiene datos) |
 | Siniestros por sexo y edad | `/siniestros-por-sexo-y-edad` | `total_mujer`, `total_hombre` y `rangos` (`0-17` … `60+`) con `mujer` y `hombre` |
-| Usuarios por tipo | `/usuarios-por-tipo?fuente=camaras` | `total` y `tipos` (`tipo_vehiculo`, `total`) |
+| Usuarios por tipo | `/usuarios-por-tipo?fuente=app` | `total` y `tipos` (`tipo_vehiculo`, `total`) |
 | Botón de pánico | `/boton-panico` | `total`, `lugares` (círculos del mapa con coordenadas y `total`) y `top_ubicaciones` (las 5 primeras) |
 | Reportes | `/reportes` | `total`, `puntos` (mapa) y `por_categoria` |
 | Falsos positivos | `/falsos-positivos` | `total`, `porcentaje_de_reportes`, `por_motivo` (`motivo`, `total`, `porcentaje`) y `evolucion_mensual` (12 meses) |

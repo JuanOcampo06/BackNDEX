@@ -91,7 +91,7 @@ FROM (
 JOIN lugares lu ON lu.id = e.lugar_id;
 
 -- Conteo diario de usuarios que crece poco a poco con el tiempo
--- las camaras cuentan mas usuarios que la app
+-- la app es la unica fuente y su peso suma lo que antes sumaban las dos fuentes asi las cifras se mantienen parecidas
 INSERT INTO conteos_usuarios (fecha, localidad_id, tipo_vehiculo, fuente, cantidad)
 SELECT
   dia::date,
@@ -105,7 +105,7 @@ CROSS JOIN localidades lo
 CROSS JOIN (VALUES
   ('bicicleta', 0.65), ('bicicleta_electrica', 0.185), ('patineta_electrica', 0.127), ('patineta', 0.028), ('otro', 0.012)
 ) AS t (tipo_vehiculo, peso)
-CROSS JOIN (VALUES ('camaras', 1.0), ('app', 0.4)) AS f (fuente, peso);
+CROSS JOIN (VALUES ('app', 1.4)) AS f (fuente, peso);
 
 -- Unos 30 reportes por dia y cerca del 8 por ciento termina como falso positivo
 INSERT INTO reportes (creado_en, lugar_id, latitud, longitud, categoria, motivo_falso_positivo)
