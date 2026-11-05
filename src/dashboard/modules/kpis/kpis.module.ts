@@ -1,4 +1,6 @@
 import { Module } from '@nestjs/common';
+import { ExportarKpisUseCase } from './application/exportar-kpis.use-case';
+import { GENERADOR_EXCEL, GeneradorExcelPort } from './application/generador-excel.port';
 import { ObtenerBotonPanicoUseCase } from './application/obtener-boton-panico.use-case';
 import { ObtenerFalsosPositivosUseCase } from './application/obtener-falsos-positivos.use-case';
 import { ObtenerFiltrosUseCase } from './application/obtener-filtros.use-case';
@@ -11,6 +13,7 @@ import { ObtenerTarjetaUseCase } from './application/obtener-tarjeta.use-case';
 import { ObtenerTendenciaMensualUseCase } from './application/obtener-tendencia-mensual.use-case';
 import { ObtenerUsuariosPorTipoUseCase } from './application/obtener-usuarios-por-tipo.use-case';
 import { TABLERO_REPOSITORY, TableroRepositoryPort } from './application/tablero.repository.port';
+import { ExcelJsGeneradorExcel } from './infrastructure/exceljs-generador-excel';
 import { PostgresTableroRepository } from './infrastructure/postgres-tablero.repository';
 
 // Todos los casos de uso del tablero reciben el mismo puerto
@@ -38,7 +41,43 @@ const CASOS_DE_USO = [
       useFactory: (tablero: TableroRepositoryPort) => new CasoDeUso(tablero),
       inject: [TABLERO_REPOSITORY],
     })),
+    { provide: GENERADOR_EXCEL, useClass: ExcelJsGeneradorExcel },
+    // La exportacion a Excel reutiliza los casos de uso del tablero y por eso se arma aparte
+    {
+      provide: ExportarKpisUseCase,
+      useFactory: (
+        filtros: ObtenerFiltrosUseCase,
+        tarjeta: ObtenerTarjetaUseCase,
+        mapaSiniestros: ObtenerMapaSiniestrosUseCase,
+        lugaresConMasSiniestros: ObtenerLugaresConMasSiniestrosUseCase,
+        siniestrosPorHora: ObtenerSiniestrosPorHoraUseCase,
+        tendenciaMensual: ObtenerTendenciaMensualUseCase,
+        siniestrosPorSexoYEdad: ObtenerSiniestrosPorSexoYEdadUseCase,
+        usuariosPorTipo: ObtenerUsuariosPorTipoUseCase,
+        botonPanico: ObtenerBotonPanicoUseCase,
+        reportes: ObtenerReportesUseCase,
+        falsosPositivos: ObtenerFalsosPositivosUseCase,
+        generador: GeneradorExcelPort,
+      ) =>
+        new ExportarKpisUseCase(
+          {
+            filtros,
+            tarjeta,
+            mapaSiniestros,
+            lugaresConMasSiniestros,
+            siniestrosPorHora,
+            tendenciaMensual,
+            siniestrosPorSexoYEdad,
+            usuariosPorTipo,
+            botonPanico,
+            reportes,
+            falsosPositivos,
+          },
+          generador,
+        ),
+      inject: [...CASOS_DE_USO, GENERADOR_EXCEL],
+    },
   ],
-  exports: CASOS_DE_USO,
+  exports: [...CASOS_DE_USO, ExportarKpisUseCase],
 })
 export class KpisModule {}

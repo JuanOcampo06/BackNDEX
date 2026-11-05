@@ -130,7 +130,7 @@ Respuesta esperada (los números cambian según la fecha en que se cargaron los 
 {"valor":1119,"valor_periodo_anterior":1090,"variacion_porcentual":2.7,"serie_semanal":[{"semana":"2026-07-27","total":33}]}
 ```
 
-**Con Swagger (en el navegador)**: abre http://localhost:3001/api/docs. Ahí están los 30 endpoints agrupados en este orden: compartidos, dashboard y app móvil; en cada uno pulsa *Try it out* y luego *Execute*. Los parámetros y cuerpos ya traen ejemplos que funcionan con los datos de prueba. El documento en JSON (para importarlo en Postman o en el frontend) está en http://localhost:3001/api/docs-json.
+**Con Swagger (en el navegador)**: abre http://localhost:3001/api/docs. Ahí están los 31 endpoints agrupados en este orden: compartidos, dashboard y app móvil; en cada uno pulsa *Try it out* y luego *Execute*. Los parámetros y cuerpos ya traen ejemplos que funcionan con los datos de prueba. El documento en JSON (para importarlo en Postman o en el frontend) está en http://localhost:3001/api/docs-json.
 
 **Con `demo.http`**: ábrelo en VS Code con la extensión *REST Client* y pulsa *Send Request* sobre cada petición. Incluye todas las del tablero.
 
@@ -242,6 +242,37 @@ Un filtro mal escrito responde `400` con el motivo.
 
 Las franjas horarias son `madrugada` (0–6), `manana` (6–12), `tarde` (12–18) y `noche` (18–24).
 La API acepta peticiones desde otro origen (CORS), así que el frontend puede llamarla desde su propio puerto. Para limitarlo a una sola dirección, pon `CORS_ORIGIN=http://localhost:5173` (o la que corresponda) en `.env`.
+
+### Exportar KPIs a Excel (botón *Exportar*)
+
+`GET /api/dashboard/v1/tablero/exportar` descarga un archivo `.xlsx` con los KPIs que el usuario elija. Usa los **mismos filtros** que el resto del tablero (`mes_desde`, `mes_hasta`, `localidad_id`, `tipo_vehiculo`, `fuente`) y los mismos casos de uso, así que las cifras del Excel son exactamente las de la pantalla.
+
+El parámetro `kpis` es obligatorio y se puede mandar repetido (`?kpis=a&kpis=b`) o separado por comas (`?kpis=a,b`):
+
+| KPI (`kpis=`) | Hoja que genera | Qué trae |
+|---|---|---|
+| `tarjeta_siniestros` | Tarjeta Siniestros | Valor, período anterior, variación y serie semanal |
+| `tarjeta_usuarios` | Tarjeta Usuarios | Igual que la anterior |
+| `tarjeta_reportes` | Tarjeta Reportes | Igual que la anterior |
+| `tarjeta_boton_panico` | Tarjeta Botón de pánico | Igual que la anterior |
+| `tarjeta_falsos_positivos` | Tarjeta Falsos positivos | Igual que la anterior más el % de los reportes |
+| `mapa_siniestros` | Mapa de siniestros | Un siniestro por fila: fecha, coordenadas, gravedad, clase y vehículo |
+| `lugares_con_mas_siniestros` | Lugares con más siniestros | Top 5 con su franja pico |
+| `siniestros_por_hora` | Siniestros por hora | Las 24 horas con su franja |
+| `tendencia_mensual` | Tendencia mensual | Los 12 meses del año actual contra el anterior |
+| `siniestros_por_sexo_y_edad` | Siniestros por sexo y edad | Totales y por rango de edad |
+| `usuarios_por_tipo` | Usuarios por tipo | Total y por tipo de vehículo |
+| `boton_panico` | Botón de pánico | Total y activaciones por lugar |
+| `reportes` | Reportes | Total, por categoría y cada reporte del mapa |
+| `falsos_positivos` | Falsos positivos | Total, por motivo y evolución mensual |
+
+El archivo siempre trae una primera hoja **Filtros aplicados** (período, localidad, vehículo y fuente usados, y las hojas incluidas), y después una hoja por KPI, en el orden de la tabla anterior aunque se pidan desordenados. Se llama `kpis_<mes desde>_<mes hasta>.xlsx`.
+
+```bash
+curl -o kpis.xlsx "http://localhost:3001/api/dashboard/v1/tablero/exportar?kpis=tarjeta_siniestros&kpis=siniestros_por_hora&mes_desde=2026-08&mes_hasta=2026-10"
+```
+
+Errores (`400`): falta `kpis`, algún KPI no existe, un filtro es inválido o el rango de meses está al revés. La API expone la cabecera `Content-Disposition` por CORS, así que el frontend puede leer el nombre del archivo; si hace `fetch`, recibe el archivo con `respuesta.blob()`. En Swagger el resultado aparece como un enlace *Download file*.
 
 ### Usuarios del dashboard
 

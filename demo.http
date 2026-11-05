@@ -172,3 +172,15 @@ Content-Type: application/json
 
 ### 37. Eliminar un usuario (204)
 DELETE {{usuarios}}/3
+
+### --- Exportar KPIs a Excel (boton Exportar del dashboard) ---
+### kpis acepta uno o varios y tambien los filtros del tablero
+
+### 38. Exportar dos KPIs (descarga un xlsx)
+GET {{base}}/dashboard/v1/tablero/exportar?kpis=tarjeta_siniestros&kpis=siniestros_por_hora
+
+### 39. Exportar varios KPIs con filtros
+GET {{base}}/dashboard/v1/tablero/exportar?kpis=tarjeta_siniestros,mapa_siniestros,usuarios_por_tipo&mes_desde=2026-01&mes_hasta=2026-03&localidad_id=4
+
+### 40. Sin KPIs (400)
+GET {{base}}/dashboard/v1/tablero/exportar
