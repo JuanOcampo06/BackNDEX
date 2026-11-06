@@ -180,15 +180,15 @@ Es **una sola base** (`safepath`) dividida en **tres esquemas** según quién us
 
 ```
             APP MÓVIL                                   DASHBOARD
-  escribe reportes y activaciones              lee esas mismas tablas para sus gráficas
+  escribe reportes, activaciones y conteos     lee esas mismas tablas para sus gráficas
                │                                            │
                ▼                                            ▼
    ┌──────────────────────── compartido ────────────────────────┐
-   │ reportes  activaciones_panico  localidades  lugares  ciclovias │
+   │ reportes  activaciones_panico  conteos_usuarios              │
+   │ localidades  lugares  ciclovias                              │
    └─────────────────────────────────────────────────────────────┘
         movil (solo la app)                 dashboard (solo el tablero)
-        usuarios (ciudadanos)               usuarios, siniestros, actores_viales,
-                                            conteos_usuarios
+        usuarios (ciudadanos)               usuarios, siniestros, actores_viales
 ```
 
 **`compartido`**: lo que usan los dos productos.
@@ -197,6 +197,7 @@ Es **una sola base** (`safepath`) dividida en **tres esquemas** según quién us
 |---|---|
 | `compartido.reportes` | **Tabla maestra** de reportes ciudadanos: la app los crea y el dashboard los lee. Autor (`usuario_id` → `movil.usuarios`), lugar, categoría, descripción, coordenadas, `estado` (`recibido`, `en_revision`, `resuelto`, `descartado`) y fecha. Un reporte `descartado` es un **falso positivo** y siempre lleva su `motivo_falso_positivo`: la base no acepta uno sin el otro. |
 | `compartido.activaciones_panico` | **Tabla maestra** del botón de pánico: la app las crea y el dashboard las lee. Autor, lugar, coordenadas, `estado` (`activa`, `atendida`, `cancelada`) y fecha. |
+| `compartido.conteos_usuarios` | Usuarios de micromovilidad por día, localidad y tipo de vehículo: la app los cuenta y el dashboard los lee. **Vacía** hasta que la app empiece a contarlos. |
 | `compartido.localidades` | Las 20 localidades de Bogotá del filtro *Localidad*. El `id` es el código oficial (1 Usaquén … 8 Kennedy … 20 Sumapaz). |
 | `compartido.lugares` | Las 8.608 direcciones del anuario, con su localidad y el punto medio de sus siniestros. Sirven para ubicar siniestros, reportes y activaciones. |
 | `compartido.ciclovias_fuente` | El JSON de OpenStreetMap completo, tal cual, con su fecha de corte. |
@@ -209,7 +210,6 @@ Es **una sola base** (`safepath`) dividida en **tres esquemas** según quién us
 | `dashboard.usuarios` | Usuarios del dashboard: nombre, correo (único, en minúsculas) y `rol` (`admin` administra usuarios, `lector` solo consulta). No guarda contraseña todavía: llegará con el login real. |
 | `dashboard.siniestros` | Los 11.573 siniestros del anuario 2025: código del anuario como `id`, fecha y hora, lugar (dirección), localidad, coordenadas, gravedad, clase y tipo de vehículo. |
 | `dashboard.actores_viales` | Las 28.029 personas de esos siniestros: condición (`conductor`, `motociclista`, `ciclista`, `pasajero`, `peaton`), gravedad (`ileso`, `herido`, `muerto`), sexo y edad. |
-| `dashboard.conteos_usuarios` | Usuarios de micromovilidad por día, localidad y tipo de vehículo. **Vacía** hasta que la app empiece a contarlos. |
 
 **`movil`**: solo de la app.
 

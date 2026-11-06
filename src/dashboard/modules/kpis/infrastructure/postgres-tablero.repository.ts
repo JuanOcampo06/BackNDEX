@@ -26,8 +26,8 @@ interface Origen {
   condicion?: string;
 }
 
-// Siniestros y conteos son solo del tablero y viven en el schema dashboard
-// reportes y activaciones son las tablas maestras del schema compartido que llena la app movil
+// Siniestros son solo del tablero y viven en el schema dashboard
+// reportes activaciones y conteos de usuarios son tablas del schema compartido que llena la app movil
 // cada siniestro del anuario trae su propia localidad y puede faltar por eso se une con LEFT JOIN
 const SINIESTROS: Origen = {
   tabla:
@@ -39,7 +39,7 @@ const SINIESTROS: Origen = {
 };
 
 const USUARIOS: Origen = {
-  tabla: 'dashboard.conteos_usuarios c',
+  tabla: 'compartido.conteos_usuarios c',
   fecha: 'c.fecha',
   valor: 'sum(c.cantidad)',
   localidad: 'c.localidad_id',

@@ -72,6 +72,17 @@ CREATE TABLE compartido.activaciones_panico (
   activado_en timestamptz NOT NULL DEFAULT now()
 );
 
+-- Conteo diario de usuarios de micromovilidad por localidad y tipo de vehiculo
+-- la app movil lo llena y el dashboard lo lee por eso vive en compartido
+-- queda vacia hasta que la app movil empiece a contar usuarios
+CREATE TABLE compartido.conteos_usuarios (
+  id serial PRIMARY KEY,
+  fecha date NOT NULL,
+  localidad_id int NOT NULL REFERENCES compartido.localidades (id),
+  tipo_vehiculo text NOT NULL CHECK (tipo_vehiculo IN ('bicicleta', 'bicicleta_electrica', 'patineta_electrica', 'patineta', 'otro')),
+  cantidad int NOT NULL CHECK (cantidad >= 0)
+);
+
 -- ============================== dashboard ==============================
 
 -- Siniestros viales del anuario de siniestralidad de la secretaria de movilidad
@@ -100,16 +111,6 @@ CREATE TABLE dashboard.actores_viales (
   edad int CHECK (edad BETWEEN 0 AND 110)
 );
 
--- Conteo diario de usuarios de micromovilidad por localidad y tipo de vehiculo
--- queda vacia hasta que la app movil empiece a contar usuarios
-CREATE TABLE dashboard.conteos_usuarios (
-  id serial PRIMARY KEY,
-  fecha date NOT NULL,
-  localidad_id int NOT NULL REFERENCES compartido.localidades (id),
-  tipo_vehiculo text NOT NULL CHECK (tipo_vehiculo IN ('bicicleta', 'bicicleta_electrica', 'patineta_electrica', 'patineta', 'otro')),
-  cantidad int NOT NULL CHECK (cantidad >= 0)
-);
-
 -- Usuarios del dashboard institucional con su rol
 -- admin puede crear editar y eliminar usuarios y lector solo puede ver la informacion
 -- la contrasena se agregara cuando exista el login real con JWT
@@ -128,7 +129,7 @@ CREATE TABLE dashboard.usuarios (
 CREATE INDEX reportes_creado_en_idx ON compartido.reportes (creado_en);
 CREATE INDEX activaciones_panico_activado_en_idx ON compartido.activaciones_panico (activado_en);
 CREATE INDEX siniestros_ocurrido_en_idx ON dashboard.siniestros (ocurrido_en);
-CREATE INDEX conteos_usuarios_fecha_idx ON dashboard.conteos_usuarios (fecha);
+CREATE INDEX conteos_usuarios_fecha_idx ON compartido.conteos_usuarios (fecha);
 
 -- Por siniestro porque la grafica de sexo y edad une cada siniestro con sus personas
 CREATE INDEX actores_viales_siniestro_id_idx ON dashboard.actores_viales (siniestro_id);
