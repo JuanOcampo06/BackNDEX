@@ -1,4 +1,4 @@
-import { Indicador } from '../domain/catalogos';
+import { Fuente, Indicador } from '../domain/catalogos';
 import { FiltrosTablero } from '../domain/filtros-tablero';
 
 export const TABLERO_REPOSITORY = Symbol('TABLERO_REPOSITORY');
@@ -71,6 +71,7 @@ export interface ConteoPorMotivo {
 // Puerto que el tablero necesita para leer sus datos sin saber de que base de datos vienen
 export interface TableroRepositoryPort {
   listarLocalidades(): Promise<Localidad[]>;
+  buscarUltimoMesConDatos(fuentes: readonly Fuente[]): Promise<string | null>;
   contarPorSemana(indicador: Indicador, filtros: FiltrosTablero): Promise<ConteoSemanal[]>;
   listarSiniestros(filtros: FiltrosTablero): Promise<SiniestroEnMapa[]>;
   contarSiniestrosPorLugarYHora(filtros: FiltrosTablero): Promise<ConteoLugarHora[]>;

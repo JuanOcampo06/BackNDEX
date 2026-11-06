@@ -257,11 +257,12 @@ Todos son `GET`, cuelgan de `http://localhost:3001/api/dashboard/v1/tablero` y r
 
 | Parámetro | Ejemplo | Qué hace |
 |---|---|---|
-| `mes_desde`, `mes_hasta` | `2025-01`, `2025-12` | Rango de meses (formato `AAAA-MM`). Sin ellos: los últimos 3 meses hasta el mes actual. **El anuario solo trae 2025**, así que para ver cifras hay que pedir meses de 2025. |
+| `mes_desde`, `mes_hasta` | `2025-01`, `2025-12` | Rango de meses (formato `AAAA-MM`). Sin ellos: los últimos 3 meses **hasta el último mes que tiene datos** en las fuentes elegidas (hoy, octubre a diciembre de 2025), así el tablero nunca abre vacío. Si llega solo `mes_desde`, el final es el mes actual. |
 | `localidad_id` | `8` o `8,10` | Una o varias localidades (los ids salen de `/filtros`). |
 | `tipo_vehiculo` | `bicicleta` o `bicicleta,patineta` | Uno o varios de: `bicicleta`, `bicicleta_electrica`, `patineta_electrica`, `patineta`, `otro`. Aplica a siniestros y usuarios. |
+| `fuente` | `anuario` o `anuario,app` | Una o las dos: `anuario` (Anuario de Siniestralidad de la Secretaría de Movilidad) y `app` (app móvil). Cada gráfica tiene su fuente: **anuario** → tarjeta de siniestros, mapa, lugares, horas, tendencia y sexo y edad; **app** → usuarios, reportes, botón de pánico y falsos positivos. Las gráficas de una fuente no elegida responden en cero. Sin `fuente`, o con las dos, salen todas combinadas. |
 
-**Varios valores en un filtro.** `localidad_id` y `tipo_vehiculo` aceptan uno o varios valores, repetidos o separados por comas (también se pueden mezclar):
+**Varios valores en un filtro.** `localidad_id`, `tipo_vehiculo` y `fuente` aceptan uno o varios valores, repetidos o separados por comas (también se pueden mezclar):
 
 ```
 ?tipo_vehiculo=bicicleta&tipo_vehiculo=patineta&localidad_id=8,10
@@ -277,7 +278,7 @@ Un filtro mal escrito responde `400` con el motivo, y basta con que **uno** de l
 
 | Parte del mockup | Endpoint | Qué devuelve |
 |---|---|---|
-| Selectores de filtros | `/filtros` | `localidades` (`id`, `nombre`) y `tipos_vehiculo` |
+| Selectores de filtros | `/filtros` | `localidades` (`id`, `nombre`), `tipos_vehiculo` y `fuentes` |
 | Tarjeta Siniestros | `/tarjetas/siniestros` | `valor`, `valor_periodo_anterior`, `variacion_porcentual`, `serie_semanal` (para la minigráfica) |
 | Tarjeta Usuarios de micromovilidad | `/tarjetas/usuarios` | igual que la anterior |
 | Tarjeta Reportes | `/tarjetas/reportes` | igual que la anterior |
@@ -298,7 +299,7 @@ La API acepta peticiones desde otro origen (CORS), así que el frontend puede ll
 
 ### Exportar KPIs a Excel (botón *Exportar*)
 
-`GET /api/dashboard/v1/tablero/exportar` descarga un archivo `.xlsx` con los KPIs que el usuario elija. Usa los **mismos filtros** que el resto del tablero (`mes_desde`, `mes_hasta`, `localidad_id`, `tipo_vehiculo`) y los mismos casos de uso, así que las cifras del Excel son exactamente las de la pantalla.
+`GET /api/dashboard/v1/tablero/exportar` descarga un archivo `.xlsx` con los KPIs que el usuario elija. Usa los **mismos filtros** que el resto del tablero (`mes_desde`, `mes_hasta`, `localidad_id`, `tipo_vehiculo`, `fuente`) y los mismos casos de uso, así que las cifras del Excel son exactamente las de la pantalla.
 
 El parámetro `kpis` es obligatorio y se puede mandar repetido (`?kpis=a&kpis=b`) o separado por comas (`?kpis=a,b`):
 
@@ -319,7 +320,7 @@ El parámetro `kpis` es obligatorio y se puede mandar repetido (`?kpis=a&kpis=b`
 | `reportes` | Reportes | Total, por categoría y cada reporte del mapa |
 | `falsos_positivos` | Falsos positivos | Total, por motivo y evolución mensual |
 
-El archivo siempre trae una primera hoja **Filtros aplicados** (período, localidad y vehículo usados, y las hojas incluidas), y después una hoja por KPI, en el orden de la tabla anterior aunque se pidan desordenados. Se llama `kpis_<mes desde>_<mes hasta>.xlsx`.
+El archivo siempre trae una primera hoja **Filtros aplicados** (período, localidad, vehículo y fuente usados, y las hojas incluidas), y después una hoja por KPI, en el orden de la tabla anterior aunque se pidan desordenados. Se llama `kpis_<mes desde>_<mes hasta>.xlsx`.
 
 ```bash
 curl -o kpis.xlsx "http://localhost:3001/api/dashboard/v1/tablero/exportar?kpis=tarjeta_siniestros&kpis=siniestros_por_hora&mes_desde=2025-08&mes_hasta=2025-10"

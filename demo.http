@@ -23,7 +23,8 @@ Content-Type: application/json
 }
 
 ### --- Tablero del dashboard ---
-### Todas aceptan los filtros opcionales mes_desde mes_hasta localidad_id y tipo_vehiculo
+### Todas aceptan los filtros opcionales mes_desde mes_hasta localidad_id tipo_vehiculo y fuente
+### fuente anuario trae las graficas de siniestros y fuente app las de la app y sin fuente salen todas
 ### sin filtros se usan los ultimos tres meses y como el anuario solo trae 2025 los ejemplos piden meses de 2025
 @tablero = {{base}}/dashboard/v1/tablero
 @meses = mes_desde=2025-10&mes_hasta=2025-12
@@ -188,7 +189,7 @@ GET {{base}}/dashboard/v1/tablero/exportar?kpis=tarjeta_siniestros,mapa_siniestr
 GET {{base}}/dashboard/v1/tablero/exportar
 
 ### --- Filtros con varios valores ---
-### localidad_id y tipo_vehiculo aceptan uno o varios valores repetidos o separados por comas
+### localidad_id tipo_vehiculo y fuente aceptan uno o varios valores repetidos o separados por comas
 
 ### 41. Siniestros de dos localidades y dos tipos de vehiculo
 GET {{tablero}}/tarjetas/siniestros?{{meses}}&localidad_id=8&localidad_id=10&tipo_vehiculo=bicicleta,patineta
@@ -198,3 +199,9 @@ GET {{tablero}}/siniestros-por-hora?mes_desde=2025-08&mes_hasta=2025-09&tipo_veh
 
 ### 43. Un valor invalido dentro de la lista (400)
 GET {{tablero}}/tarjetas/siniestros?tipo_vehiculo=bicicleta,carro
+
+### 44. Solo las graficas del anuario sin meses (termina en el ultimo mes con datos)
+GET {{tablero}}/tarjetas/siniestros?fuente=anuario
+
+### 45. Las dos fuentes combinadas
+GET {{tablero}}/tarjetas/siniestros?fuente=anuario,app

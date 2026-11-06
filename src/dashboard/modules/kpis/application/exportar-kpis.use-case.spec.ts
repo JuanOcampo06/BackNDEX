@@ -19,6 +19,7 @@ import { TableroRepositoryPort } from './tablero.repository.port';
 function crearTablero(): TableroRepositoryPort {
   return {
     listarLocalidades: async () => [{ id: 4, nombre: 'Engativa' }],
+    buscarUltimoMesConDatos: async () => null,
     contarPorSemana: async () => [{ semana: '2026-08-03', total: 10 }],
     listarSiniestros: async () => [
       { id: 7, latitud: 4.7, longitud: -74.09, gravedad: 'con_heridos', clase: 'choque', tipoVehiculo: 'bicicleta_electrica', ocurridoEn: '2026-08-04T07:30' },
@@ -107,6 +108,7 @@ describe('ExportarKpisUseCase', () => {
       ['Mes hasta', '2026-10'],
       ['Localidad', 'Engativa'],
       ['Tipo de vehículo', 'Bicicleta electrica'],
+      ['Fuente', 'Todas'],
     ]);
   });
 
@@ -115,13 +117,14 @@ describe('ExportarKpisUseCase', () => {
 
     await new ExportarKpisUseCase(crearCasos(), generador).execute({
       kpis: ['tarjeta_siniestros'],
-      filtros: { ...filtros, localidadId: [4, 9], tipoVehiculo: ['bicicleta', 'patineta'] },
+      filtros: { ...filtros, localidadId: [4, 9], tipoVehiculo: ['bicicleta', 'patineta'], fuente: ['app'] },
     });
 
     const [hojaFiltros] = generador.libro?.hojas ?? [];
     expect(hojaFiltros.secciones[0].filas.slice(2)).toEqual([
       ['Localidad', 'Engativa, Id 9'],
       ['Tipo de vehículo', 'Bicicleta, Patineta'],
+      ['Fuente', 'App'],
     ]);
   });
 

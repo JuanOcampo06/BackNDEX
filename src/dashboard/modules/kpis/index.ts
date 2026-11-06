@@ -1,7 +1,7 @@
 // Unica puerta del modulo y lo unico que el BFF puede importar de aqui
 export { KpisModule } from './kpis.module';
-export { TIPOS_VEHICULO } from './domain/catalogos';
-export type { Indicador, TipoVehiculo } from './domain/catalogos';
+export { FUENTES, TIPOS_VEHICULO } from './domain/catalogos';
+export type { Fuente, Indicador, TipoVehiculo } from './domain/catalogos';
 export { KPIS_EXPORTABLES } from './domain/kpis-exportables';
 export type { KpiExportable } from './domain/kpis-exportables';
 export { Periodo } from './domain/periodo';
@@ -14,6 +14,7 @@ export { ObtenerLugaresConMasSiniestrosUseCase } from './application/obtener-lug
 export { ObtenerSiniestrosPorHoraUseCase } from './application/obtener-siniestros-por-hora.use-case';
 export { ObtenerTendenciaMensualUseCase } from './application/obtener-tendencia-mensual.use-case';
 export { ObtenerSiniestrosPorSexoYEdadUseCase } from './application/obtener-siniestros-por-sexo-y-edad.use-case';
+export { ObtenerUltimoMesConDatosUseCase } from './application/obtener-ultimo-mes-con-datos.use-case';
 export { ObtenerUsuariosPorTipoUseCase } from './application/obtener-usuarios-por-tipo.use-case';
 export { ObtenerBotonPanicoUseCase } from './application/obtener-boton-panico.use-case';
 export { ObtenerReportesUseCase } from './application/obtener-reportes.use-case';

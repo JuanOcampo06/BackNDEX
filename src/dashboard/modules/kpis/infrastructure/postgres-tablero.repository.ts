@@ -13,8 +13,8 @@ import {
   SiniestroEnMapa,
   TableroRepositoryPort,
 } from '../application/tablero.repository.port';
-import { Indicador } from '../domain/catalogos';
-import { FiltrosTablero } from '../domain/filtros-tablero';
+import { Fuente, Indicador } from '../domain/catalogos';
+import { FiltrosTablero, incluyeFuente } from '../domain/filtros-tablero';
 
 // Describe de que tabla sale cada cifra y que columna usa cada filtro
 interface Origen {
@@ -22,6 +22,7 @@ interface Origen {
   fecha: string;
   valor: string;
   localidad: string;
+  fuente: Fuente;
   vehiculo?: string;
   condicion?: string;
 }
@@ -35,6 +36,7 @@ const SINIESTROS: Origen = {
   fecha: 's.ocurrido_en',
   valor: 'count(*)',
   localidad: 's.localidad_id',
+  fuente: 'anuario',
   vehiculo: 's.tipo_vehiculo',
 };
 
@@ -43,6 +45,7 @@ const USUARIOS: Origen = {
   fecha: 'c.fecha',
   valor: 'sum(c.cantidad)',
   localidad: 'c.localidad_id',
+  fuente: 'app',
   vehiculo: 'c.tipo_vehiculo',
 };
 
@@ -51,6 +54,7 @@ const REPORTES: Origen = {
   fecha: 'r.creado_en',
   valor: 'count(*)',
   localidad: 'l.localidad_id',
+  fuente: 'app',
 };
 
 const FALSOS_POSITIVOS: Origen = { ...REPORTES, condicion: 'r.motivo_falso_positivo IS NOT NULL' };
@@ -61,6 +65,7 @@ const PANICO: Origen = {
   fecha: 'a.activado_en',
   valor: 'count(*)',
   localidad: 'l.localidad_id',
+  fuente: 'app',
 };
 
 const ORIGEN_POR_INDICADOR: Record<Indicador, Origen> = {
@@ -92,6 +97,10 @@ function armarCondiciones(origen: Origen, filtros: FiltrosTablero): Condiciones 
   };
   agregar(origen.localidad, filtros.localidadId);
   agregar(origen.vehiculo, filtros.tipoVehiculo);
+  // Si la fuente de esta cifra no esta elegida la consulta no trae filas y la grafica queda en cero
+  if (!incluyeFuente(filtros, origen.fuente)) {
+    condiciones.push('false');
+  }
   if (origen.condicion) {
     condiciones.push(origen.condicion);
   }
@@ -111,6 +120,18 @@ export class PostgresTableroRepository implements TableroRepositoryPort, OnModul
 
   listarLocalidades(): Promise<Localidad[]> {
     return this.consultar('SELECT id, nombre FROM compartido.localidades ORDER BY nombre', []);
+  }
+
+  async buscarUltimoMesConDatos(fuentes: readonly Fuente[]): Promise<string | null> {
+    // Se toma la fecha mas reciente de cada tabla cuya fuente este elegida
+    const fechas = Object.values(ORIGEN_POR_INDICADOR)
+      .filter((origen) => fuentes.includes(origen.fuente))
+      .map((origen) => `SELECT max(${origen.fecha})::date AS fecha FROM ${origen.tabla}`);
+    const [fila] = await this.consultar<{ mes: string | null }>(
+      `SELECT to_char(max(fecha), 'YYYY-MM') AS mes FROM (${fechas.join(' UNION ALL ')}) AS ultimas`,
+      [],
+    );
+    return fila.mes;
   }
 
   contarPorSemana(indicador: Indicador, filtros: FiltrosTablero): Promise<ConteoSemanal[]> {

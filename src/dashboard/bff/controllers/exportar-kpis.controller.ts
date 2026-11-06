@@ -1,6 +1,6 @@
 import { Controller, Get, Query, StreamableFile, UseFilters, ValidationPipe } from '@nestjs/common';
 import { ApiBadRequestResponse, ApiOkResponse, ApiOperation, ApiProduces, ApiTags } from '@nestjs/swagger';
-import { ExportarKpisUseCase, Periodo } from '../../modules/kpis';
+import { ExportarKpisUseCase, ObtenerUltimoMesConDatosUseCase, Periodo } from '../../modules/kpis';
 import { DomainErrorFilter } from '../domain-error.filter';
 import { ExportarKpisQuery } from '../dto/exportar-kpis.query';
 
@@ -12,7 +12,10 @@ const TIPO_XLSX = 'application/vnd.openxmlformats-officedocument.spreadsheetml.s
 @Controller('tablero/exportar')
 @UseFilters(DomainErrorFilter)
 export class ExportarKpisController {
-  constructor(private readonly exportarKpis: ExportarKpisUseCase) {}
+  constructor(
+    private readonly exportarKpis: ExportarKpisUseCase,
+    private readonly obtenerUltimoMesConDatos: ObtenerUltimoMesConDatosUseCase,
+  ) {}
 
   // El ValidationPipe convierte los filtros a su tipo y rechaza parametros que no existen
   @Get()
@@ -27,12 +30,16 @@ export class ExportarKpisController {
     @Query(new ValidationPipe({ transform: true, whitelist: true, forbidNonWhitelisted: true }))
     consulta: ExportarKpisQuery,
   ): Promise<StreamableFile> {
+    // Sin meses se exporta lo mismo que muestra el tablero que termina en el ultimo mes con datos
+    const sinMeses = consulta.mes_desde === undefined && consulta.mes_hasta === undefined;
+    const mesHasta = sinMeses ? await this.obtenerUltimoMesConDatos.execute(consulta.fuente) : consulta.mes_hasta;
     const archivo = await this.exportarKpis.execute({
       kpis: consulta.kpis,
       filtros: {
-        periodo: Periodo.desdeFiltro(new Date(), consulta.mes_desde, consulta.mes_hasta),
+        periodo: Periodo.desdeFiltro(new Date(), consulta.mes_desde, mesHasta),
         localidadId: consulta.localidad_id,
         tipoVehiculo: consulta.tipo_vehiculo,
+        fuente: consulta.fuente,
       },
     });
     return new StreamableFile(archivo.contenido, {

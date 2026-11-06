@@ -82,7 +82,7 @@ Toda carpeta vacía lleva un `.gitkeep` para que Git la conserve.
     │   │   │   └── usuarios.controller.ts [IMPLEMENTADO] GET, POST, PATCH y DELETE de usuarios del dashboard.
     │   │   └── dto/
     │   │       ├── login.request.ts   [IMPLEMENTADO]    email válido y password no vacía.
-    │   │       ├── tablero.query.ts   [IMPLEMENTADO]    Filtros opcionales: mes_desde, mes_hasta y listas de localidad_id y tipo_vehiculo.
+    │   │       ├── tablero.query.ts   [IMPLEMENTADO]    Filtros opcionales: mes_desde, mes_hasta y listas de localidad_id, tipo_vehiculo y fuente (anuario o app).
     │   │       ├── exportar-kpis.query.ts [IMPLEMENTADO] Esos mismos filtros más la lista de KPIs a exportar.
     │   │       ├── ciclovias.query.ts [IMPLEMENTADO]    min_lat, min_lon, max_lat, max_lon y tipo opcional.
     │   │       ├── crear-usuario.request.ts / actualizar-usuario.request.ts [IMPLEMENTADO] Cuerpos de POST y PATCH.
@@ -114,12 +114,13 @@ Toda carpeta vacía lleva un `.gitkeep` para que Git la conserve.
     │           │   ├── periodo.spec.ts [IMPLEMENTADO]   Prueba unitaria de Periodo.
     │           │   ├── kpis-exportables.ts [IMPLEMENTADO] Catálogo de KPIs exportables y validación de la selección.
     │           │   ├── kpis-exportables.spec.ts [IMPLEMENTADO] Prueba unitaria de la selección.
-    │           │   ├── filtros-tablero.ts [IMPLEMENTADO] Forma de los filtros del tablero.
-    │           │   ├── catalogos.ts   [IMPLEMENTADO]    Tipos de vehículo e indicadores.
+    │           │   ├── filtros-tablero.ts [IMPLEMENTADO] Forma de los filtros del tablero y qué gráficas entran según la fuente.
+    │           │   ├── filtros-tablero.spec.ts [IMPLEMENTADO] Prueba unitaria de la regla de fuentes.
+    │           │   ├── catalogos.ts   [IMPLEMENTADO]    Tipos de vehículo, fuentes (anuario y app) e indicadores.
     │           │   └── calculos.ts    [IMPLEMENTADO]    Porcentajes, variación, franjas horarias y rangos de edad.
     │           ├── application/
     │           │   ├── tablero.repository.port.ts [IMPLEMENTADO] Puerto y token TABLERO_REPOSITORY.
-    │           │   ├── obtener-*.use-case.ts      [IMPLEMENTADO] 11 casos de uso, uno por tarjeta o gráfica.
+    │           │   ├── obtener-*.use-case.ts      [IMPLEMENTADO] 11 casos de uso, uno por tarjeta o gráfica, y obtener-ultimo-mes-con-datos (mes final cuando no llegan meses).
     │           │   ├── exportar-kpis.use-case.ts  [IMPLEMENTADO] Arma el libro de Excel reutilizando esos casos de uso.
     │           │   ├── hojas-excel-kpis.ts        [IMPLEMENTADO] Cómo se convierte cada KPI en una hoja y la hoja de filtros.
     │           │   ├── generador-excel.port.ts    [IMPLEMENTADO] Puerto GENERADOR_EXCEL y la forma neutra del libro.

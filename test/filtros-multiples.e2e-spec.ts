@@ -13,6 +13,7 @@ function crearRepositorioFalso(alRecibir: (filtros: FiltrosTablero) => void): Ta
       { id: 4, nombre: 'Engativa' },
       { id: 6, nombre: 'Kennedy' },
     ],
+    buscarUltimoMesConDatos: async () => null,
     contarPorSemana: async (_indicador, filtros) => {
       alRecibir(filtros);
       return [{ semana: '2026-08-03', total: 10 }];
@@ -55,11 +56,11 @@ describe('Filtros con varios valores del tablero (e2e)', () => {
 
   it('entrega cada filtro como lista cuando llega repetido o separado por comas', async () => {
     const respuesta = await request(app.getHttpServer()).get(
-      `${tarjeta}?localidad_id=4&localidad_id=6&tipo_vehiculo=bicicleta,patineta`,
+      `${tarjeta}?localidad_id=4&localidad_id=6&tipo_vehiculo=bicicleta,patineta&fuente=app`,
     );
 
     expect(respuesta.status).toBe(200);
-    expect(recibido).toMatchObject({ localidadId: [4, 6], tipoVehiculo: ['bicicleta', 'patineta'] });
+    expect(recibido).toMatchObject({ localidadId: [4, 6], tipoVehiculo: ['bicicleta', 'patineta'], fuente: ['app'] });
   });
 
   it('acepta mezclar las dos formas en un mismo filtro', async () => {
@@ -72,6 +73,7 @@ describe('Filtros con varios valores del tablero (e2e)', () => {
     await request(app.getHttpServer()).get(`${tarjeta}?localidad_id=4&tipo_vehiculo=bicicleta`);
 
     expect(recibido).toMatchObject({ localidadId: [4], tipoVehiculo: ['bicicleta'] });
+    expect(recibido?.fuente).toBeUndefined();
   });
 
   it('sin filtros no manda ninguna lista', async () => {
@@ -79,6 +81,7 @@ describe('Filtros con varios valores del tablero (e2e)', () => {
 
     expect(recibido?.localidadId).toBeUndefined();
     expect(recibido?.tipoVehiculo).toBeUndefined();
+    expect(recibido?.fuente).toBeUndefined();
   });
 
   it('responde 400 si un solo valor de la lista es invalido aunque los demas esten bien', async () => {
@@ -88,9 +91,8 @@ describe('Filtros con varios valores del tablero (e2e)', () => {
         `${tarjeta}?localidad_id=4,abc`,
         `${tarjeta}?localidad_id=4&localidad_id=0`,
         `${tarjeta}?localidad_id=4.5`,
-        `${tarjeta}?tipo_vehiculo=`,
-        // La fuente ya no existe como filtro y por eso se rechaza
-        `${tarjeta}?fuente=app`,
+        `${tarjeta}?fuente=app,otra`,
+        `${tarjeta}?fuente=`,
       ].map((url) => request(app.getHttpServer()).get(url)),
     );
 
