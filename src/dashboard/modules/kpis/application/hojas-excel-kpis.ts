@@ -46,7 +46,7 @@ const NOMBRES_MES = [
   'Diciembre',
 ];
 
-// Valores como via_en_mal_estado se muestran como Via en mal estado
+// Valores como danos_en_la_via se muestran como Danos en la via
 function etiqueta(valor: string): string {
   const texto = valor.replace(/_/g, ' ');
   return texto.charAt(0).toUpperCase() + texto.slice(1);

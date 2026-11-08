@@ -44,20 +44,44 @@ CREATE FUNCTION compartido.lugar_mas_cercano(lat double precision, lon double pr
   SELECT id FROM compartido.lugares ORDER BY (latitud - lat) ^ 2 + (longitud - lon) ^ 2 LIMIT 1
 $$ LANGUAGE sql STABLE;
 
+-- Catalogo de categorias y subcategorias de reporte que muestra la app
+-- el ciudadano elige una categoria principal y luego una de sus subcategorias
+-- el dashboard solo agrupa por la categoria principal y asi suma todas sus subcategorias
+CREATE TABLE compartido.subcategorias_reporte (
+  id text PRIMARY KEY,
+  categoria text NOT NULL CHECK (categoria IN ('danos_en_la_via', 'transito', 'seguridad', 'otro')),
+  UNIQUE (categoria, id)
+);
+
+INSERT INTO compartido.subcategorias_reporte (categoria, id) VALUES
+  ('danos_en_la_via', 'hueco'),
+  ('danos_en_la_via', 'obra'),
+  ('danos_en_la_via', 'via_cerrada'),
+  ('transito', 'accidente'),
+  ('transito', 'semaforo_danado'),
+  ('seguridad', 'robo'),
+  ('seguridad', 'poca_luz'),
+  ('seguridad', 'policia'),
+  ('otro', 'otro');
+
 -- Tabla maestra de reportes ciudadanos que crea la app y lee el dashboard
 -- el estado lo cambia luego la entidad y un reporte descartado es un falso positivo y siempre lleva su motivo
 CREATE TABLE compartido.reportes (
   id serial PRIMARY KEY,
   usuario_id int NOT NULL REFERENCES movil.usuarios (id),
   lugar_id int NOT NULL REFERENCES compartido.lugares (id),
-  categoria text NOT NULL CHECK (categoria IN ('via_en_mal_estado', 'poca_iluminacion', 'obstaculo_en_cicloruta', 'conductor_imprudente', 'hurto_o_inseguridad')),
+  categoria text NOT NULL,
+  subcategoria text NOT NULL,
   descripcion text CHECK (char_length(descripcion) <= 500),
   latitud double precision NOT NULL CHECK (latitud BETWEEN -90 AND 90),
   longitud double precision NOT NULL CHECK (longitud BETWEEN -180 AND 180),
   estado text NOT NULL DEFAULT 'recibido' CHECK (estado IN ('recibido', 'en_revision', 'resuelto', 'descartado')),
   motivo_falso_positivo text CHECK (motivo_falso_positivo IN ('duplicado', 'ubicacion_incorrecta', 'descartado_por_la_comunidad', 'no_corresponde_a_la_categoria')),
   creado_en timestamptz NOT NULL DEFAULT now(),
-  CONSTRAINT descartado_con_motivo CHECK ((estado = 'descartado') = (motivo_falso_positivo IS NOT NULL))
+  CONSTRAINT descartado_con_motivo CHECK ((estado = 'descartado') = (motivo_falso_positivo IS NOT NULL)),
+  -- La base no acepta una subcategoria que no pertenezca a la categoria elegida
+  CONSTRAINT subcategoria_de_su_categoria FOREIGN KEY (categoria, subcategoria)
+    REFERENCES compartido.subcategorias_reporte (categoria, id)
 );
 
 -- Tabla maestra de activaciones del boton de panico que crea la app y lee el dashboard

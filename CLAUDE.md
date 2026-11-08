@@ -93,7 +93,8 @@ La excepción son los **datos de consulta que leen los dos** (por ejemplo, las c
 
 Una sola base PostgreSQL (`safepath`) con tres esquemas, según quién usa cada tabla:
 
-- `compartido`: lo que usan los dos productos. Aquí están las **tablas maestras** `reportes`, `activaciones_panico` y `conteos_usuarios`: la app móvil las escribe y el dashboard las lee. También `localidades`, `lugares` y `ciclovias`.
+- `compartido`: lo que usan los dos productos. Aquí están las **tablas maestras** `reportes`, `activaciones_panico` y `conteos_usuarios`: la app móvil las escribe y el dashboard las lee. También `subcategorias_reporte`, `localidades`, `lugares` y `ciclovias`.
+  - Los reportes guardan categoría principal y subcategoría; el dashboard solo lee y suma por la categoría principal.
 - `dashboard`: solo del tablero (`usuarios`, `siniestros`, `actores_viales`).
 - `movil`: solo de la app (`usuarios`, los ciudadanos autores de reportes y activaciones).
 

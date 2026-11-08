@@ -29,7 +29,7 @@ function crearTablero(): TableroRepositoryPort {
     contarVictimasPorSexoYEdad: async () => [{ sexo: 'mujer', edad: 30, total: 2 }],
     contarUsuariosPorTipo: async () => [{ tipoVehiculo: 'bicicleta', total: 500 }],
     contarActivacionesPorLugar: async () => [{ lugar: 'Calle 26 x Cra. 30', localidad: 'Teusaquillo', latitud: 4.63, longitud: -74.08, total: 5 }],
-    listarReportes: async () => [{ id: 1, latitud: 4.6, longitud: -74.1, categoria: 'via_en_mal_estado' }],
+    listarReportes: async () => [{ id: 1, latitud: 4.6, longitud: -74.1, categoria: 'danos_en_la_via' }],
     contarFalsosPositivosPorMotivo: async () => [{ motivo: 'duplicado', total: 4 }],
     contarFalsosPositivosPorMes: async () => [{ mes: '2026-08', total: 4 }],
   };

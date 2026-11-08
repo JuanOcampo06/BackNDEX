@@ -9,5 +9,9 @@ export type TipoVehiculo = (typeof TIPOS_VEHICULO)[number];
 export const FUENTES = ['anuario', 'app'] as const;
 export type Fuente = (typeof FUENTES)[number];
 
+// Categorias principales de los reportes de la app
+// el tablero no muestra subcategorias y en cada categoria suma todas las suyas
+export const CATEGORIAS_REPORTE = ['danos_en_la_via', 'transito', 'seguridad', 'otro'] as const;
+
 // Cifras que tienen tarjeta en la parte de arriba del tablero
 export type Indicador = 'siniestros' | 'usuarios' | 'reportes' | 'boton_panico' | 'falsos_positivos';

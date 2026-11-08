@@ -1,8 +1,8 @@
 import { ApiPropertyOptional } from '@nestjs/swagger';
 import { Type } from 'class-transformer';
 import { IsIn, IsInt, IsOptional, Min } from 'class-validator';
-import { CATEGORIAS_REPORTE } from '../../modules/reports';
-import type { CategoriaReporte } from '../../modules/reports';
+import { CATEGORIAS_REPORTE, SUBCATEGORIAS_REPORTE } from '../../modules/reports';
+import type { CategoriaReporte, SubcategoriaReporte } from '../../modules/reports';
 
 // Filtros opcionales del GET /reports en la url
 export class ListarReportesQuery {
@@ -18,4 +18,9 @@ export class ListarReportesQuery {
   @IsOptional()
   @IsIn(CATEGORIAS_REPORTE)
   categoria?: CategoriaReporte;
+
+  @ApiPropertyOptional({ enum: SUBCATEGORIAS_REPORTE })
+  @IsOptional()
+  @IsIn(SUBCATEGORIAS_REPORTE)
+  subcategoria?: SubcategoriaReporte;
 }

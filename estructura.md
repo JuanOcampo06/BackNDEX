@@ -116,7 +116,7 @@ Toda carpeta vacía lleva un `.gitkeep` para que Git la conserve.
     │           │   ├── kpis-exportables.spec.ts [IMPLEMENTADO] Prueba unitaria de la selección.
     │           │   ├── filtros-tablero.ts [IMPLEMENTADO] Forma de los filtros del tablero y qué gráficas entran según la fuente.
     │           │   ├── filtros-tablero.spec.ts [IMPLEMENTADO] Prueba unitaria de la regla de fuentes.
-    │           │   ├── catalogos.ts   [IMPLEMENTADO]    Tipos de vehículo, fuentes (anuario y app) e indicadores.
+    │           │   ├── catalogos.ts   [IMPLEMENTADO]    Tipos de vehículo, fuentes (anuario y app), categorías principales de reporte e indicadores.
     │           │   └── calculos.ts    [IMPLEMENTADO]    Porcentajes, variación, franjas horarias y rangos de edad.
     │           ├── application/
     │           │   ├── tablero.repository.port.ts [IMPLEMENTADO] Puerto y token TABLERO_REPOSITORY.
@@ -148,7 +148,7 @@ Toda carpeta vacía lleva un `.gitkeep` para que Git la conserve.
         └── modules/
             ├── reports/               [IMPLEMENTADO]    Reportes ciudadanos: escribe en la tabla maestra compartido.reportes (autores en movil.usuarios).
             │   ├── index.ts / reports.module.ts [IMPLEMENTADO] Puerta del módulo y conexión puerto-adaptador.
-            │   ├── domain/            [IMPLEMENTADO]    Reporte, categorías, estados y errores.
+            │   ├── domain/            [IMPLEMENTADO]    Reporte, categorías principales con sus subcategorías, estados y errores.
             │   ├── application/       [IMPLEMENTADO]    Crear, listar y obtener reporte + puerto + prueba.
             │   └── infrastructure/    [IMPLEMENTADO]    postgres-reportes.repository.ts.
             └── sos/                   [IMPLEMENTADO]    Botón de pánico: escribe en la tabla maestra compartido.activaciones_panico.

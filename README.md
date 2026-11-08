@@ -185,7 +185,7 @@ Es **una sola base** (`safepath`) dividida en **tres esquemas** según quién us
                ▼                                            ▼
    ┌──────────────────────── compartido ────────────────────────┐
    │ reportes  activaciones_panico  conteos_usuarios              │
-   │ localidades  lugares  ciclovias                              │
+   │ subcategorias_reporte  localidades  lugares  ciclovias       │
    └─────────────────────────────────────────────────────────────┘
         movil (solo la app)                 dashboard (solo el tablero)
         usuarios (ciudadanos)               usuarios, siniestros, actores_viales
@@ -195,9 +195,10 @@ Es **una sola base** (`safepath`) dividida en **tres esquemas** según quién us
 
 | Tabla | Qué guarda |
 |---|---|
-| `compartido.reportes` | **Tabla maestra** de reportes ciudadanos: la app los crea y el dashboard los lee. Autor (`usuario_id` → `movil.usuarios`), lugar, categoría, descripción, coordenadas, `estado` (`recibido`, `en_revision`, `resuelto`, `descartado`) y fecha. Un reporte `descartado` es un **falso positivo** y siempre lleva su `motivo_falso_positivo`: la base no acepta uno sin el otro. |
+| `compartido.reportes` | **Tabla maestra** de reportes ciudadanos: la app los crea y el dashboard los lee. Autor (`usuario_id` → `movil.usuarios`), lugar, `categoria` principal y `subcategoria` (la base no acepta una subcategoría de otra categoría), descripción, coordenadas, `estado` (`recibido`, `en_revision`, `resuelto`, `descartado`) y fecha. Un reporte `descartado` es un **falso positivo** y siempre lleva su `motivo_falso_positivo`: la base no acepta uno sin el otro. |
 | `compartido.activaciones_panico` | **Tabla maestra** del botón de pánico: la app las crea y el dashboard las lee. Autor, lugar, coordenadas, `estado` (`activa`, `atendida`, `cancelada`) y fecha. |
 | `compartido.conteos_usuarios` | Usuarios de micromovilidad por día, localidad y tipo de vehículo: la app los cuenta y el dashboard los lee. **Vacía** hasta que la app empiece a contarlos. |
+| `compartido.subcategorias_reporte` | Catálogo de las categorías y subcategorías de reporte que muestra la app (tabla siguiente). |
 | `compartido.localidades` | Las 20 localidades de Bogotá del filtro *Localidad*. El `id` es el código oficial (1 Usaquén … 8 Kennedy … 20 Sumapaz). |
 | `compartido.lugares` | Las 8.608 direcciones del anuario, con su localidad y el punto medio de sus siniestros. Sirven para ubicar siniestros, reportes y activaciones. |
 | `compartido.ciclovias_fuente` | El JSON de OpenStreetMap completo, tal cual, con su fecha de corte. |
@@ -383,20 +384,29 @@ Todos cuelgan de `http://localhost:3001/api/mobile/v1`, responden en `camelCase`
 
 | Método y ruta | Para qué | Datos que recibe |
 |---|---|---|
-| `POST /reports` | Crear un reporte ciudadano (nace `recibido`) | Cuerpo: `usuarioId`, `categoria`, `latitud`, `longitud` y `descripcion` opcional (máx. 500) |
-| `GET /reports` | Listar reportes, los más recientes primero (máx. 100) | Opcionales: `?usuarioId=1&categoria=poca_iluminacion` |
+| `POST /reports` | Crear un reporte ciudadano (nace `recibido`) | Cuerpo: `usuarioId`, `categoria`, `subcategoria`, `latitud`, `longitud` y `descripcion` opcional (máx. 500) |
+| `GET /reports` | Listar reportes, los más recientes primero (máx. 100) | Opcionales: `?usuarioId=1&categoria=seguridad&subcategoria=robo` |
 | `GET /reports/:id` | Ver un reporte | — |
 | `POST /sos` | Activar el botón de pánico (nace `activa`) | Cuerpo: `usuarioId`, `latitud`, `longitud` |
 | `GET /sos` | Listar activaciones, las más recientes primero (máx. 100) | Opcionales: `?usuarioId=1&estado=activa` |
 | `PATCH /sos/:id/cancelar` | Cancelar una activación que sigue activa | — |
 | `GET /ciclovias` | Ciclovías de la zona del mapa (ver sección 5) | `minLat`, `minLon`, `maxLat`, `maxLon` y `tipo` opcional |
 
-Categorías de reporte: `via_en_mal_estado`, `poca_iluminacion`, `obstaculo_en_cicloruta`, `conductor_imprudente`, `hurto_o_inseguridad`.
+**Categorías de reporte.** En la app el ciudadano elige primero la categoría principal y luego una de sus subcategorías; se guardan las dos. El dashboard **solo muestra la categoría principal**: en `/tablero/reportes` cada categoría suma todas sus subcategorías y siempre salen las cuatro, aunque alguna esté en cero.
+
+| `categoria` (la que ve el dashboard) | `subcategoria` (la que elige el ciudadano en la app) |
+|---|---|
+| `danos_en_la_via` (Daños en la vía) | `hueco`, `obra`, `via_cerrada` |
+| `transito` (Tránsito) | `accidente`, `semaforo_danado` |
+| `seguridad` (Seguridad) | `robo`, `poca_luz`, `policia` |
+| `otro` (Otro) | `otro` (la app no muestra opciones; el detalle va en `descripcion`) |
+
+Una subcategoría que no es de su categoría (por ejemplo `seguridad` + `hueco`) responde `400` con `REPORTE_INVALIDO`.
 
 Errores: datos inválidos responden `400`; un ciudadano, reporte o activación que no existe responde `404` con `{"codigo":"..._NO_ENCONTRADO","mensaje":"..."}`; cancelar una activación que ya no está activa responde `400` con `SOS_INVALIDO`.
 
 ```bash
-curl -X POST http://localhost:3001/api/mobile/v1/reports -H "Content-Type: application/json" -d '{"usuarioId":1,"categoria":"via_en_mal_estado","descripcion":"Hueco","latitud":4.6486,"longitud":-74.0818}'
+curl -X POST http://localhost:3001/api/mobile/v1/reports -H "Content-Type: application/json" -d '{"usuarioId":1,"categoria":"danos_en_la_via","subcategoria":"hueco","descripcion":"Hueco","latitud":4.6486,"longitud":-74.0818}'
 ```
 
 ## 7. Diagrama

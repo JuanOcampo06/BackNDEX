@@ -22,7 +22,7 @@ function crearRepositorioFalso(): ReportesRepositoryPort {
 
 describe('Reportes de la app movil (e2e)', () => {
   const ruta = '/api/mobile/v1/reports';
-  const cuerpo = { usuarioId: 1, categoria: 'via_en_mal_estado', descripcion: 'Hueco', latitud: 4.65, longitud: -74.08 };
+  const cuerpo = { usuarioId: 1, categoria: 'danos_en_la_via', subcategoria: 'hueco', descripcion: 'Hueco', latitud: 4.65, longitud: -74.08 };
   let app: INestApplication;
 
   beforeAll(async () => {
@@ -52,6 +52,14 @@ describe('Reportes de la app movil (e2e)', () => {
 
     expect(sinCategoria.status).toBe(400);
     expect(conDatoExtra.status).toBe(400);
+  });
+
+  it('responde 400 si falta la subcategoria o no es de la categoria elegida', async () => {
+    const faltante = await request(app.getHttpServer()).post(ruta).send({ ...cuerpo, subcategoria: undefined });
+    const deOtraCategoria = await request(app.getHttpServer()).post(ruta).send({ ...cuerpo, categoria: 'seguridad' });
+
+    expect(faltante.status).toBe(400);
+    expect(deOtraCategoria.status).toBe(400);
   });
 
   it('responde 404 con codigo y mensaje si el ciudadano no existe', async () => {

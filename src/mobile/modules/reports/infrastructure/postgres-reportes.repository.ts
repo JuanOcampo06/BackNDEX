@@ -9,7 +9,7 @@ import { NuevoReporte, Reporte } from '../domain/reporte';
 const LIMITE_LISTADO = 100;
 
 // Columnas que se leen de la tabla con los nombres que usa el dominio
-const COLUMNAS = `id, usuario_id AS "usuarioId", categoria, descripcion, latitud, longitud, estado, creado_en AS "creadoEn"`;
+const COLUMNAS = `id, usuario_id AS "usuarioId", categoria, subcategoria, descripcion, latitud, longitud, estado, creado_en AS "creadoEn"`;
 
 interface FilaReporte extends Omit<Reporte, 'creadoEn'> {
   creadoEn: Date;
@@ -39,10 +39,10 @@ export class PostgresReportesRepository implements ReportesRepositoryPort, OnMod
   async guardar(reporte: NuevoReporte): Promise<Reporte> {
     // El dashboard agrupa por lugar y localidad asi que se guarda el lugar conocido mas cercano a las coordenadas
     const resultado = await this.pool.query<FilaReporte>(
-      `INSERT INTO compartido.reportes (usuario_id, categoria, descripcion, latitud, longitud, lugar_id)
-       VALUES ($1, $2, $3, $4, $5, compartido.lugar_mas_cercano($4, $5))
+      `INSERT INTO compartido.reportes (usuario_id, categoria, subcategoria, descripcion, latitud, longitud, lugar_id)
+       VALUES ($1, $2, $3, $4, $5, $6, compartido.lugar_mas_cercano($5, $6))
        RETURNING ${COLUMNAS}`,
-      [reporte.usuarioId, reporte.categoria, reporte.descripcion, reporte.latitud, reporte.longitud],
+      [reporte.usuarioId, reporte.categoria, reporte.subcategoria, reporte.descripcion, reporte.latitud, reporte.longitud],
     );
     return aReporte(resultado.rows[0]);
   }
@@ -58,6 +58,10 @@ export class PostgresReportesRepository implements ReportesRepositoryPort, OnMod
     if (filtros.categoria !== undefined) {
       valores.push(filtros.categoria);
       condiciones.push(`categoria = $${valores.length}`);
+    }
+    if (filtros.subcategoria !== undefined) {
+      valores.push(filtros.subcategoria);
+      condiciones.push(`subcategoria = $${valores.length}`);
     }
     const donde = condiciones.length > 0 ? `WHERE ${condiciones.join(' AND ')}` : '';
     const resultado = await this.pool.query<FilaReporte>(

@@ -1,5 +1,11 @@
 import { coordenadasValidas } from '../../../../shared/coordenadas';
-import { CATEGORIAS_REPORTE, CategoriaReporte, EstadoReporte } from './catalogos';
+import {
+  CATEGORIAS_REPORTE,
+  CategoriaReporte,
+  EstadoReporte,
+  SUBCATEGORIAS_POR_CATEGORIA,
+  SubcategoriaReporte,
+} from './catalogos';
 import { ReporteInvalidoError } from './reporte-invalido.error';
 
 const MAXIMO_DESCRIPCION = 500;
@@ -9,6 +15,7 @@ export interface Reporte {
   id: number;
   usuarioId: number;
   categoria: CategoriaReporte;
+  subcategoria: SubcategoriaReporte;
   descripcion: string | null;
   latitud: number;
   longitud: number;
@@ -17,12 +24,13 @@ export interface Reporte {
 }
 
 // Lo que se necesita para crear un reporte nuevo
-export type NuevoReporte = Pick<Reporte, 'usuarioId' | 'categoria' | 'descripcion' | 'latitud' | 'longitud'>;
+export type NuevoReporte = Pick<Reporte, 'usuarioId' | 'categoria' | 'subcategoria' | 'descripcion' | 'latitud' | 'longitud'>;
 
 // Datos tal como llegan desde afuera todavia sin revisar
 export interface DatosReporte {
   usuarioId: number;
   categoria: string;
+  subcategoria: string;
   descripcion?: string | null;
   latitud: number;
   longitud: number;
@@ -32,10 +40,18 @@ function esCategoria(valor: string): valor is CategoriaReporte {
   return (CATEGORIAS_REPORTE as readonly string[]).includes(valor);
 }
 
+// La subcategoria tiene que ser una de las que la app muestra para esa categoria
+function esSubcategoriaDe(categoria: CategoriaReporte, valor: string): valor is SubcategoriaReporte {
+  return (SUBCATEGORIAS_POR_CATEGORIA[categoria] as readonly string[]).includes(valor);
+}
+
 // Aplica las reglas del negocio y devuelve un reporte listo para guardar
 export function crearNuevoReporte(datos: DatosReporte): NuevoReporte {
   if (!esCategoria(datos.categoria)) {
     throw new ReporteInvalidoError(`La categoria ${datos.categoria} no existe`);
+  }
+  if (!esSubcategoriaDe(datos.categoria, datos.subcategoria)) {
+    throw new ReporteInvalidoError(`La subcategoria ${datos.subcategoria} no pertenece a la categoria ${datos.categoria}`);
   }
   if (!coordenadasValidas(datos.latitud, datos.longitud)) {
     throw new ReporteInvalidoError('La ubicacion del reporte no es valida');
@@ -47,6 +63,7 @@ export function crearNuevoReporte(datos: DatosReporte): NuevoReporte {
   return {
     usuarioId: datos.usuarioId,
     categoria: datos.categoria,
+    subcategoria: datos.subcategoria,
     descripcion,
     latitud: datos.latitud,
     longitud: datos.longitud,
