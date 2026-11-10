@@ -36,7 +36,9 @@ Toda carpeta vacía lleva un `.gitkeep` para que Git la conserve.
 │   └── nginx/                         [VACÍO - FUTURO]  Proxy inverso (+ README.md de 2 líneas).
 ├── test/                              [IMPLEMENTADO]    Pruebas e2e.
 │   ├── auth.e2e-spec.ts               [IMPLEMENTADO]    Llama al login real y comprueba 200 y 401.
-│   ├── mobile.e2e-spec.ts             [IMPLEMENTADO]    Reportes del móvil por HTTP con un repositorio falso (201, 400, 404).
+│   ├── mobile.e2e-spec.ts             [IMPLEMENTADO]    Reportes del móvil por HTTP con un repositorio falso y token (201, 400, 401, 404).
+│   ├── auth-viajes-movil.e2e-spec.ts  [IMPLEMENTADO]    Registro, login y viajes del móvil por HTTP con repositorios falsos (201, 400, 401, 404, 409).
+│   ├── rutas-movil.e2e-spec.ts        [IMPLEMENTADO]    Ruta rápida y segura del móvil por HTTP con una red de ciclovías falsa (200, 400, 401).
 │   ├── exportar-kpis.e2e-spec.ts      [IMPLEMENTADO]    Descarga el Excel por HTTP, lo abre y comprueba sus hojas y los 400.
 │   └── filtros-multiples.e2e-spec.ts  [IMPLEMENTADO]    Comprueba que los filtros con varios valores llegan como lista y que un valor inválido da 400.
 └── src/
@@ -48,7 +50,7 @@ Toda carpeta vacía lleva un `.gitkeep` para que Git la conserve.
     │   ├── domain-error.ts            [IMPLEMENTADO]    Error base del negocio (codigo + mensaje).
     │   └── coordenadas.ts             [IMPLEMENTADO]    Valida latitud y longitud (lo usan reports y sos).
     ├── platform/                      [IMPLEMENTADO]    Herramientas técnicas reutilizables (solo database tiene código).
-    │   ├── auth/                      [VACÍO - FUTURO]  JWT, guards y roles (+ README.md).
+    │   ├── auth/                      [IMPLEMENTADO]    JWT de la app móvil: jwt.ts (firma y verifica HS256 con JWT_SECRET), jwt-auth.guard.ts y usuario-actual.decorator.ts (+ jwt.spec.ts y README.md). Roles pendientes.
     │   ├── tenancy/                   [VACÍO - FUTURO]  Multi-tenant, una BD por entidad (+ README.md).
     │   ├── database/                  [IMPLEMENTADO]    PostgreSQL (MongoDB pendiente) (+ README.md).
     │   │   └── postgres.ts            [IMPLEMENTADO]    Crea la conexión a PostgreSQL con DATABASE_URL.
@@ -129,23 +131,42 @@ Toda carpeta vacía lleva un `.gitkeep` para que Git la conserve.
     │               ├── postgres-tablero.repository.ts [IMPLEMENTADO] Consultas SQL a PostgreSQL.
     │               ├── exceljs-generador-excel.ts [IMPLEMENTADO] Escribe el archivo xlsx con la librería exceljs.
     │               └── exceljs-generador-excel.spec.ts [IMPLEMENTADO] Genera el archivo y lo vuelve a abrir para comprobarlo.
-    └── mobile/                        [IMPLEMENTADO]    PRODUCTO 2: app ciudadana (reportes, SOS y ciclovías).
+    └── mobile/                        [IMPLEMENTADO]    PRODUCTO 2: app ciudadana (registro y login, reportes, rutas, SOS, viajes y ciclovías).
         ├── bff/                       [IMPLEMENTADO]    Única puerta HTTP: /api/mobile/v1 (camelCase).
         │   ├── mobile-bff.module.ts   [IMPLEMENTADO]    Registra el prefijo, los módulos y los controladores.
-        │   ├── domain-error.filter.ts [IMPLEMENTADO]    Convierte los DomainError en 404 (_NO_ENCONTRADO) o 400.
+        │   ├── domain-error.filter.ts [IMPLEMENTADO]    Convierte los DomainError en 401 (CREDENCIALES_INVALIDAS), 404 (_NO_ENCONTRADO), 409 (_DUPLICADO) o 400.
         │   ├── controllers/
+        │   │   ├── auth.controller.ts      [IMPLEMENTADO] POST auth/register y auth/login: entregan el JWT.
         │   │   ├── ciclovias.controller.ts [IMPLEMENTADO] GET ciclovias: ciclovías de la zona del mapa.
-        │   │   ├── reports.controller.ts   [IMPLEMENTADO] POST, GET y GET :id de reports.
-        │   │   └── sos.controller.ts       [IMPLEMENTADO] POST, GET y PATCH :id/cancelar de sos.
+        │   │   ├── reports.controller.ts   [IMPLEMENTADO] POST, GET y GET :id de reports (piden token).
+        │   │   ├── routes.controller.ts    [IMPLEMENTADO] GET routes: ruta segura, equilibrada y rápida entre dos puntos (pide token).
+        │   │   ├── sos.controller.ts       [IMPLEMENTADO] POST, GET y PATCH :id/cancelar de sos (piden token).
+        │   │   └── trips.controller.ts     [IMPLEMENTADO] POST, GET, GET :id, POST :id/puntos y PATCH :id/finalizar de trips (piden token).
         │   └── dto/
         │       ├── ciclovias.query.ts      [IMPLEMENTADO] minLat, minLon, maxLat, maxLon y tipo opcional.
         │       ├── crear-reporte.request.ts [IMPLEMENTADO] Cuerpo del POST /reports.
-        │       ├── listar-reportes.query.ts [IMPLEMENTADO] usuarioId y categoria opcionales.
-        │       ├── activar-sos.request.ts  [IMPLEMENTADO] Cuerpo del POST /sos.
+        │       ├── calcular-rutas.query.ts [IMPLEMENTADO] origenLat, origenLon, destinoLat y destinoLon de GET routes.
+        │       ├── rutas.response.ts       [IMPLEMENTADO] Forma de la ruta, sus pasos y la respuesta (solo para Swagger).
+        │       ├── registro.request.ts / iniciar-sesion.request.ts [IMPLEMENTADO] Cuerpos de POST auth/register y auth/login.
+        │       ├── sesion.response.ts      [IMPLEMENTADO] Forma de la sesión y del ciudadano (solo para Swagger).
+        │       ├── ubicacion.request.ts    [IMPLEMENTADO] latitud y longitud de POST trips y POST trips/:id/puntos.
+        │       ├── viaje.response.ts       [IMPLEMENTADO] Forma del viaje, del punto y del detalle (solo para Swagger).
+        │       ├── listar-reportes.query.ts [IMPLEMENTADO] categoria y subcategoria opcionales.
+        │       ├── activar-sos.request.ts  [IMPLEMENTADO] Cuerpo del POST /sos (latitud y longitud).
         │       ├── reporte.response.ts     [IMPLEMENTADO] Forma del reporte (solo para Swagger).
         │       ├── activacion-sos.response.ts [IMPLEMENTADO] Forma de la activación (solo para Swagger).
-        │       └── listar-sos.query.ts     [IMPLEMENTADO] usuarioId y estado opcionales.
+        │       └── listar-sos.query.ts     [IMPLEMENTADO] estado opcional.
         └── modules/
+            ├── auth/                  [IMPLEMENTADO]    Registro e inicio de sesión del ciudadano (tabla movil.usuarios) con contraseña cifrada con scrypt.
+            │   ├── index.ts / auth.module.ts [IMPLEMENTADO] Puerta del módulo y conexión de los tres puertos con sus adaptadores.
+            │   ├── domain/            [IMPLEMENTADO]    Ciudadano, géneros, reglas de nombre, correo, teléfono, contraseña y fecha de nacimiento (mayor de 18 años), y errores.
+            │   ├── application/       [IMPLEMENTADO]    Registrar e iniciar sesión + puertos (repositorio, cifrador, emisor de token) + pruebas.
+            │   └── infrastructure/    [IMPLEMENTADO]    postgres-ciudadanos.repository.ts, scrypt-contrasena.cifrador.ts y jwt-token.emisor.ts.
+            ├── routes/                [IMPLEMENTADO]    Ruta segura, equilibrada y rápida sobre la red de ciclovías de compartido.ciclovias (solo lectura).
+            │   ├── index.ts / routes.module.ts [IMPLEMENTADO] Puerta del módulo y conexión puerto-adaptador.
+            │   ├── domain/            [IMPLEMENTADO]    Red vial y su construcción, costos de la rápida, la equilibrada y la segura, camino mínimo (Dijkstra), maniobras de giro, ruta y errores + pruebas.
+            │   ├── application/       [IMPLEMENTADO]    CalcularRutasUseCase + puerto de lectura de las ciclovías + pruebas.
+            │   └── infrastructure/    [IMPLEMENTADO]    postgres-red-ciclovias.repository.ts (lee todas las vías y las guarda 10 minutos en memoria).
             ├── reports/               [IMPLEMENTADO]    Reportes ciudadanos: escribe en la tabla maestra compartido.reportes (autores en movil.usuarios).
             │   ├── index.ts / reports.module.ts [IMPLEMENTADO] Puerta del módulo y conexión puerto-adaptador.
             │   ├── domain/            [IMPLEMENTADO]    Reporte, categorías principales con sus subcategorías, estados y errores.
@@ -156,6 +177,11 @@ Toda carpeta vacía lleva un `.gitkeep` para que Git la conserve.
                 ├── domain/            [IMPLEMENTADO]    Activación, estados, regla de cancelación y errores.
                 ├── application/       [IMPLEMENTADO]    Activar, listar y cancelar + puerto + prueba.
                 └── infrastructure/    [IMPLEMENTADO]    postgres-sos.repository.ts.
+            └── trips/                 [IMPLEMENTADO]    Viajes en bicicleta con su recorrido GPS (tablas movil.viajes y movil.puntos_viaje).
+                ├── index.ts / trips.module.ts [IMPLEMENTADO] Puerta del módulo y conexión puerto-adaptador.
+                ├── domain/            [IMPLEMENTADO]    Viaje, puntos, estados, distancia (haversine), reglas y errores + prueba.
+                ├── application/       [IMPLEMENTADO]    Iniciar, registrar punto, finalizar, listar y obtener + puerto + pruebas.
+                └── infrastructure/    [IMPLEMENTADO]    postgres-viajes.repository.ts.
 ```
 
 ## Qué hay que tocar para…
@@ -167,6 +193,7 @@ Toda carpeta vacía lleva un `.gitkeep` para que Git la conserve.
 | Compartir otro dato de consulta entre dashboard y móvil | Módulo nuevo en `src/common/modules/<modulo>/` (mismas capas) → exportar desde su `index.ts` → un controlador en cada BFF (`dashboard/bff/` en snake_case y `mobile/bff/` en camelCase) → importar el módulo en los dos `*-bff.module.ts`. |
 | Agregar un KPI a la exportación de Excel | Nombre en `domain/kpis-exportables.ts` → su hoja en `application/hojas-excel-kpis.ts` (reutiliza el caso de uso del KPI) → agregarlo al `Record` de ese archivo y, si es un caso de uso nuevo, a `CasosDeUsoKpi` y a la fábrica de `kpis.module.ts`. |
 | Cambiar una gráfica del tablero | Caso de uso en `src/dashboard/modules/kpis/application/` → consulta en `infrastructure/postgres-tablero.repository.ts` (y en el puerto si cambia la forma) → ruta en `src/dashboard/bff/controllers/tablero.controller.ts`. |
-| Activar JWT | Emisión y guards en `src/platform/auth/` → sustituir `TOKEN_DE_PRUEBA` en `login.use-case.ts` por un puerto de tokens → proteger los controladores de `src/dashboard/bff/controllers/` → secreto en `.env.example`. |
+| Activar JWT en el dashboard | El JWT ya existe en `src/platform/auth/` (lo usa la app móvil) → sustituir `TOKEN_DE_PRUEBA` en `login.use-case.ts` por un puerto de tokens como el de `mobile/modules/auth/` → proteger los controladores de `src/dashboard/bff/controllers/` con `JwtAuthGuard`. |
+| Proteger otro endpoint de la app móvil | `@UseGuards(JwtAuthGuard)` y `@ApiBearerAuth()` en su controlador → recibir al ciudadano con `@UsuarioActual() usuarioId: number` (nunca desde el cuerpo). |
 | Que un endpoint nuevo salga en Swagger | En su controlador: `@ApiTags` con uno de los grupos de `src/swagger/configurar-swagger.ts`, `@ApiOperation` y las respuestas (`@ApiOkResponse`...); en sus DTO: `@ApiProperty` o `@ApiPropertyOptional` en cada campo. |
 | Agregar un endpoint a la app móvil | Caso de uso en `src/mobile/modules/<modulo>/application/` → exportarlo en su `index.ts` → DTO y controlador en `src/mobile/bff/` (camelCase) → registrarlo en `mobile-bff.module.ts`; sus tablas van en el esquema `movil` si solo las usa la app, o en `compartido` si también las lee el dashboard. |

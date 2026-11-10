@@ -11,13 +11,44 @@ CREATE SCHEMA movil;
 -- ============================== movil ==============================
 
 -- Ciudadanos que usan la app y son los autores de reportes y activaciones
+-- la contrasena se guarda cifrada con scrypt en el formato scrypt$sal$clave y nunca en texto plano
+-- que sea mayor de 18 anos lo valida el backend al registrar porque depende de la fecha de hoy
 CREATE TABLE movil.usuarios (
   id serial PRIMARY KEY,
   nombre_completo text NOT NULL,
   correo text NOT NULL UNIQUE,
   telefono text,
+  fecha_nacimiento date NOT NULL CHECK (fecha_nacimiento >= DATE '1900-01-01'),
+  genero text NOT NULL CHECK (genero IN ('femenino', 'masculino', 'no_binario', 'prefiero_no_decirlo')),
+  contrasena_cifrada text NOT NULL,
   creado_en timestamptz NOT NULL DEFAULT now()
 );
+
+-- Viajes en bicicleta del ciudadano
+-- un viaje nace en curso y al finalizarlo se guarda la distancia recorrida en metros
+CREATE TABLE movil.viajes (
+  id serial PRIMARY KEY,
+  usuario_id int NOT NULL REFERENCES movil.usuarios (id),
+  estado text NOT NULL DEFAULT 'en_curso' CHECK (estado IN ('en_curso', 'finalizado')),
+  distancia_m double precision NOT NULL DEFAULT 0 CHECK (distancia_m >= 0),
+  iniciado_en timestamptz NOT NULL DEFAULT now(),
+  finalizado_en timestamptz,
+  CONSTRAINT finalizado_con_fecha CHECK ((estado = 'finalizado') = (finalizado_en IS NOT NULL))
+);
+
+-- Puntos GPS del recorrido y el primero es la salida del viaje
+CREATE TABLE movil.puntos_viaje (
+  id serial PRIMARY KEY,
+  viaje_id int NOT NULL REFERENCES movil.viajes (id) ON DELETE CASCADE,
+  latitud double precision NOT NULL CHECK (latitud BETWEEN -90 AND 90),
+  longitud double precision NOT NULL CHECK (longitud BETWEEN -180 AND 180),
+  registrado_en timestamptz NOT NULL DEFAULT now()
+);
+
+CREATE INDEX viajes_usuario_id_idx ON movil.viajes (usuario_id);
+CREATE INDEX puntos_viaje_viaje_id_idx ON movil.puntos_viaje (viaje_id);
+-- La base garantiza que un ciudadano tenga un solo viaje en curso a la vez
+CREATE UNIQUE INDEX viajes_un_en_curso_por_usuario_idx ON movil.viajes (usuario_id) WHERE estado = 'en_curso';
 
 -- ============================== compartido ==============================
 

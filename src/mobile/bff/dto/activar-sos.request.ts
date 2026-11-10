@@ -1,13 +1,9 @@
 import { ApiProperty } from '@nestjs/swagger';
-import { IsInt, IsNumber, Max, Min } from 'class-validator';
+import { IsNumber, Max, Min } from 'class-validator';
 
-// Cuerpo del POST /sos: quien presiono el boton y donde estaba
+// Cuerpo del POST /sos: donde estaba el ciudadano al presionar el boton
+// el ciudadano sale del token y no del cuerpo
 export class ActivarSosRequest {
-  @ApiProperty({ example: 1, description: 'Id del ciudadano que activa el boton' })
-  @IsInt()
-  @Min(1)
-  usuarioId!: number;
-
   @ApiProperty({ example: 4.6486, minimum: -90, maximum: 90 })
   @IsNumber()
   @Min(-90)

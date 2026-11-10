@@ -1,14 +1,14 @@
 # Backend Safe Path Twin
 
 Un solo backend (NestJS + TypeScript) con **arquitectura hexagonal** y **BFF**, dividido en dos productos.
-Hoy incluye el **login de demostración** del dashboard, los **endpoints de cada tarjeta y gráfica del tablero** los **endpoints de la app móvil** (reportes ciudadanos y botón de pánico) y un endpoint de **ciclovías por zona del mapa** que comparten el dashboard y la app móvil. Todo lee de una base de datos **PostgreSQL local**.
+Hoy incluye el **login de demostración** del dashboard, los **endpoints de cada tarjeta y gráfica del tablero** los **endpoints de la app móvil** (registro y login con JWT, reportes ciudadanos, rutas segura, equilibrada y rápida, botón de pánico y viajes en bicicleta) y un endpoint de **ciclovías por zona del mapa** que comparten el dashboard y la app móvil. Todo lee de una base de datos **PostgreSQL local**.
 
 ## 1. Qué es el backend
 
 | Producto | Qué es | Quién se encarga |
 |---|---|---|
 | **Dashboard** | Tablero institucional que usa el personal de la entidad. | `src/dashboard/`, con su puerta HTTP en `/api/dashboard/v1`. |
-| **App móvil** | App ciudadana: reportes, botón de pánico y ciclovías. | `src/mobile/`, con su puerta HTTP en `/api/mobile/v1`. |
+| **App móvil** | App ciudadana: registro y login, reportes, rutas, botón de pánico, viajes y ciclovías. | `src/mobile/`, con su puerta HTTP en `/api/mobile/v1`. |
 | **Común** | Negocio que leen los dos productos (hoy, las ciclovías). No tiene puerta HTTP propia. | `src/common/`; cada producto lo expone desde su BFF. |
 
 Ambos viajan en la misma aplicación y en la misma imagen Docker, pero no se importan entre sí.
@@ -70,6 +70,8 @@ npm install
 npm run start:dev
 ```
 
+Para firmar los tokens de la app móvil la API necesita `JWT_SECRET`: ya viene en `.env.example`, así que basta con copiarlo a `.env`. En producción debe ser largo y distinto para cada entorno.
+
 Si prefieres tu propio PostgreSQL instalado, crea la base y carga los scripts (ajusta `DATABASE_URL` en `.env` si usas otro usuario):
 
 ```bash
@@ -130,7 +132,7 @@ Respuesta esperada (siniestros del último trimestre del anuario 2025 comparados
 {"valor":2832,"valor_periodo_anterior":2958,"variacion_porcentual":-4.3,"serie_semanal":[{"semana":"2025-09-29","total":169}]}
 ```
 
-**Con Swagger (en el navegador)**: abre http://localhost:3001/api/docs. Ahí están los 31 endpoints agrupados en este orden: compartidos, dashboard y app móvil; en cada uno pulsa *Try it out* y luego *Execute*. Los parámetros y cuerpos ya traen ejemplos; para ver cifras del anuario en el tablero usa `mes_desde=2025-01` y `mes_hasta=2025-12`. El documento en JSON (para importarlo en Postman o en el frontend) está en http://localhost:3001/api/docs-json.
+**Con Swagger (en el navegador)**: abre http://localhost:3001/api/docs. Ahí están los 39 endpoints agrupados en este orden: compartidos, dashboard y app móvil; en cada uno pulsa *Try it out* y luego *Execute*. Los parámetros y cuerpos ya traen ejemplos; para ver cifras del anuario en el tablero usa `mes_desde=2025-01` y `mes_hasta=2025-12`. El documento en JSON (para importarlo en Postman o en el frontend) está en http://localhost:3001/api/docs-json.
 
 **Con `demo.http`**: ábrelo en VS Code con la extensión *REST Client* y pulsa *Send Request* sobre cada petición. Incluye todas las del tablero.
 
@@ -216,7 +218,9 @@ Es **una sola base** (`safepath`) dividida en **tres esquemas** según quién us
 
 | Tabla | Qué guarda |
 |---|---|
-| `movil.usuarios` | Ciudadanos de la app (nombre, correo único y teléfono). Son los autores de los reportes y activaciones: la base no deja borrar uno que tenga registros. **Vacía**: no hay ciudadanos de prueba. |
+| `movil.usuarios` | Ciudadanos de la app (nombre, correo único, teléfono, `fecha_nacimiento`, `genero` y `contrasena_cifrada`). Son los autores de los reportes, activaciones y viajes: la base no deja borrar uno que tenga registros. La contraseña se guarda cifrada con scrypt y nunca en texto plano. **Vacía**: no hay ciudadanos de prueba, se crean con `POST /auth/register`. |
+| `movil.viajes` | Viajes en bicicleta del ciudadano: `estado` (`en_curso` o `finalizado`), `distancia_m` (metros recorridos, se calcula al finalizar) y fechas. Un índice único en la base garantiza **un solo viaje en curso por ciudadano**. |
+| `movil.puntos_viaje` | Puntos GPS del recorrido de cada viaje; el primero es la salida. Se borran junto con su viaje. |
 
 **Cómo se ubica un evento de la app.** La app solo manda latitud y longitud. Al guardar, la base le asigna el **lugar conocido más cercano** (función `compartido.lugar_mas_cercano`), y ese lugar trae su localidad. Así el dashboard puede filtrar por localidad y agrupar el botón de pánico por ubicación.
 
@@ -380,16 +384,26 @@ Los datos son de © OpenStreetMap (licencia ODbL): el mapa debe mostrar ese cré
 
 ## 6. Endpoints de la app móvil
 
-Todos cuelgan de `http://localhost:3001/api/mobile/v1`, responden en `camelCase` y no piden token. Los reportes y activaciones se guardan en las tablas maestras del esquema `compartido`, así que **aparecen de inmediato en las gráficas del dashboard**. **No hay ciudadanos de prueba**: `movil.usuarios` empieza vacía, así que crear un reporte o una activación responde `404` (`USUARIO_NO_ENCONTRADO`) hasta que existan ciudadanos reales.
+Todos cuelgan de `http://localhost:3001/api/mobile/v1` y responden en `camelCase`. Los reportes y activaciones se guardan en las tablas maestras del esquema `compartido`, así que **aparecen de inmediato en las gráficas del dashboard**.
+
+**Sesión y token.** `POST /auth/register` y `POST /auth/login` entregan un `accessToken` (JWT firmado con `JWT_SECRET`, dura 7 días). Todas las rutas de `/reports`, `/sos` y `/trips` lo piden en el encabezado `Authorization: Bearer <token>` y **el ciudadano sale del token**: ya no se manda `usuarioId` en el cuerpo ni en la url, y cada ciudadano ve y modifica solo lo suyo. Sin token, o con uno inválido o vencido, responde `401` con `TOKEN_INVALIDO`. `/auth/*` y `/ciclovias` no piden token. `/routes` sí lo pide, igual que `/trips`. **No hay ciudadanos de prueba**: crea uno con `/auth/register`.
 
 | Método y ruta | Para qué | Datos que recibe |
 |---|---|---|
-| `POST /reports` | Crear un reporte ciudadano (nace `recibido`) | Cuerpo: `usuarioId`, `categoria`, `subcategoria`, `latitud`, `longitud` y `descripcion` opcional (máx. 500) |
-| `GET /reports` | Listar reportes, los más recientes primero (máx. 100) | Opcionales: `?usuarioId=1&categoria=seguridad&subcategoria=robo` |
-| `GET /reports/:id` | Ver un reporte | — |
-| `POST /sos` | Activar el botón de pánico (nace `activa`) | Cuerpo: `usuarioId`, `latitud`, `longitud` |
-| `GET /sos` | Listar activaciones, las más recientes primero (máx. 100) | Opcionales: `?usuarioId=1&estado=activa` |
-| `PATCH /sos/:id/cancelar` | Cancelar una activación que sigue activa | — |
+| `POST /auth/register` | Crear la cuenta del ciudadano y dejarlo con sesión abierta (201) | Cuerpo: `nombreCompleto`, `correo`, `contrasena` (8 a 72 caracteres), `fechaNacimiento` (`AAAA-MM-DD`, mayor de 18 años) y `genero` (`femenino`, `masculino`, `no_binario` o `prefiero_no_decirlo`); `telefono` es opcional (7 a 15 dígitos) |
+| `POST /auth/login` | Iniciar sesión (200) | Cuerpo: `correo` y `contrasena` |
+| `POST /reports` 🔒 | Crear un reporte ciudadano (nace `recibido`) | Cuerpo: `categoria`, `subcategoria`, `latitud`, `longitud` y `descripcion` opcional (máx. 500) |
+| `GET /reports` 🔒 | Listar **mis** reportes, los más recientes primero (máx. 100) | Opcionales: `?categoria=seguridad&subcategoria=robo` |
+| `GET /reports/:id` 🔒 | Ver uno de mis reportes | — |
+| `GET /routes` 🔒 | Calcular la **ruta segura**, la **equilibrada** y la **rápida** entre dos puntos | Obligatorios: `?origenLat=4.6486&origenLon=-74.0818&destinoLat=4.6702&destinoLon=-74.0623` |
+| `POST /sos` 🔒 | Activar el botón de pánico (nace `activa`) | Cuerpo: `latitud`, `longitud` |
+| `GET /sos` 🔒 | Listar **mis** activaciones, las más recientes primero (máx. 100) | Opcional: `?estado=activa` |
+| `PATCH /sos/:id/cancelar` 🔒 | Cancelar una de mis activaciones que sigue activa | — |
+| `POST /trips` 🔒 | Iniciar un viaje desde la ubicación actual (201, nace `en_curso`) | Cuerpo: `latitud`, `longitud` |
+| `POST /trips/:id/puntos` 🔒 | Agregar un punto GPS al recorrido de un viaje en curso (201) | Cuerpo: `latitud`, `longitud` |
+| `PATCH /trips/:id/finalizar` 🔒 | Cerrar el viaje y calcular los metros recorridos | — |
+| `GET /trips` 🔒 | Listar **mis** viajes, los más recientes primero (máx. 100) | — |
+| `GET /trips/:id` 🔒 | Ver uno de mis viajes con todo su recorrido (`puntos`) | — |
 | `GET /ciclovias` | Ciclovías de la zona del mapa (ver sección 5) | `minLat`, `minLon`, `maxLat`, `maxLon` y `tipo` opcional |
 
 **Categorías de reporte.** En la app el ciudadano elige primero la categoría principal y luego una de sus subcategorías; se guardan las dos. El dashboard **solo muestra la categoría principal**: en `/tablero/reportes` cada categoría suma todas sus subcategorías y siempre salen las cuatro, aunque alguna esté en cero.
@@ -403,11 +417,30 @@ Todos cuelgan de `http://localhost:3001/api/mobile/v1`, responden en `camelCase`
 
 Una subcategoría que no es de su categoría (por ejemplo `seguridad` + `hueco`) responde `400` con `REPORTE_INVALIDO`.
 
-Errores: datos inválidos responden `400`; un ciudadano, reporte o activación que no existe responde `404` con `{"codigo":"..._NO_ENCONTRADO","mensaje":"..."}`; cancelar una activación que ya no está activa responde `400` con `SOS_INVALIDO`.
+🔒 = pide token.
+
+**Rutas.** `GET /routes` devuelve `{ riesgoDisponible, rutas: [segura, equilibrada, rapida] }` (en ese orden, el mismo en que la app las muestra). Cada ruta trae `distanciaM`, `duracionS` (segundos estimados en bicicleta, a 15 km/h en ciclovía), `porcentajeEnCiclovia`, `coordenadas` (`[latitud, longitud]` desde el origen hasta el destino, para dibujarlas como una línea en el mapa) y `pasos` (la salida, cada giro `derecha`, `izquierda` o `giro_en_u`, y la llegada; cada paso trae su ubicación y `distanciaDesdeInicioM`, así que "en 1,6 km gira a la derecha" es ese valor menos lo que ya recorrió el ciudadano).
+
+- **Cómo se calcula.** Las rutas van por la red de **ciclovías de OpenStreetMap** (`compartido.ciclovias`) con el algoritmo de Dijkstra. La **rápida** minimiza el tiempo, la **equilibrada** minimiza el promedio de las dos cosas y la **segura** minimiza los metros ponderados: la ciclovía cuenta 1, cruzar una calle 1,3 y ir por calle normal 1,6, y además un tramo de riesgo `medio` se multiplica por 1,6 y uno `alto` por 3.
+- **Hoy las tres rutas casi no se distinguen.** Con los datos reales, la segura mide en mediana solo un 0,2 % más que la rápida y la equilibrada queda entre las dos. Ninguna ciclovía tiene riesgo calculado todavía (`riesgo` está vacío), así que la segura solo esquiva calles y cruces. La respuesta lo avisa con `riesgoDisponible: false`. Cuando se llene `compartido.ciclovias.riesgo` con `bajo`, `medio` o `alto`, la segura empieza a esquivar los tramos peligrosos sin cambiar nada del código (los datos nuevos llegan en menos de 10 minutos, sin reiniciar).
+- **Límites.** Solo hay ruta si el origen y el destino están a menos de **600 metros** de una ciclovía (`RUTA_FUERA_DE_COBERTURA`) y si las ciclovías de los dos lados se conectan (`RUTA_SIN_CAMINO`). Las ciclovías de OpenStreetMap están en 209 grupos sueltos, así que se unen con tramos por calle normal cuando están a menos de 300 metros (enlaces en línea recta, no siguen la calle real). Con los datos reales de Bogotá, de 200 pares de puntos al azar entre 3 y 10 km, el **91 %** tuvo ruta, el recorrido midió en mediana **1,45 veces** la línea recta y cada consulta tardó unos 20 ms.
+- Origen y destino a menos de 30 metros responden `400` con `RUTA_INVALIDA`.
+
+**Viajes.** Un ciudadano tiene **un solo viaje en curso a la vez**: iniciar otro responde `409` (`VIAJE_EN_CURSO_DUPLICADO`). La distancia (`distanciaM`) vale 0 mientras el viaje está en curso; al finalizar se suman en línea recta (fórmula de haversine) los tramos entre los puntos GPS, en el orden en que se registraron. Agregar puntos o finalizar un viaje que ya terminó responde `400` (`VIAJE_INVALIDO`).
+
+Errores: datos inválidos responden `400` (por ejemplo, una persona menor de 18 años responde `CIUDADANO_INVALIDO`); correo ya registrado `409` (`CORREO_DUPLICADO`); correo o contraseña incorrectos `401` (`CREDENCIALES_INVALIDAS`, el mismo mensaje para los dos casos); una ruta que no se puede calcular responde `400` con `RUTA_INVALIDA`, `RUTA_FUERA_DE_COBERTURA` o `RUTA_SIN_CAMINO`; un ciudadano, reporte, activación o viaje que no existe **o que es de otro ciudadano** responde `404` con `{"codigo":"..._NO_ENCONTRADO","mensaje":"..."}`; cancelar una activación que ya no está activa responde `400` con `SOS_INVALIDO`.
 
 ```bash
-curl -X POST http://localhost:3001/api/mobile/v1/reports -H "Content-Type: application/json" -d '{"usuarioId":1,"categoria":"danos_en_la_via","subcategoria":"hueco","descripcion":"Hueco","latitud":4.6486,"longitud":-74.0818}'
+# 1. Crear la cuenta y guardar el token
+curl -X POST http://localhost:3001/api/mobile/v1/auth/register -H "Content-Type: application/json" -d '{"nombreCompleto":"Ana Lopez","correo":"ana@demo.local","contrasena":"demo1234","fechaNacimiento":"1995-04-23","genero":"femenino"}'
+
+# 2. Usar el accessToken que devolvió
+curl -X POST http://localhost:3001/api/mobile/v1/reports -H "Content-Type: application/json" -H "Authorization: Bearer <accessToken>" -d '{"categoria":"danos_en_la_via","subcategoria":"hueco","descripcion":"Hueco","latitud":4.6486,"longitud":-74.0818}'
 ```
+
+En Swagger pulsa **Authorize** (arriba a la derecha) y pega el `accessToken` para probar las rutas con 🔒.
+
+**Si ya tenías la base creada**, el esquema nuevo no se aplica solo (Docker ejecuta los scripts únicamente al crear el volumen). Para empezar de cero: `docker compose down -v` y luego `docker compose up -d`. Esto borra los datos de la base.
 
 ## 7. Diagrama
 
@@ -480,7 +513,7 @@ Por eso el dashboard responde en `snake_case` y el móvil en `camelCase`, sin af
 
 | Pendiente | Dónde va |
 |---|---|
-| JWT, guards y roles (reemplaza `token-de-prueba`) | `src/platform/auth/` |
+| JWT del dashboard y roles (`admin` / `lector`) que reemplacen `token-de-prueba` (el JWT de la app móvil ya está en `src/platform/auth/`) | `src/platform/auth/` + `src/dashboard/modules/auth/` |
 | Multi-tenant (una base de datos por entidad) | `src/platform/tenancy/` |
 | MongoDB y PostgreSQL para el resto de módulos (el tablero ya usa PostgreSQL) | `src/platform/database/` + `infrastructure/` de cada módulo |
 | Eventos con RabbitMQ (por ejemplo, reportes del móvil hacia el dashboard) | `src/platform/messaging/` |

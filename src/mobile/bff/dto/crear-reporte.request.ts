@@ -1,15 +1,11 @@
 import { ApiProperty, ApiPropertyOptional } from '@nestjs/swagger';
-import { IsIn, IsInt, IsNumber, IsOptional, IsString, Max, MaxLength, Min } from 'class-validator';
+import { IsIn, IsNumber, IsOptional, IsString, Max, MaxLength, Min } from 'class-validator';
 import { CATEGORIAS_REPORTE, SUBCATEGORIAS_REPORTE } from '../../modules/reports';
 import type { CategoriaReporte, SubcategoriaReporte } from '../../modules/reports';
 
 // Cuerpo del POST /reports: lo que el ciudadano manda desde la app
+// el ciudadano sale del token y no del cuerpo
 export class CrearReporteRequest {
-  @ApiProperty({ example: 1, description: 'Id del ciudadano que reporta' })
-  @IsInt()
-  @Min(1)
-  usuarioId!: number;
-
   @ApiProperty({ enum: CATEGORIAS_REPORTE, example: 'danos_en_la_via', description: 'Categoria principal que el ciudadano elige primero' })
   @IsIn(CATEGORIAS_REPORTE)
   categoria!: CategoriaReporte;
