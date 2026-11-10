@@ -59,7 +59,7 @@ export class TableroQuery {
   @ApiPropertyOptional({
     enum: TIPOS_VEHICULO,
     isArray: true,
-    description: 'Uno o varios tipos de vehiculo y aplica a siniestros y usuarios',
+    description: 'Uno o varios tipos de vehiculo y aplica a siniestros usuarios reportes falsos positivos y boton de panico',
   })
   @IsOptional()
   @Transform(({ value }: { value: unknown }) => aLista(value))

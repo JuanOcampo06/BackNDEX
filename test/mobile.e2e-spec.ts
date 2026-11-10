@@ -23,7 +23,7 @@ function crearRepositorioFalso(): ReportesRepositoryPort {
 
 describe('Reportes de la app movil (e2e)', () => {
   const ruta = '/api/mobile/v1/reports';
-  const cuerpo = { categoria: 'danos_en_la_via', subcategoria: 'hueco', descripcion: 'Hueco', latitud: 4.65, longitud: -74.08 };
+  const cuerpo = { categoria: 'danos_en_la_via', subcategoria: 'hueco', tipoVehiculo: 'bicicleta', descripcion: 'Hueco', latitud: 4.65, longitud: -74.08 };
   let app: INestApplication;
   // El ciudadano 1 es el dueno de los reportes de estas pruebas
   const autorizacion = (usuarioId = 1): string => `Bearer ${firmarToken(usuarioId)}`;

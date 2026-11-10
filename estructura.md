@@ -48,7 +48,8 @@ Toda carpeta vacía lleva un `.gitkeep` para que Git la conserve.
     ├── app.module.ts                  [IMPLEMENTADO]    Une los dos BFF y expone GET /api/health.
     ├── shared/                        [IMPLEMENTADO]    Código común en TypeScript simple.
     │   ├── domain-error.ts            [IMPLEMENTADO]    Error base del negocio (codigo + mensaje).
-    │   └── coordenadas.ts             [IMPLEMENTADO]    Valida latitud y longitud (lo usan reports y sos).
+    │   ├── coordenadas.ts             [IMPLEMENTADO]    Valida latitud y longitud (lo usan reports y sos).
+    │   └── tipos-vehiculo.ts          [IMPLEMENTADO]    Tipos de vehículo que piden reports y sos (los mismos del filtro del dashboard).
     ├── platform/                      [IMPLEMENTADO]    Herramientas técnicas reutilizables (solo database tiene código).
     │   ├── auth/                      [IMPLEMENTADO]    JWT de la app móvil: jwt.ts (firma y verifica HS256 con JWT_SECRET), jwt-auth.guard.ts y usuario-actual.decorator.ts (+ jwt.spec.ts y README.md). Roles pendientes.
     │   ├── tenancy/                   [VACÍO - FUTURO]  Multi-tenant, una BD por entidad (+ README.md).

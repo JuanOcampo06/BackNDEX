@@ -55,6 +55,7 @@ const REPORTES: Origen = {
   valor: 'count(*)',
   localidad: 'l.localidad_id',
   fuente: 'app',
+  vehiculo: 'r.tipo_vehiculo',
 };
 
 const FALSOS_POSITIVOS: Origen = { ...REPORTES, condicion: 'r.motivo_falso_positivo IS NOT NULL' };
@@ -66,6 +67,7 @@ const PANICO: Origen = {
   valor: 'count(*)',
   localidad: 'l.localidad_id',
   fuente: 'app',
+  vehiculo: 'a.tipo_vehiculo',
 };
 
 const ORIGEN_POR_INDICADOR: Record<Indicador, Origen> = {

@@ -1,7 +1,7 @@
 import { ApiProperty, ApiPropertyOptional } from '@nestjs/swagger';
 import { IsIn, IsNumber, IsOptional, IsString, Max, MaxLength, Min } from 'class-validator';
-import { CATEGORIAS_REPORTE, SUBCATEGORIAS_REPORTE } from '../../modules/reports';
-import type { CategoriaReporte, SubcategoriaReporte } from '../../modules/reports';
+import { CATEGORIAS_REPORTE, SUBCATEGORIAS_REPORTE, TIPOS_VEHICULO } from '../../modules/reports';
+import type { CategoriaReporte, SubcategoriaReporte, TipoVehiculo } from '../../modules/reports';
 
 // Cuerpo del POST /reports: lo que el ciudadano manda desde la app
 // el ciudadano sale del token y no del cuerpo
@@ -18,6 +18,14 @@ export class CrearReporteRequest {
   })
   @IsIn(SUBCATEGORIAS_REPORTE)
   subcategoria!: SubcategoriaReporte;
+
+  @ApiProperty({
+    enum: TIPOS_VEHICULO,
+    example: 'bicicleta',
+    description: 'Vehiculo en el que iba el ciudadano y sirve para el filtro Vehiculo del dashboard',
+  })
+  @IsIn(TIPOS_VEHICULO)
+  tipoVehiculo!: TipoVehiculo;
 
   @ApiPropertyOptional({ example: 'Hueco grande en la ciclorruta', maxLength: 500 })
   @IsOptional()

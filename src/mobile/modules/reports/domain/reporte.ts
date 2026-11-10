@@ -1,4 +1,5 @@
 import { coordenadasValidas } from '../../../../shared/coordenadas';
+import { esTipoVehiculo, TipoVehiculo } from '../../../../shared/tipos-vehiculo';
 import {
   CATEGORIAS_REPORTE,
   CategoriaReporte,
@@ -16,6 +17,7 @@ export interface Reporte {
   usuarioId: number;
   categoria: CategoriaReporte;
   subcategoria: SubcategoriaReporte;
+  tipoVehiculo: TipoVehiculo;
   descripcion: string | null;
   latitud: number;
   longitud: number;
@@ -24,13 +26,14 @@ export interface Reporte {
 }
 
 // Lo que se necesita para crear un reporte nuevo
-export type NuevoReporte = Pick<Reporte, 'usuarioId' | 'categoria' | 'subcategoria' | 'descripcion' | 'latitud' | 'longitud'>;
+export type NuevoReporte = Pick<Reporte, 'usuarioId' | 'categoria' | 'subcategoria' | 'tipoVehiculo' | 'descripcion' | 'latitud' | 'longitud'>;
 
 // Datos tal como llegan desde afuera todavia sin revisar
 export interface DatosReporte {
   usuarioId: number;
   categoria: string;
   subcategoria: string;
+  tipoVehiculo: string;
   descripcion?: string | null;
   latitud: number;
   longitud: number;
@@ -53,6 +56,9 @@ export function crearNuevoReporte(datos: DatosReporte): NuevoReporte {
   if (!esSubcategoriaDe(datos.categoria, datos.subcategoria)) {
     throw new ReporteInvalidoError(`La subcategoria ${datos.subcategoria} no pertenece a la categoria ${datos.categoria}`);
   }
+  if (!esTipoVehiculo(datos.tipoVehiculo)) {
+    throw new ReporteInvalidoError(`El tipo de vehiculo ${datos.tipoVehiculo} no existe`);
+  }
   if (!coordenadasValidas(datos.latitud, datos.longitud)) {
     throw new ReporteInvalidoError('La ubicacion del reporte no es valida');
   }
@@ -64,6 +70,7 @@ export function crearNuevoReporte(datos: DatosReporte): NuevoReporte {
     usuarioId: datos.usuarioId,
     categoria: datos.categoria,
     subcategoria: datos.subcategoria,
+    tipoVehiculo: datos.tipoVehiculo,
     descripcion,
     latitud: datos.latitud,
     longitud: datos.longitud,

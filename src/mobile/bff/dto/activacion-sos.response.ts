@@ -1,6 +1,6 @@
 import { ApiProperty } from '@nestjs/swagger';
-import { ESTADOS_SOS } from '../../modules/sos';
-import type { EstadoSos } from '../../modules/sos';
+import { ESTADOS_SOS, TIPOS_VEHICULO } from '../../modules/sos';
+import type { EstadoSos, TipoVehiculo } from '../../modules/sos';
 
 // Forma de la activacion que responde la API (solo para documentar en Swagger)
 export class ActivacionSosResponse {
@@ -9,6 +9,9 @@ export class ActivacionSosResponse {
 
   @ApiProperty({ example: 1 })
   usuarioId!: number;
+
+  @ApiProperty({ enum: TIPOS_VEHICULO, example: 'bicicleta' })
+  tipoVehiculo!: TipoVehiculo;
 
   @ApiProperty({ example: 4.6486 })
   latitud!: number;

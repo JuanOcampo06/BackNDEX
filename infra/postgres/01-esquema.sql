@@ -103,6 +103,8 @@ CREATE TABLE compartido.reportes (
   lugar_id int NOT NULL REFERENCES compartido.lugares (id),
   categoria text NOT NULL,
   subcategoria text NOT NULL,
+  -- Vehiculo en el que iba el ciudadano y sirve para el filtro Vehiculo del dashboard
+  tipo_vehiculo text NOT NULL CHECK (tipo_vehiculo IN ('bicicleta', 'bicicleta_electrica', 'patineta_electrica', 'patineta', 'otro')),
   descripcion text CHECK (char_length(descripcion) <= 500),
   latitud double precision NOT NULL CHECK (latitud BETWEEN -90 AND 90),
   longitud double precision NOT NULL CHECK (longitud BETWEEN -180 AND 180),
@@ -121,6 +123,8 @@ CREATE TABLE compartido.activaciones_panico (
   id serial PRIMARY KEY,
   usuario_id int NOT NULL REFERENCES movil.usuarios (id),
   lugar_id int NOT NULL REFERENCES compartido.lugares (id),
+  -- Vehiculo en el que iba el ciudadano y sirve para el filtro Vehiculo del dashboard
+  tipo_vehiculo text NOT NULL CHECK (tipo_vehiculo IN ('bicicleta', 'bicicleta_electrica', 'patineta_electrica', 'patineta', 'otro')),
   latitud double precision NOT NULL CHECK (latitud BETWEEN -90 AND 90),
   longitud double precision NOT NULL CHECK (longitud BETWEEN -180 AND 180),
   estado text NOT NULL DEFAULT 'activa' CHECK (estado IN ('activa', 'atendida', 'cancelada')),

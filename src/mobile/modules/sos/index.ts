@@ -3,6 +3,8 @@ export { SosModule } from './sos.module';
 export { ESTADOS_SOS } from './domain/catalogos';
 export type { EstadoSos } from './domain/catalogos';
 export type { ActivacionSos } from './domain/activacion-sos';
+export { TIPOS_VEHICULO } from '../../../shared/tipos-vehiculo';
+export type { TipoVehiculo } from '../../../shared/tipos-vehiculo';
 export { DomainError } from '../../../shared/domain-error';
 export { ActivarSosUseCase } from './application/activar-sos.use-case';
 export { ListarSosUseCase } from './application/listar-sos.use-case';

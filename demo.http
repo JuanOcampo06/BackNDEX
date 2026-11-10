@@ -142,6 +142,7 @@ Content-Type: application/json
 {
   "categoria": "danos_en_la_via",
   "subcategoria": "hueco",
+  "tipoVehiculo": "bicicleta",
   "descripcion": "Hueco grande en la ciclorruta",
   "latitud": 4.6486,
   "longitud": -74.0818
@@ -165,6 +166,7 @@ Authorization: Bearer {{token}}
 Content-Type: application/json
 
 {
+  "tipoVehiculo": "bicicleta",
   "latitud": 4.6486,
   "longitud": -74.0818
 }

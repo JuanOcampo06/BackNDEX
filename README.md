@@ -264,7 +264,7 @@ Todos son `GET`, cuelgan de `http://localhost:3001/api/dashboard/v1/tablero` y r
 |---|---|---|
 | `mes_desde`, `mes_hasta` | `2025-01`, `2025-12` | Rango de meses (formato `AAAA-MM`). Sin ellos: los últimos 3 meses **hasta el último mes que tiene datos** en las fuentes elegidas (hoy, octubre a diciembre de 2025), así el tablero nunca abre vacío. Si llega solo `mes_desde`, el final es el mes actual. |
 | `localidad_id` | `8` o `8,10` | Una o varias localidades (los ids salen de `/filtros`). |
-| `tipo_vehiculo` | `bicicleta` o `bicicleta,patineta` | Uno o varios de: `bicicleta`, `bicicleta_electrica`, `patineta_electrica`, `patineta`, `otro`. Aplica a siniestros y usuarios. |
+| `tipo_vehiculo` | `bicicleta` o `bicicleta,patineta` | Uno o varios de: `bicicleta`, `bicicleta_electrica`, `patineta_electrica`, `patineta`, `otro`. Aplica a siniestros, usuarios, reportes, falsos positivos y botón de pánico. |
 | `fuente` | `anuario` o `anuario,app` | Una o las dos: `anuario` (Anuario de Siniestralidad de la Secretaría de Movilidad) y `app` (app móvil). Cada gráfica tiene su fuente: **anuario** → tarjeta de siniestros, mapa, lugares, horas, tendencia y sexo y edad; **app** → usuarios, reportes, botón de pánico y falsos positivos. Las gráficas de una fuente no elegida responden en cero. Sin `fuente`, o con las dos, salen todas combinadas. |
 
 **Varios valores en un filtro.** `localidad_id`, `tipo_vehiculo` y `fuente` aceptan uno o varios valores, repetidos o separados por comas (también se pueden mezclar):
@@ -392,11 +392,11 @@ Todos cuelgan de `http://localhost:3001/api/mobile/v1` y responden en `camelCase
 |---|---|---|
 | `POST /auth/register` | Crear la cuenta del ciudadano y dejarlo con sesión abierta (201) | Cuerpo: `nombreCompleto`, `correo`, `contrasena` (8 a 72 caracteres), `fechaNacimiento` (`AAAA-MM-DD`, mayor de 18 años) y `genero` (`femenino`, `masculino`, `no_binario` o `prefiero_no_decirlo`); `telefono` es opcional (7 a 15 dígitos) |
 | `POST /auth/login` | Iniciar sesión (200) | Cuerpo: `correo` y `contrasena` |
-| `POST /reports` 🔒 | Crear un reporte ciudadano (nace `recibido`) | Cuerpo: `categoria`, `subcategoria`, `latitud`, `longitud` y `descripcion` opcional (máx. 500) |
+| `POST /reports` 🔒 | Crear un reporte ciudadano (nace `recibido`) | Cuerpo: `categoria`, `subcategoria`, `tipoVehiculo`, `latitud`, `longitud` y `descripcion` opcional (máx. 500) |
 | `GET /reports` 🔒 | Listar **mis** reportes, los más recientes primero (máx. 100) | Opcionales: `?categoria=seguridad&subcategoria=robo` |
 | `GET /reports/:id` 🔒 | Ver uno de mis reportes | — |
 | `GET /routes` 🔒 | Calcular la **ruta segura**, la **equilibrada** y la **rápida** entre dos puntos | Obligatorios: `?origenLat=4.6486&origenLon=-74.0818&destinoLat=4.6702&destinoLon=-74.0623` |
-| `POST /sos` 🔒 | Activar el botón de pánico (nace `activa`) | Cuerpo: `latitud`, `longitud` |
+| `POST /sos` 🔒 | Activar el botón de pánico (nace `activa`) | Cuerpo: `tipoVehiculo`, `latitud`, `longitud` |
 | `GET /sos` 🔒 | Listar **mis** activaciones, las más recientes primero (máx. 100) | Opcional: `?estado=activa` |
 | `PATCH /sos/:id/cancelar` 🔒 | Cancelar una de mis activaciones que sigue activa | — |
 | `POST /trips` 🔒 | Iniciar un viaje desde la ubicación actual (201, nace `en_curso`) | Cuerpo: `latitud`, `longitud` |
