@@ -49,7 +49,7 @@ describe('CancelarSosUseCase', () => {
     const repositorio = crearRepositorio();
     await new ActivarSosUseCase(repositorio).execute({ usuarioId: 1, latitud: 4.65, longitud: -74.08 });
 
-    const cancelada = await new CancelarSosUseCase(repositorio).execute(1);
+    const cancelada = await new CancelarSosUseCase(repositorio).execute(1, 1);
 
     expect(cancelada.estado).toBe('cancelada');
   });
@@ -57,12 +57,19 @@ describe('CancelarSosUseCase', () => {
   it('no deja cancelar dos veces la misma activacion', async () => {
     const repositorio = crearRepositorio();
     await new ActivarSosUseCase(repositorio).execute({ usuarioId: 1, latitud: 4.65, longitud: -74.08 });
-    await new CancelarSosUseCase(repositorio).execute(1);
+    await new CancelarSosUseCase(repositorio).execute(1, 1);
 
-    await expect(new CancelarSosUseCase(repositorio).execute(1)).rejects.toMatchObject({ codigo: 'SOS_INVALIDO' });
+    await expect(new CancelarSosUseCase(repositorio).execute(1, 1)).rejects.toMatchObject({ codigo: 'SOS_INVALIDO' });
+  });
+
+  it('la activacion de otro ciudadano responde como si no existiera', async () => {
+    const repositorio = crearRepositorio();
+    await new ActivarSosUseCase(repositorio).execute({ usuarioId: 1, latitud: 4.65, longitud: -74.08 });
+
+    await expect(new CancelarSosUseCase(repositorio).execute(1, 2)).rejects.toMatchObject({ codigo: 'SOS_NO_ENCONTRADO' });
   });
 
   it('avisa cuando la activacion no existe', async () => {
-    await expect(new CancelarSosUseCase(crearRepositorio()).execute(5)).rejects.toMatchObject({ codigo: 'SOS_NO_ENCONTRADO' });
+    await expect(new CancelarSosUseCase(crearRepositorio()).execute(5, 1)).rejects.toMatchObject({ codigo: 'SOS_NO_ENCONTRADO' });
   });
 });

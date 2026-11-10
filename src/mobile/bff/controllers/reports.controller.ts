@@ -9,9 +9,20 @@ import {
   Post,
   Query,
   UseFilters,
+  UseGuards,
   ValidationPipe,
 } from '@nestjs/common';
-import { ApiBadRequestResponse, ApiCreatedResponse, ApiNotFoundResponse, ApiOkResponse, ApiOperation, ApiTags } from '@nestjs/swagger';
+import {
+  ApiBadRequestResponse,
+  ApiBearerAuth,
+  ApiCreatedResponse,
+  ApiNotFoundResponse,
+  ApiOkResponse,
+  ApiOperation,
+  ApiTags,
+  ApiUnauthorizedResponse,
+} from '@nestjs/swagger';
+import { JwtAuthGuard, UsuarioActual } from '../../../platform/auth';
 import { CrearReporteUseCase, ListarReportesUseCase, ObtenerReporteUseCase, Reporte } from '../../modules/reports';
 import { DomainErrorFilter } from '../domain-error.filter';
 import { CrearReporteRequest } from '../dto/crear-reporte.request';
@@ -22,9 +33,13 @@ import { ReporteResponse } from '../dto/reporte.response';
 const validar = new ValidationPipe({ transform: true, whitelist: true, forbidNonWhitelisted: true });
 
 // Reportes ciudadanos de la app movil
-// todos cuelgan de /api/mobile/v1/reports y responden en camelCase
+// todos cuelgan de /api/mobile/v1/reports, responden en camelCase y piden token
+// el ciudadano sale del token y cada uno ve solo sus reportes
 @ApiTags('App movil - Reportes')
+@ApiBearerAuth()
+@ApiUnauthorizedResponse({ description: 'Falta el token o no es valido' })
 @Controller('reports')
+@UseGuards(JwtAuthGuard)
 @UseFilters(DomainErrorFilter)
 export class ReportsController {
   constructor(
@@ -39,22 +54,22 @@ export class ReportsController {
   @ApiCreatedResponse({ type: ReporteResponse })
   @ApiBadRequestResponse({ description: 'Datos invalidos' })
   @ApiNotFoundResponse({ description: 'El ciudadano no existe' })
-  crear(@Body(validar) cuerpo: CrearReporteRequest): Promise<Reporte> {
-    return this.crearReporte.execute(cuerpo);
+  crear(@UsuarioActual() usuarioId: number, @Body(validar) cuerpo: CrearReporteRequest): Promise<Reporte> {
+    return this.crearReporte.execute({ usuarioId, ...cuerpo });
   }
 
   @Get()
-  @ApiOperation({ summary: 'Listar reportes (los mas recientes primero, maximo 100)' })
+  @ApiOperation({ summary: 'Listar mis reportes (los mas recientes primero, maximo 100)' })
   @ApiOkResponse({ type: ReporteResponse, isArray: true })
-  listar(@Query(validar) consulta: ListarReportesQuery): Promise<Reporte[]> {
-    return this.listarReportes.execute(consulta);
+  listar(@UsuarioActual() usuarioId: number, @Query(validar) consulta: ListarReportesQuery): Promise<Reporte[]> {
+    return this.listarReportes.execute({ ...consulta, usuarioId });
   }
 
   @Get(':id')
-  @ApiOperation({ summary: 'Ver un reporte por su id' })
+  @ApiOperation({ summary: 'Ver uno de mis reportes por su id' })
   @ApiOkResponse({ type: ReporteResponse })
-  @ApiNotFoundResponse({ description: 'No existe un reporte con ese id' })
-  obtener(@Param('id', ParseIntPipe) id: number): Promise<Reporte> {
-    return this.obtenerReporte.execute(id);
+  @ApiNotFoundResponse({ description: 'No existe un reporte mio con ese id' })
+  obtener(@UsuarioActual() usuarioId: number, @Param('id', ParseIntPipe) id: number): Promise<Reporte> {
+    return this.obtenerReporte.execute(id, usuarioId);
   }
 }

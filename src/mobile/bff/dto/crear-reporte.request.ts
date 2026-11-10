@@ -1,18 +1,23 @@
 import { ApiProperty, ApiPropertyOptional } from '@nestjs/swagger';
-import { IsIn, IsInt, IsNumber, IsOptional, IsString, Max, MaxLength, Min } from 'class-validator';
-import { CATEGORIAS_REPORTE } from '../../modules/reports';
-import type { CategoriaReporte } from '../../modules/reports';
+import { IsIn, IsNumber, IsOptional, IsString, Max, MaxLength, Min } from 'class-validator';
+import { CATEGORIAS_REPORTE, SUBCATEGORIAS_REPORTE } from '../../modules/reports';
+import type { CategoriaReporte, SubcategoriaReporte } from '../../modules/reports';
 
 // Cuerpo del POST /reports: lo que el ciudadano manda desde la app
+// el ciudadano sale del token y no del cuerpo
 export class CrearReporteRequest {
-  @ApiProperty({ example: 1, description: 'Id del ciudadano que reporta' })
-  @IsInt()
-  @Min(1)
-  usuarioId!: number;
-
-  @ApiProperty({ enum: CATEGORIAS_REPORTE, example: 'via_en_mal_estado' })
+  @ApiProperty({ enum: CATEGORIAS_REPORTE, example: 'danos_en_la_via', description: 'Categoria principal que el ciudadano elige primero' })
   @IsIn(CATEGORIAS_REPORTE)
   categoria!: CategoriaReporte;
+
+  @ApiProperty({
+    enum: SUBCATEGORIAS_REPORTE,
+    example: 'hueco',
+    description:
+      'Subcategoria de la categoria elegida: danos_en_la_via (hueco, obra, via_cerrada), transito (accidente, semaforo_danado), seguridad (robo, poca_luz, policia), otro (otro)',
+  })
+  @IsIn(SUBCATEGORIAS_REPORTE)
+  subcategoria!: SubcategoriaReporte;
 
   @ApiPropertyOptional({ example: 'Hueco grande en la ciclorruta', maxLength: 500 })
   @IsOptional()

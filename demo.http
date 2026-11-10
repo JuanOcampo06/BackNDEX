@@ -24,56 +24,58 @@ Content-Type: application/json
 
 ### --- Tablero del dashboard ---
 ### Todas aceptan los filtros opcionales mes_desde mes_hasta localidad_id tipo_vehiculo y fuente
-### sin filtros se usan los ultimos tres meses
+### fuente anuario trae las graficas de siniestros y fuente app las de la app y sin fuente salen todas
+### sin filtros se usan los ultimos tres meses y como el anuario solo trae 2025 los ejemplos piden meses de 2025
 @tablero = {{base}}/dashboard/v1/tablero
+@meses = mes_desde=2025-10&mes_hasta=2025-12
 
 ### 4. Opciones de los filtros
 GET {{tablero}}/filtros
 
-### 5. Tarjeta de siniestros con filtros
-GET {{tablero}}/tarjetas/siniestros?mes_desde=2026-08&mes_hasta=2026-10&localidad_id=4&tipo_vehiculo=bicicleta
+### 5. Tarjeta de siniestros con filtros de un valor
+GET {{tablero}}/tarjetas/siniestros?mes_desde=2025-08&mes_hasta=2025-10&localidad_id=8&tipo_vehiculo=bicicleta
 
 ### 6. Tarjeta de usuarios
-GET {{tablero}}/tarjetas/usuarios
+GET {{tablero}}/tarjetas/usuarios?{{meses}}
 
 ### 7. Tarjeta de reportes
-GET {{tablero}}/tarjetas/reportes
+GET {{tablero}}/tarjetas/reportes?{{meses}}
 
 ### 8. Tarjeta de boton de panico
-GET {{tablero}}/tarjetas/boton-panico
+GET {{tablero}}/tarjetas/boton-panico?{{meses}}
 
 ### 9. Tarjeta de falsos positivos
-GET {{tablero}}/tarjetas/falsos-positivos
+GET {{tablero}}/tarjetas/falsos-positivos?{{meses}}
 
 ### 10. Mapa de siniestros (las ciclovias salen de su propio endpoint)
-GET {{tablero}}/mapa-siniestros
+GET {{tablero}}/mapa-siniestros?{{meses}}
 
 ### 11. Lugares con mas siniestros
-GET {{tablero}}/lugares-con-mas-siniestros
+GET {{tablero}}/lugares-con-mas-siniestros?{{meses}}
 
 ### 12. Siniestros por hora del dia
-GET {{tablero}}/siniestros-por-hora
+GET {{tablero}}/siniestros-por-hora?{{meses}}
 
 ### 13. Tendencia mensual
-GET {{tablero}}/tendencia-mensual
+GET {{tablero}}/tendencia-mensual?{{meses}}
 
 ### 14. Siniestros por sexo y edad
-GET {{tablero}}/siniestros-por-sexo-y-edad
+GET {{tablero}}/siniestros-por-sexo-y-edad?{{meses}}
 
-### 15. Usuarios por tipo con el selector Camaras
-GET {{tablero}}/usuarios-por-tipo?fuente=camaras
+### 15. Usuarios por tipo
+GET {{tablero}}/usuarios-por-tipo?{{meses}}
 
 ### 16. Boton de panico
-GET {{tablero}}/boton-panico
+GET {{tablero}}/boton-panico?{{meses}}
 
 ### 17. Reportes
-GET {{tablero}}/reportes
+GET {{tablero}}/reportes?{{meses}}
 
 ### 18. Falsos positivos
-GET {{tablero}}/falsos-positivos
+GET {{tablero}}/falsos-positivos?{{meses}}
 
 ### 19. Rango de meses al reves (400)
-GET {{tablero}}/tarjetas/siniestros?mes_desde=2026-10&mes_hasta=2026-08
+GET {{tablero}}/tarjetas/siniestros?mes_desde=2025-10&mes_hasta=2025-08
 
 ### --- Ciclovias por zona del mapa (dashboard y app movil) ---
 ### Las cuatro esquinas son las del mapa que se ve y tipo es opcional
@@ -91,44 +93,133 @@ GET {{base}}/mobile/v1/ciclovias?minLat=4.66&minLon=-74.06&maxLat=4.68&maxLon=-7
 GET {{base}}/mobile/v1/ciclovias?minLat=4.68&minLon=-74.06&maxLat=4.66&maxLon=-74.04
 
 ### --- App movil (camelCase) ---
+### No hay ciudadanos de prueba asi que primero se registra uno con el paso M1 o se inicia sesion con el M2
+### las rutas con token usan el accessToken que devuelve el login (corre primero el paso M2)
 @movil = {{base}}/mobile/v1
 
-### 24. Crear un reporte (201)
-POST {{movil}}/reports
+### M1. Registrar un ciudadano (201) y si el correo ya existe responde 409
+POST {{movil}}/auth/register
 Content-Type: application/json
 
 {
-  "usuarioId": 1,
-  "categoria": "via_en_mal_estado",
+  "nombreCompleto": "Ana Lopez",
+  "correo": "ana@demo.local",
+  "telefono": "3001234567",
+  "contrasena": "demo1234",
+  "fechaNacimiento": "1995-04-23",
+  "genero": "femenino"
+}
+
+### M2. Iniciar sesion (200) y guardar el token
+# @name loginMovil
+POST {{movil}}/auth/login
+Content-Type: application/json
+
+{
+  "correo": "ana@demo.local",
+  "contrasena": "demo1234"
+}
+
+@token = {{loginMovil.response.body.accessToken}}
+
+### M3. Contrasena incorrecta (401)
+POST {{movil}}/auth/login
+Content-Type: application/json
+
+{
+  "correo": "ana@demo.local",
+  "contrasena": "incorrecta"
+}
+
+### M4. Ruta con token sin enviarlo (401)
+GET {{movil}}/reports
+
+### M5. Crear un reporte (201) y el ciudadano sale del token
+POST {{movil}}/reports
+Authorization: Bearer {{token}}
+Content-Type: application/json
+
+{
+  "categoria": "danos_en_la_via",
+  "subcategoria": "hueco",
   "descripcion": "Hueco grande en la ciclorruta",
   "latitud": 4.6486,
   "longitud": -74.0818
 }
 
-### 25. Listar reportes de un ciudadano
-GET {{movil}}/reports?usuarioId=1
+### M6. Listar mis reportes
+GET {{movil}}/reports
+Authorization: Bearer {{token}}
 
-### 26. Ver un reporte
+### M7. Ver uno de mis reportes
 GET {{movil}}/reports/1
+Authorization: Bearer {{token}}
 
-### 27. Reporte que no existe (404)
-GET {{movil}}/reports/999
+### M8. Reporte que no existe (404)
+GET {{movil}}/reports/999999
+Authorization: Bearer {{token}}
 
-### 28. Activar el boton de panico (201)
+### M9. Activar el boton de panico (201)
 POST {{movil}}/sos
+Authorization: Bearer {{token}}
 Content-Type: application/json
 
 {
-  "usuarioId": 1,
   "latitud": 4.6486,
   "longitud": -74.0818
 }
 
-### 29. Listar activaciones activas
+### M10. Listar mis activaciones activas
 GET {{movil}}/sos?estado=activa
+Authorization: Bearer {{token}}
 
-### 30. Cancelar una activacion (la 3 de los datos de prueba esta activa)
-PATCH {{movil}}/sos/3/cancelar
+### M11. Cancelar una de mis activaciones activas (cambia el 1 por el id que devolvio el paso M9)
+PATCH {{movil}}/sos/1/cancelar
+Authorization: Bearer {{token}}
+
+### M12. Calcular la ruta segura, la equilibrada y la rapida entre dos puntos (las coordenadas deben estar a menos de 600 metros de una ciclovia)
+GET {{movil}}/routes?origenLat=4.6517&origenLon=-74.1072&destinoLat=4.6552&destinoLon=-74.0603
+Authorization: Bearer {{token}}
+
+### M13. Ruta con origen y destino casi iguales (400 RUTA_INVALIDA)
+GET {{movil}}/routes?origenLat=4.6517&origenLon=-74.1072&destinoLat=4.6517&destinoLon=-74.1072
+Authorization: Bearer {{token}}
+
+### M14. Ruta con el origen muy lejos de toda ciclovia (400 RUTA_FUERA_DE_COBERTURA)
+GET {{movil}}/routes?origenLat=4.9&origenLon=-74.5&destinoLat=4.6552&destinoLon=-74.0603
+Authorization: Bearer {{token}}
+
+### M15. Iniciar un viaje (201) y si ya hay uno en curso responde 409
+POST {{movil}}/trips
+Authorization: Bearer {{token}}
+Content-Type: application/json
+
+{
+  "latitud": 4.6486,
+  "longitud": -74.0818
+}
+
+### M16. Agregar un punto GPS al recorrido (cambia el 1 por el id del viaje)
+POST {{movil}}/trips/1/puntos
+Authorization: Bearer {{token}}
+Content-Type: application/json
+
+{
+  "latitud": 4.6530,
+  "longitud": -74.0830
+}
+
+### M17. Finalizar el viaje y calcular los metros recorridos
+PATCH {{movil}}/trips/1/finalizar
+Authorization: Bearer {{token}}
+
+### M18. Listar mis viajes
+GET {{movil}}/trips
+Authorization: Bearer {{token}}
+
+### M19. Ver un viaje con su recorrido
+GET {{movil}}/trips/1
+Authorization: Bearer {{token}}
 
 ### --- Usuarios del dashboard (snake_case) ---
 @usuarios = {{base}}/dashboard/v1/usuarios
@@ -172,3 +263,33 @@ Content-Type: application/json
 
 ### 37. Eliminar un usuario (204)
 DELETE {{usuarios}}/3
+
+### --- Exportar KPIs a Excel (boton Exportar del dashboard) ---
+### kpis acepta uno o varios y tambien los filtros del tablero
+
+### 38. Exportar dos KPIs (descarga un xlsx)
+GET {{base}}/dashboard/v1/tablero/exportar?kpis=tarjeta_siniestros&kpis=siniestros_por_hora&{{meses}}
+
+### 39. Exportar varios KPIs con filtros
+GET {{base}}/dashboard/v1/tablero/exportar?kpis=tarjeta_siniestros,mapa_siniestros,usuarios_por_tipo&mes_desde=2025-01&mes_hasta=2025-03&localidad_id=8
+
+### 40. Sin KPIs (400)
+GET {{base}}/dashboard/v1/tablero/exportar
+
+### --- Filtros con varios valores ---
+### localidad_id tipo_vehiculo y fuente aceptan uno o varios valores repetidos o separados por comas
+
+### 41. Siniestros de dos localidades y dos tipos de vehiculo
+GET {{tablero}}/tarjetas/siniestros?{{meses}}&localidad_id=8&localidad_id=10&tipo_vehiculo=bicicleta,patineta
+
+### 42. Dos meses seguidos con varios vehiculos
+GET {{tablero}}/siniestros-por-hora?mes_desde=2025-08&mes_hasta=2025-09&tipo_vehiculo=bicicleta,patineta_electrica
+
+### 43. Un valor invalido dentro de la lista (400)
+GET {{tablero}}/tarjetas/siniestros?tipo_vehiculo=bicicleta,carro
+
+### 44. Solo las graficas del anuario sin meses (termina en el ultimo mes con datos)
+GET {{tablero}}/tarjetas/siniestros?fuente=anuario
+
+### 45. Las dos fuentes combinadas
+GET {{tablero}}/tarjetas/siniestros?fuente=anuario,app

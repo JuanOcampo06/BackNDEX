@@ -9,7 +9,7 @@ import { NuevoReporte, Reporte } from '../domain/reporte';
 const LIMITE_LISTADO = 100;
 
 // Columnas que se leen de la tabla con los nombres que usa el dominio
-const COLUMNAS = `id, usuario_id AS "usuarioId", categoria, descripcion, latitud, longitud, estado, creado_en AS "creadoEn"`;
+const COLUMNAS = `id, usuario_id AS "usuarioId", categoria, subcategoria, descripcion, latitud, longitud, estado, creado_en AS "creadoEn"`;
 
 interface FilaReporte extends Omit<Reporte, 'creadoEn'> {
   creadoEn: Date;
@@ -20,8 +20,8 @@ function aReporte(fila: FilaReporte): Reporte {
   return { ...fila, creadoEn: fila.creadoEn.toISOString() };
 }
 
-// Guarda y lee los reportes de la app movil en la base safepath
-// sus tablas estan en el schema movil para no chocar con la tabla reportes del dashboard
+// Guarda y lee los reportes en la tabla maestra compartido.reportes que tambien lee el dashboard
+// los ciudadanos autores estan en movil.usuarios porque solo los usa la app
 @Injectable()
 export class PostgresReportesRepository implements ReportesRepositoryPort, OnModuleDestroy {
   private readonly pool = crearPoolPostgres();
@@ -37,11 +37,12 @@ export class PostgresReportesRepository implements ReportesRepositoryPort, OnMod
   }
 
   async guardar(reporte: NuevoReporte): Promise<Reporte> {
+    // El dashboard agrupa por lugar y localidad asi que se guarda el lugar conocido mas cercano a las coordenadas
     const resultado = await this.pool.query<FilaReporte>(
-      `INSERT INTO movil.reportes (usuario_id, categoria, descripcion, latitud, longitud)
-       VALUES ($1, $2, $3, $4, $5)
+      `INSERT INTO compartido.reportes (usuario_id, categoria, subcategoria, descripcion, latitud, longitud, lugar_id)
+       VALUES ($1, $2, $3, $4, $5, $6, compartido.lugar_mas_cercano($5, $6))
        RETURNING ${COLUMNAS}`,
-      [reporte.usuarioId, reporte.categoria, reporte.descripcion, reporte.latitud, reporte.longitud],
+      [reporte.usuarioId, reporte.categoria, reporte.subcategoria, reporte.descripcion, reporte.latitud, reporte.longitud],
     );
     return aReporte(resultado.rows[0]);
   }
@@ -58,16 +59,20 @@ export class PostgresReportesRepository implements ReportesRepositoryPort, OnMod
       valores.push(filtros.categoria);
       condiciones.push(`categoria = $${valores.length}`);
     }
+    if (filtros.subcategoria !== undefined) {
+      valores.push(filtros.subcategoria);
+      condiciones.push(`subcategoria = $${valores.length}`);
+    }
     const donde = condiciones.length > 0 ? `WHERE ${condiciones.join(' AND ')}` : '';
     const resultado = await this.pool.query<FilaReporte>(
-      `SELECT ${COLUMNAS} FROM movil.reportes ${donde} ORDER BY creado_en DESC, id DESC LIMIT ${LIMITE_LISTADO}`,
+      `SELECT ${COLUMNAS} FROM compartido.reportes ${donde} ORDER BY creado_en DESC, id DESC LIMIT ${LIMITE_LISTADO}`,
       valores,
     );
     return resultado.rows.map(aReporte);
   }
 
   async buscarPorId(id: number): Promise<Reporte | null> {
-    const resultado = await this.pool.query<FilaReporte>(`SELECT ${COLUMNAS} FROM movil.reportes WHERE id = $1`, [id]);
+    const resultado = await this.pool.query<FilaReporte>(`SELECT ${COLUMNAS} FROM compartido.reportes WHERE id = $1`, [id]);
     return resultado.rows.length > 0 ? aReporte(resultado.rows[0]) : null;
   }
 }

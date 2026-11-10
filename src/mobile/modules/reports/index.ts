@@ -1,7 +1,7 @@
 // Unica puerta del modulo y lo unico que el BFF puede importar de aqui
 export { ReportsModule } from './reports.module';
-export { CATEGORIAS_REPORTE, ESTADOS_REPORTE } from './domain/catalogos';
-export type { CategoriaReporte, EstadoReporte } from './domain/catalogos';
+export { CATEGORIAS_REPORTE, ESTADOS_REPORTE, SUBCATEGORIAS_POR_CATEGORIA, SUBCATEGORIAS_REPORTE } from './domain/catalogos';
+export type { CategoriaReporte, EstadoReporte, SubcategoriaReporte } from './domain/catalogos';
 export type { Reporte } from './domain/reporte';
 export { DomainError } from '../../../shared/domain-error';
 export { CrearReporteUseCase } from './application/crear-reporte.use-case';

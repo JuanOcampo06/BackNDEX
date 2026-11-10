@@ -18,8 +18,8 @@ function aActivacion(fila: FilaSos): ActivacionSos {
   return { ...fila, activadoEn: fila.activadoEn.toISOString() };
 }
 
-// Guarda y lee las activaciones del boton de panico de la app movil en la base safepath
-// sus tablas estan en el schema movil junto a los ciudadanos
+// Guarda y lee las activaciones en la tabla maestra compartido.activaciones_panico que tambien lee el dashboard
+// los ciudadanos autores estan en movil.usuarios porque solo los usa la app
 @Injectable()
 export class PostgresSosRepository implements SosRepositoryPort, OnModuleDestroy {
   private readonly pool = crearPoolPostgres();
@@ -35,9 +35,10 @@ export class PostgresSosRepository implements SosRepositoryPort, OnModuleDestroy
   }
 
   async guardar(activacion: NuevaActivacionSos): Promise<ActivacionSos> {
+    // El dashboard agrupa las activaciones por lugar asi que se guarda el lugar conocido mas cercano a las coordenadas
     const resultado = await this.pool.query<FilaSos>(
-      `INSERT INTO movil.activaciones_sos (usuario_id, latitud, longitud)
-       VALUES ($1, $2, $3)
+      `INSERT INTO compartido.activaciones_panico (usuario_id, latitud, longitud, lugar_id)
+       VALUES ($1, $2, $3, compartido.lugar_mas_cercano($2, $3))
        RETURNING ${COLUMNAS}`,
       [activacion.usuarioId, activacion.latitud, activacion.longitud],
     );
@@ -58,20 +59,20 @@ export class PostgresSosRepository implements SosRepositoryPort, OnModuleDestroy
     }
     const donde = condiciones.length > 0 ? `WHERE ${condiciones.join(' AND ')}` : '';
     const resultado = await this.pool.query<FilaSos>(
-      `SELECT ${COLUMNAS} FROM movil.activaciones_sos ${donde} ORDER BY activado_en DESC, id DESC LIMIT ${LIMITE_LISTADO}`,
+      `SELECT ${COLUMNAS} FROM compartido.activaciones_panico ${donde} ORDER BY activado_en DESC, id DESC LIMIT ${LIMITE_LISTADO}`,
       valores,
     );
     return resultado.rows.map(aActivacion);
   }
 
   async buscarPorId(id: number): Promise<ActivacionSos | null> {
-    const resultado = await this.pool.query<FilaSos>(`SELECT ${COLUMNAS} FROM movil.activaciones_sos WHERE id = $1`, [id]);
+    const resultado = await this.pool.query<FilaSos>(`SELECT ${COLUMNAS} FROM compartido.activaciones_panico WHERE id = $1`, [id]);
     return resultado.rows.length > 0 ? aActivacion(resultado.rows[0]) : null;
   }
 
   async cambiarEstado(id: number, estado: EstadoSos): Promise<ActivacionSos> {
     const resultado = await this.pool.query<FilaSos>(
-      `UPDATE movil.activaciones_sos SET estado = $2 WHERE id = $1 RETURNING ${COLUMNAS}`,
+      `UPDATE compartido.activaciones_panico SET estado = $2 WHERE id = $1 RETURNING ${COLUMNAS}`,
       [id, estado],
     );
     return aActivacion(resultado.rows[0]);

@@ -8,8 +8,7 @@ export interface UsuariosPorTipo {
   tipos: ConteoPorTipo[];
 }
 
-// Usuarios de micromovilidad por tipo de vehiculo
-// el selector camaras o app de la grafica se envia como filtro fuente
+// Usuarios de micromovilidad por tipo de vehiculo que cuenta la app movil
 export class ObtenerUsuariosPorTipoUseCase {
   constructor(private readonly tablero: TableroRepositoryPort) {}
 

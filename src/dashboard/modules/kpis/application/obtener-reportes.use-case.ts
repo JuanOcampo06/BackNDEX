@@ -1,3 +1,4 @@
+import { CATEGORIAS_REPORTE } from '../domain/catalogos';
 import { FiltrosTablero } from '../domain/filtros-tablero';
 import { ReporteEnMapa, TableroRepositoryPort } from './tablero.repository.port';
 
@@ -12,7 +13,8 @@ export interface Reportes {
   porCategoria: ReportesPorCategoria[];
 }
 
-// Puntos de los reportes ciudadanos para el mapa y su conteo por categoria
+// Puntos de los reportes ciudadanos para el mapa y su conteo por categoria principal
+// cada reporte trae su categoria principal asi que contar por ella ya suma todas sus subcategorias
 export class ObtenerReportesUseCase {
   constructor(private readonly tablero: TableroRepositoryPort) {}
 
@@ -22,9 +24,10 @@ export class ObtenerReportesUseCase {
     for (const reporte of puntos) {
       totalPorCategoria.set(reporte.categoria, (totalPorCategoria.get(reporte.categoria) ?? 0) + 1);
     }
-    const porCategoria = [...totalPorCategoria.entries()]
-      .map(([categoria, total]) => ({ categoria, total }))
-      .sort((a, b) => b.total - a.total);
+    // Siempre salen las cuatro categorias aunque alguna no tenga reportes y la de mas reportes va primero
+    const porCategoria = CATEGORIAS_REPORTE.map((categoria) => ({ categoria, total: totalPorCategoria.get(categoria) ?? 0 })).sort(
+      (a, b) => b.total - a.total,
+    );
     return { total: puntos.length, puntos, porCategoria };
   }
 }

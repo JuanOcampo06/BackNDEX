@@ -17,7 +17,7 @@ Toda carpeta vacía lleva un `.gitkeep` para que Git la conserve.
 ├── nest-cli.json                      [CONFIG]          Configuración del CLI de NestJS.
 ├── eslint.config.mjs                  [CONFIG]          Lint + eslint-plugin-boundaries con las reglas de dependencia.
 ├── Dockerfile                         [CONFIG]          Imagen única multietapa, USER node y HEALTHCHECK.
-├── docker-compose.yml                 [CONFIG]          Servicios api, postgres (con datos de prueba) y adminer (puerto 8081); mongo, redis y rabbitmq comentados.
+├── docker-compose.yml                 [CONFIG]          Servicios api, postgres (con el anuario 2025) y adminer (puerto 8081); mongo, redis y rabbitmq comentados.
 ├── .dockerignore                      [CONFIG]          Lo que no entra a la imagen (node_modules, dist, .env...).
 ├── .env.example                       [CONFIG]          Plantilla de variables (puertos, PostgreSQL, DATABASE_URL, CORS_ORIGIN); se copia a .env.
 ├── .env                               [CONFIG]          Tu configuración local; no se versiona.
@@ -25,19 +25,22 @@ Toda carpeta vacía lleva un `.gitkeep` para que Git la conserve.
 ├── demo.http                          [CONFIG]          Peticiones de prueba: health, login y todos los endpoints del tablero.
 ├── infra/                             [IMPLEMENTADO]    Despliegue adicional.
 │   ├── postgres/                      [IMPLEMENTADO]    Scripts que PostgreSQL ejecuta al crear la base por primera vez.
-│   │   ├── 01-esquema.sql             [IMPLEMENTADO]    Tablas del tablero (localidades, lugares, siniestros, conteos_usuarios, reportes, activaciones_panico).
-│   │   ├── 02-datos.sql               [IMPLEMENTADO]    Datos de prueba desde enero del año pasado hasta hoy.
-│   │   ├── 03-ciclovias.sql           [IMPLEMENTADO]    Crea ciclovias_fuente y ciclovias y carga el JSON; se puede volver a correr.
-│   │   ├── 04-movil-esquema.sql       [IMPLEMENTADO]    Schema movil con usuarios, reportes y activaciones_sos de la app.
-│   │   ├── 05-movil-datos.sql         [IMPLEMENTADO]    Datos de prueba de la app (3 ciudadanos, 5 reportes, 3 SOS).
-│   │   ├── 06-usuarios-dashboard.sql  [IMPLEMENTADO]    Tabla usuarios_dashboard con 3 usuarios; se puede volver a correr.
+│   │   ├── 01-esquema.sql             [IMPLEMENTADO]    Esquemas compartido, dashboard y movil con sus tablas, restricciones e índices.
+│   │   ├── 02-datos.sql               [IMPLEMENTADO]    Localidades, anuario de siniestralidad 2025 (lugares, siniestros y actores viales) y usuarios del dashboard; lo demás queda vacío.
+│   │   ├── 03-ciclovias.sql           [IMPLEMENTADO]    Crea compartido.ciclovias_fuente y compartido.ciclovias y carga el JSON; se puede volver a correr.
 │   │   └── datos/
+│   │       ├── anuario-siniestros.csv [IMPLEMENTADO]    Hoja Siniestros del anuario 2025 (11.573 filas, solo las columnas que usa la base).
+│   │       ├── anuario-actores-viales.csv [IMPLEMENTADO] Hoja Actor vial del anuario 2025 (28.029 filas).
 │   │       └── ciclovias-osm.json     [IMPLEMENTADO]    Export de OpenStreetMap (Overpass) con las 2.448 vías de ciclovía.
 │   ├── docker/                        [VACÍO - FUTURO]  Compose de QA y producción (+ README.md de 2 líneas).
 │   └── nginx/                         [VACÍO - FUTURO]  Proxy inverso (+ README.md de 2 líneas).
 ├── test/                              [IMPLEMENTADO]    Pruebas e2e.
 │   ├── auth.e2e-spec.ts               [IMPLEMENTADO]    Llama al login real y comprueba 200 y 401.
-│   └── mobile.e2e-spec.ts             [IMPLEMENTADO]    Reportes del móvil por HTTP con un repositorio falso (201, 400, 404).
+│   ├── mobile.e2e-spec.ts             [IMPLEMENTADO]    Reportes del móvil por HTTP con un repositorio falso y token (201, 400, 401, 404).
+│   ├── auth-viajes-movil.e2e-spec.ts  [IMPLEMENTADO]    Registro, login y viajes del móvil por HTTP con repositorios falsos (201, 400, 401, 404, 409).
+│   ├── rutas-movil.e2e-spec.ts        [IMPLEMENTADO]    Ruta rápida y segura del móvil por HTTP con una red de ciclovías falsa (200, 400, 401).
+│   ├── exportar-kpis.e2e-spec.ts      [IMPLEMENTADO]    Descarga el Excel por HTTP, lo abre y comprueba sus hojas y los 400.
+│   └── filtros-multiples.e2e-spec.ts  [IMPLEMENTADO]    Comprueba que los filtros con varios valores llegan como lista y que un valor inválido da 400.
 └── src/
     ├── main.ts                        [IMPLEMENTADO]    Arranque: lee .env, prefijo /api, CORS, Swagger y puerto.
     ├── swagger/
@@ -47,7 +50,7 @@ Toda carpeta vacía lleva un `.gitkeep` para que Git la conserve.
     │   ├── domain-error.ts            [IMPLEMENTADO]    Error base del negocio (codigo + mensaje).
     │   └── coordenadas.ts             [IMPLEMENTADO]    Valida latitud y longitud (lo usan reports y sos).
     ├── platform/                      [IMPLEMENTADO]    Herramientas técnicas reutilizables (solo database tiene código).
-    │   ├── auth/                      [VACÍO - FUTURO]  JWT, guards y roles (+ README.md).
+    │   ├── auth/                      [IMPLEMENTADO]    JWT de la app móvil: jwt.ts (firma y verifica HS256 con JWT_SECRET), jwt-auth.guard.ts y usuario-actual.decorator.ts (+ jwt.spec.ts y README.md). Roles pendientes.
     │   ├── tenancy/                   [VACÍO - FUTURO]  Multi-tenant, una BD por entidad (+ README.md).
     │   ├── database/                  [IMPLEMENTADO]    PostgreSQL (MongoDB pendiente) (+ README.md).
     │   │   └── postgres.ts            [IMPLEMENTADO]    Crea la conexión a PostgreSQL con DATABASE_URL.
@@ -76,11 +79,13 @@ Toda carpeta vacía lleva un `.gitkeep` para que Git la conserve.
     │   │   ├── controllers/
     │   │   │   ├── auth.controller.ts [IMPLEMENTADO]    POST auth/login: valida, llama al caso de uso, responde.
     │   │   │   ├── tablero.controller.ts [IMPLEMENTADO] GET tablero/...: un endpoint por tarjeta y gráfica.
+    │   │   │   ├── exportar-kpis.controller.ts [IMPLEMENTADO] GET tablero/exportar: descarga los KPIs elegidos en un Excel.
     │   │   │   ├── ciclovias.controller.ts [IMPLEMENTADO] GET ciclovias: ciclovías de la zona del mapa (snake_case).
     │   │   │   └── usuarios.controller.ts [IMPLEMENTADO] GET, POST, PATCH y DELETE de usuarios del dashboard.
     │   │   └── dto/
     │   │       ├── login.request.ts   [IMPLEMENTADO]    email válido y password no vacía.
-    │   │       ├── tablero.query.ts   [IMPLEMENTADO]    Filtros opcionales: mes_desde, mes_hasta, localidad_id, tipo_vehiculo, fuente.
+    │   │       ├── tablero.query.ts   [IMPLEMENTADO]    Filtros opcionales: mes_desde, mes_hasta y listas de localidad_id, tipo_vehiculo y fuente (anuario o app).
+    │   │       ├── exportar-kpis.query.ts [IMPLEMENTADO] Esos mismos filtros más la lista de KPIs a exportar.
     │   │       ├── ciclovias.query.ts [IMPLEMENTADO]    min_lat, min_lon, max_lat, max_lon y tipo opcional.
     │   │       ├── crear-usuario.request.ts / actualizar-usuario.request.ts [IMPLEMENTADO] Cuerpos de POST y PATCH.
     │   │       ├── listar-usuarios.query.ts [IMPLEMENTADO] rol opcional.
@@ -98,7 +103,7 @@ Toda carpeta vacía lleva un `.gitkeep` para que Git la conserve.
     │       │   │   └── usuario.repository.port.ts [IMPLEMENTADO] Puerto y token USUARIO_REPOSITORY.
     │       │   └── infrastructure/
     │       │       └── in-memory-usuario.repository.ts [IMPLEMENTADO] Un usuario de prueba en memoria.
-    │       ├── users/                 [IMPLEMENTADO]    Usuarios del dashboard con rol admin o lector (tabla usuarios_dashboard).
+    │       ├── users/                 [IMPLEMENTADO]    Usuarios del dashboard con rol admin o lector (tabla dashboard.usuarios).
     │       │   ├── index.ts / users.module.ts [IMPLEMENTADO] Puerta del módulo y conexión puerto-adaptador.
     │       │   ├── domain/            [IMPLEMENTADO]    Usuario, roles, reglas de nombre, correo y rol, y errores.
     │       │   ├── application/       [IMPLEMENTADO]    Listar, obtener, crear, actualizar y eliminar + puerto + pruebas.
@@ -109,42 +114,74 @@ Toda carpeta vacía lleva un `.gitkeep` para que Git la conserve.
     │           ├── domain/
     │           │   ├── periodo.ts     [IMPLEMENTADO]    Rango de meses, periodo anterior y años de comparación.
     │           │   ├── periodo.spec.ts [IMPLEMENTADO]   Prueba unitaria de Periodo.
-    │           │   ├── filtros-tablero.ts [IMPLEMENTADO] Forma de los filtros del tablero.
-    │           │   ├── catalogos.ts   [IMPLEMENTADO]    Tipos de vehículo, fuentes e indicadores.
+    │           │   ├── kpis-exportables.ts [IMPLEMENTADO] Catálogo de KPIs exportables y validación de la selección.
+    │           │   ├── kpis-exportables.spec.ts [IMPLEMENTADO] Prueba unitaria de la selección.
+    │           │   ├── filtros-tablero.ts [IMPLEMENTADO] Forma de los filtros del tablero y qué gráficas entran según la fuente.
+    │           │   ├── filtros-tablero.spec.ts [IMPLEMENTADO] Prueba unitaria de la regla de fuentes.
+    │           │   ├── catalogos.ts   [IMPLEMENTADO]    Tipos de vehículo, fuentes (anuario y app), categorías principales de reporte e indicadores.
     │           │   └── calculos.ts    [IMPLEMENTADO]    Porcentajes, variación, franjas horarias y rangos de edad.
     │           ├── application/
     │           │   ├── tablero.repository.port.ts [IMPLEMENTADO] Puerto y token TABLERO_REPOSITORY.
-    │           │   ├── obtener-*.use-case.ts      [IMPLEMENTADO] 11 casos de uso, uno por tarjeta o gráfica.
+    │           │   ├── obtener-*.use-case.ts      [IMPLEMENTADO] 11 casos de uso, uno por tarjeta o gráfica, y obtener-ultimo-mes-con-datos (mes final cuando no llegan meses).
+    │           │   ├── exportar-kpis.use-case.ts  [IMPLEMENTADO] Arma el libro de Excel reutilizando esos casos de uso.
+    │           │   ├── hojas-excel-kpis.ts        [IMPLEMENTADO] Cómo se convierte cada KPI en una hoja y la hoja de filtros.
+    │           │   ├── generador-excel.port.ts    [IMPLEMENTADO] Puerto GENERADOR_EXCEL y la forma neutra del libro.
     │           │   └── *.use-case.spec.ts         [IMPLEMENTADO] Pruebas unitarias con repositorio falso.
     │           └── infrastructure/
-    │               └── postgres-tablero.repository.ts [IMPLEMENTADO] Consultas SQL a PostgreSQL.
-    └── mobile/                        [IMPLEMENTADO]    PRODUCTO 2: app ciudadana (reportes, SOS y ciclovías).
+    │               ├── postgres-tablero.repository.ts [IMPLEMENTADO] Consultas SQL a PostgreSQL.
+    │               ├── exceljs-generador-excel.ts [IMPLEMENTADO] Escribe el archivo xlsx con la librería exceljs.
+    │               └── exceljs-generador-excel.spec.ts [IMPLEMENTADO] Genera el archivo y lo vuelve a abrir para comprobarlo.
+    └── mobile/                        [IMPLEMENTADO]    PRODUCTO 2: app ciudadana (registro y login, reportes, rutas, SOS, viajes y ciclovías).
         ├── bff/                       [IMPLEMENTADO]    Única puerta HTTP: /api/mobile/v1 (camelCase).
         │   ├── mobile-bff.module.ts   [IMPLEMENTADO]    Registra el prefijo, los módulos y los controladores.
-        │   ├── domain-error.filter.ts [IMPLEMENTADO]    Convierte los DomainError en 404 (_NO_ENCONTRADO) o 400.
+        │   ├── domain-error.filter.ts [IMPLEMENTADO]    Convierte los DomainError en 401 (CREDENCIALES_INVALIDAS), 404 (_NO_ENCONTRADO), 409 (_DUPLICADO) o 400.
         │   ├── controllers/
+        │   │   ├── auth.controller.ts      [IMPLEMENTADO] POST auth/register y auth/login: entregan el JWT.
         │   │   ├── ciclovias.controller.ts [IMPLEMENTADO] GET ciclovias: ciclovías de la zona del mapa.
-        │   │   ├── reports.controller.ts   [IMPLEMENTADO] POST, GET y GET :id de reports.
-        │   │   └── sos.controller.ts       [IMPLEMENTADO] POST, GET y PATCH :id/cancelar de sos.
+        │   │   ├── reports.controller.ts   [IMPLEMENTADO] POST, GET y GET :id de reports (piden token).
+        │   │   ├── routes.controller.ts    [IMPLEMENTADO] GET routes: ruta segura, equilibrada y rápida entre dos puntos (pide token).
+        │   │   ├── sos.controller.ts       [IMPLEMENTADO] POST, GET y PATCH :id/cancelar de sos (piden token).
+        │   │   └── trips.controller.ts     [IMPLEMENTADO] POST, GET, GET :id, POST :id/puntos y PATCH :id/finalizar de trips (piden token).
         │   └── dto/
         │       ├── ciclovias.query.ts      [IMPLEMENTADO] minLat, minLon, maxLat, maxLon y tipo opcional.
         │       ├── crear-reporte.request.ts [IMPLEMENTADO] Cuerpo del POST /reports.
-        │       ├── listar-reportes.query.ts [IMPLEMENTADO] usuarioId y categoria opcionales.
-        │       ├── activar-sos.request.ts  [IMPLEMENTADO] Cuerpo del POST /sos.
+        │       ├── calcular-rutas.query.ts [IMPLEMENTADO] origenLat, origenLon, destinoLat y destinoLon de GET routes.
+        │       ├── rutas.response.ts       [IMPLEMENTADO] Forma de la ruta, sus pasos y la respuesta (solo para Swagger).
+        │       ├── registro.request.ts / iniciar-sesion.request.ts [IMPLEMENTADO] Cuerpos de POST auth/register y auth/login.
+        │       ├── sesion.response.ts      [IMPLEMENTADO] Forma de la sesión y del ciudadano (solo para Swagger).
+        │       ├── ubicacion.request.ts    [IMPLEMENTADO] latitud y longitud de POST trips y POST trips/:id/puntos.
+        │       ├── viaje.response.ts       [IMPLEMENTADO] Forma del viaje, del punto y del detalle (solo para Swagger).
+        │       ├── listar-reportes.query.ts [IMPLEMENTADO] categoria y subcategoria opcionales.
+        │       ├── activar-sos.request.ts  [IMPLEMENTADO] Cuerpo del POST /sos (latitud y longitud).
         │       ├── reporte.response.ts     [IMPLEMENTADO] Forma del reporte (solo para Swagger).
         │       ├── activacion-sos.response.ts [IMPLEMENTADO] Forma de la activación (solo para Swagger).
-        │       └── listar-sos.query.ts     [IMPLEMENTADO] usuarioId y estado opcionales.
+        │       └── listar-sos.query.ts     [IMPLEMENTADO] estado opcional.
         └── modules/
-            ├── reports/               [IMPLEMENTADO]    Reportes ciudadanos (tablas movil.usuarios y movil.reportes).
+            ├── auth/                  [IMPLEMENTADO]    Registro e inicio de sesión del ciudadano (tabla movil.usuarios) con contraseña cifrada con scrypt.
+            │   ├── index.ts / auth.module.ts [IMPLEMENTADO] Puerta del módulo y conexión de los tres puertos con sus adaptadores.
+            │   ├── domain/            [IMPLEMENTADO]    Ciudadano, géneros, reglas de nombre, correo, teléfono, contraseña y fecha de nacimiento (mayor de 18 años), y errores.
+            │   ├── application/       [IMPLEMENTADO]    Registrar e iniciar sesión + puertos (repositorio, cifrador, emisor de token) + pruebas.
+            │   └── infrastructure/    [IMPLEMENTADO]    postgres-ciudadanos.repository.ts, scrypt-contrasena.cifrador.ts y jwt-token.emisor.ts.
+            ├── routes/                [IMPLEMENTADO]    Ruta segura, equilibrada y rápida sobre la red de ciclovías de compartido.ciclovias (solo lectura).
+            │   ├── index.ts / routes.module.ts [IMPLEMENTADO] Puerta del módulo y conexión puerto-adaptador.
+            │   ├── domain/            [IMPLEMENTADO]    Red vial y su construcción, costos de la rápida, la equilibrada y la segura, camino mínimo (Dijkstra), maniobras de giro, ruta y errores + pruebas.
+            │   ├── application/       [IMPLEMENTADO]    CalcularRutasUseCase + puerto de lectura de las ciclovías + pruebas.
+            │   └── infrastructure/    [IMPLEMENTADO]    postgres-red-ciclovias.repository.ts (lee todas las vías y las guarda 10 minutos en memoria).
+            ├── reports/               [IMPLEMENTADO]    Reportes ciudadanos: escribe en la tabla maestra compartido.reportes (autores en movil.usuarios).
             │   ├── index.ts / reports.module.ts [IMPLEMENTADO] Puerta del módulo y conexión puerto-adaptador.
-            │   ├── domain/            [IMPLEMENTADO]    Reporte, categorías, estados y errores.
+            │   ├── domain/            [IMPLEMENTADO]    Reporte, categorías principales con sus subcategorías, estados y errores.
             │   ├── application/       [IMPLEMENTADO]    Crear, listar y obtener reporte + puerto + prueba.
             │   └── infrastructure/    [IMPLEMENTADO]    postgres-reportes.repository.ts.
-            └── sos/                   [IMPLEMENTADO]    Botón de pánico (tabla movil.activaciones_sos).
+            └── sos/                   [IMPLEMENTADO]    Botón de pánico: escribe en la tabla maestra compartido.activaciones_panico.
                 ├── index.ts / sos.module.ts [IMPLEMENTADO] Puerta del módulo y conexión puerto-adaptador.
                 ├── domain/            [IMPLEMENTADO]    Activación, estados, regla de cancelación y errores.
                 ├── application/       [IMPLEMENTADO]    Activar, listar y cancelar + puerto + prueba.
                 └── infrastructure/    [IMPLEMENTADO]    postgres-sos.repository.ts.
+            └── trips/                 [IMPLEMENTADO]    Viajes en bicicleta con su recorrido GPS (tablas movil.viajes y movil.puntos_viaje).
+                ├── index.ts / trips.module.ts [IMPLEMENTADO] Puerta del módulo y conexión puerto-adaptador.
+                ├── domain/            [IMPLEMENTADO]    Viaje, puntos, estados, distancia (haversine), reglas y errores + prueba.
+                ├── application/       [IMPLEMENTADO]    Iniciar, registrar punto, finalizar, listar y obtener + puerto + pruebas.
+                └── infrastructure/    [IMPLEMENTADO]    postgres-viajes.repository.ts.
 ```
 
 ## Qué hay que tocar para…
@@ -154,7 +191,9 @@ Toda carpeta vacía lleva un `.gitkeep` para que Git la conserve.
 | Agregar un endpoint al dashboard | Caso de uso en `src/dashboard/modules/<modulo>/application/` (y dominio si hace falta) → exportarlo en su `index.ts` y registrarlo en `<modulo>.module.ts` → DTO en `src/dashboard/bff/dto/` → controlador en `src/dashboard/bff/controllers/` → agregarlo a `dashboard-bff.module.ts`. |
 | Conectar otro módulo a PostgreSQL | Usar `crearPoolPostgres()` de `src/platform/database/postgres.ts` en un adaptador nuevo de `infrastructure/` → cambiar `useClass` en `<modulo>.module.ts` → tablas nuevas en `infra/postgres/01-esquema.sql`. |
 | Compartir otro dato de consulta entre dashboard y móvil | Módulo nuevo en `src/common/modules/<modulo>/` (mismas capas) → exportar desde su `index.ts` → un controlador en cada BFF (`dashboard/bff/` en snake_case y `mobile/bff/` en camelCase) → importar el módulo en los dos `*-bff.module.ts`. |
+| Agregar un KPI a la exportación de Excel | Nombre en `domain/kpis-exportables.ts` → su hoja en `application/hojas-excel-kpis.ts` (reutiliza el caso de uso del KPI) → agregarlo al `Record` de ese archivo y, si es un caso de uso nuevo, a `CasosDeUsoKpi` y a la fábrica de `kpis.module.ts`. |
 | Cambiar una gráfica del tablero | Caso de uso en `src/dashboard/modules/kpis/application/` → consulta en `infrastructure/postgres-tablero.repository.ts` (y en el puerto si cambia la forma) → ruta en `src/dashboard/bff/controllers/tablero.controller.ts`. |
-| Activar JWT | Emisión y guards en `src/platform/auth/` → sustituir `TOKEN_DE_PRUEBA` en `login.use-case.ts` por un puerto de tokens → proteger los controladores de `src/dashboard/bff/controllers/` → secreto en `.env.example`. |
+| Activar JWT en el dashboard | El JWT ya existe en `src/platform/auth/` (lo usa la app móvil) → sustituir `TOKEN_DE_PRUEBA` en `login.use-case.ts` por un puerto de tokens como el de `mobile/modules/auth/` → proteger los controladores de `src/dashboard/bff/controllers/` con `JwtAuthGuard`. |
+| Proteger otro endpoint de la app móvil | `@UseGuards(JwtAuthGuard)` y `@ApiBearerAuth()` en su controlador → recibir al ciudadano con `@UsuarioActual() usuarioId: number` (nunca desde el cuerpo). |
 | Que un endpoint nuevo salga en Swagger | En su controlador: `@ApiTags` con uno de los grupos de `src/swagger/configurar-swagger.ts`, `@ApiOperation` y las respuestas (`@ApiOkResponse`...); en sus DTO: `@ApiProperty` o `@ApiPropertyOptional` en cada campo. |
-| Agregar un endpoint a la app móvil | Caso de uso en `src/mobile/modules/<modulo>/application/` → exportarlo en su `index.ts` → DTO y controlador en `src/mobile/bff/` (camelCase) → registrarlo en `mobile-bff.module.ts`; sus tablas van en el schema `movil`. |
+| Agregar un endpoint a la app móvil | Caso de uso en `src/mobile/modules/<modulo>/application/` → exportarlo en su `index.ts` → DTO y controlador en `src/mobile/bff/` (camelCase) → registrarlo en `mobile-bff.module.ts`; sus tablas van en el esquema `movil` si solo las usa la app, o en `compartido` si también las lee el dashboard. |

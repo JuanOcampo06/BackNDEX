@@ -1,4 +1,4 @@
-import { CategoriaReporte } from '../domain/catalogos';
+import { CategoriaReporte, SubcategoriaReporte } from '../domain/catalogos';
 import { NuevoReporte, Reporte } from '../domain/reporte';
 
 export const REPORTES_REPOSITORY = Symbol('REPORTES_REPOSITORY');
@@ -7,6 +7,7 @@ export const REPORTES_REPOSITORY = Symbol('REPORTES_REPOSITORY');
 export interface FiltrosReportes {
   usuarioId?: number;
   categoria?: CategoriaReporte;
+  subcategoria?: SubcategoriaReporte;
 }
 
 // Puerto que el modulo necesita para guardar y leer reportes sin saber de que base de datos vienen

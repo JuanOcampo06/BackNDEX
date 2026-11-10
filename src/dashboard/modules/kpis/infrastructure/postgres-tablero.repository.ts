@@ -13,8 +13,8 @@ import {
   SiniestroEnMapa,
   TableroRepositoryPort,
 } from '../application/tablero.repository.port';
-import { Indicador } from '../domain/catalogos';
-import { FiltrosTablero } from '../domain/filtros-tablero';
+import { Fuente, Indicador } from '../domain/catalogos';
+import { FiltrosTablero, incluyeFuente } from '../domain/filtros-tablero';
 
 // Describe de que tabla sale cada cifra y que columna usa cada filtro
 interface Origen {
@@ -22,42 +22,50 @@ interface Origen {
   fecha: string;
   valor: string;
   localidad: string;
+  fuente: Fuente;
   vehiculo?: string;
-  fuente?: string;
   condicion?: string;
 }
 
+// Siniestros son solo del tablero y viven en el schema dashboard
+// reportes activaciones y conteos de usuarios son tablas del schema compartido que llena la app movil
+// cada siniestro del anuario trae su propia localidad y puede faltar por eso se une con LEFT JOIN
 const SINIESTROS: Origen = {
-  tabla: 'siniestros s JOIN lugares l ON l.id = s.lugar_id JOIN localidades lo ON lo.id = l.localidad_id',
+  tabla:
+    'dashboard.siniestros s JOIN compartido.lugares l ON l.id = s.lugar_id LEFT JOIN compartido.localidades lo ON lo.id = s.localidad_id',
   fecha: 's.ocurrido_en',
   valor: 'count(*)',
-  localidad: 'l.localidad_id',
+  localidad: 's.localidad_id',
+  fuente: 'anuario',
   vehiculo: 's.tipo_vehiculo',
 };
 
 const USUARIOS: Origen = {
-  tabla: 'conteos_usuarios c',
+  tabla: 'compartido.conteos_usuarios c',
   fecha: 'c.fecha',
   valor: 'sum(c.cantidad)',
   localidad: 'c.localidad_id',
+  fuente: 'app',
   vehiculo: 'c.tipo_vehiculo',
-  fuente: 'c.fuente',
 };
 
 const REPORTES: Origen = {
-  tabla: 'reportes r JOIN lugares l ON l.id = r.lugar_id',
+  tabla: 'compartido.reportes r JOIN compartido.lugares l ON l.id = r.lugar_id',
   fecha: 'r.creado_en',
   valor: 'count(*)',
   localidad: 'l.localidad_id',
+  fuente: 'app',
 };
 
 const FALSOS_POSITIVOS: Origen = { ...REPORTES, condicion: 'r.motivo_falso_positivo IS NOT NULL' };
 
 const PANICO: Origen = {
-  tabla: 'activaciones_panico a JOIN lugares l ON l.id = a.lugar_id JOIN localidades lo ON lo.id = l.localidad_id',
+  tabla:
+    'compartido.activaciones_panico a JOIN compartido.lugares l ON l.id = a.lugar_id LEFT JOIN compartido.localidades lo ON lo.id = l.localidad_id',
   fecha: 'a.activado_en',
   valor: 'count(*)',
   localidad: 'l.localidad_id',
+  fuente: 'app',
 };
 
 const ORIGEN_POR_INDICADOR: Record<Indicador, Origen> = {
@@ -73,19 +81,26 @@ interface Condiciones {
   valores: unknown[];
 }
 
+// Nombre que se muestra cuando el anuario no trae la localidad
+const SIN_LOCALIDAD = `coalesce(lo.nombre, 'Sin localidad')`;
+
 // Arma el WHERE con parametros para no pegar texto del usuario dentro del SQL
 function armarCondiciones(origen: Origen, filtros: FiltrosTablero): Condiciones {
   const valores: unknown[] = [filtros.periodo.fechaInicio(), filtros.periodo.fechaFinExclusiva()];
   const condiciones = [`${origen.fecha} >= $1`, `${origen.fecha} < $2`];
-  const agregar = (columna: string | undefined, valor: unknown) => {
-    if (columna && valor !== undefined) {
-      valores.push(valor);
-      condiciones.push(`${columna} = $${valores.length}`);
+  // Cada filtro es una lista y ANY deja pasar los registros que coinciden con cualquiera de sus valores
+  const agregar = (columna: string | undefined, lista: readonly unknown[] | undefined) => {
+    if (columna && lista !== undefined && lista.length > 0) {
+      valores.push(lista);
+      condiciones.push(`${columna} = ANY($${valores.length})`);
     }
   };
   agregar(origen.localidad, filtros.localidadId);
   agregar(origen.vehiculo, filtros.tipoVehiculo);
-  agregar(origen.fuente, filtros.fuente);
+  // Si la fuente de esta cifra no esta elegida la consulta no trae filas y la grafica queda en cero
+  if (!incluyeFuente(filtros, origen.fuente)) {
+    condiciones.push('false');
+  }
   if (origen.condicion) {
     condiciones.push(origen.condicion);
   }
@@ -104,7 +119,19 @@ export class PostgresTableroRepository implements TableroRepositoryPort, OnModul
   }
 
   listarLocalidades(): Promise<Localidad[]> {
-    return this.consultar('SELECT id, nombre FROM localidades ORDER BY nombre', []);
+    return this.consultar('SELECT id, nombre FROM compartido.localidades ORDER BY nombre', []);
+  }
+
+  async buscarUltimoMesConDatos(fuentes: readonly Fuente[]): Promise<string | null> {
+    // Se toma la fecha mas reciente de cada tabla cuya fuente este elegida
+    const fechas = Object.values(ORIGEN_POR_INDICADOR)
+      .filter((origen) => fuentes.includes(origen.fuente))
+      .map((origen) => `SELECT max(${origen.fecha})::date AS fecha FROM ${origen.tabla}`);
+    const [fila] = await this.consultar<{ mes: string | null }>(
+      `SELECT to_char(max(fecha), 'YYYY-MM') AS mes FROM (${fechas.join(' UNION ALL ')}) AS ultimas`,
+      [],
+    );
+    return fila.mes;
   }
 
   contarPorSemana(indicador: Indicador, filtros: FiltrosTablero): Promise<ConteoSemanal[]> {
@@ -120,7 +147,8 @@ export class PostgresTableroRepository implements TableroRepositoryPort, OnModul
   listarSiniestros(filtros: FiltrosTablero): Promise<SiniestroEnMapa[]> {
     const { donde, valores } = armarCondiciones(SINIESTROS, filtros);
     return this.consultar(
-      `SELECT s.id, s.latitud, s.longitud, s.gravedad, s.clase, s.tipo_vehiculo AS "tipoVehiculo",
+      // El id del anuario es bigint y postgres lo entrega como texto por eso se convierte a int que le alcanza
+      `SELECT s.id::int AS id, s.latitud, s.longitud, s.gravedad, s.clase, s.tipo_vehiculo AS "tipoVehiculo",
               to_char(s.ocurrido_en, 'YYYY-MM-DD"T"HH24:MI') AS "ocurridoEn"
        FROM ${SINIESTROS.tabla} WHERE ${donde} ORDER BY s.ocurrido_en`,
       valores,
@@ -130,7 +158,7 @@ export class PostgresTableroRepository implements TableroRepositoryPort, OnModul
   contarSiniestrosPorLugarYHora(filtros: FiltrosTablero): Promise<ConteoLugarHora[]> {
     const { donde, valores } = armarCondiciones(SINIESTROS, filtros);
     return this.consultar(
-      `SELECT l.nombre AS lugar, lo.nombre AS localidad, extract(hour FROM s.ocurrido_en)::int AS hora, count(*)::int AS total
+      `SELECT l.nombre AS lugar, ${SIN_LOCALIDAD} AS localidad, extract(hour FROM s.ocurrido_en)::int AS hora, count(*)::int AS total
        FROM ${SINIESTROS.tabla} WHERE ${donde} GROUP BY 1, 2, 3`,
       valores,
     );
@@ -146,10 +174,15 @@ export class PostgresTableroRepository implements TableroRepositoryPort, OnModul
   }
 
   contarVictimasPorSexoYEdad(filtros: FiltrosTablero): Promise<ConteoSexoEdad[]> {
-    // Solo los siniestros con heridos o muertos tienen sexo y edad
-    const { donde, valores } = armarCondiciones({ ...SINIESTROS, condicion: 's.sexo IS NOT NULL' }, filtros);
+    // Las victimas son las personas heridas o muertas y se cuentan solo las que tienen sexo y edad en el anuario
+    const victimas = {
+      ...SINIESTROS,
+      tabla: `${SINIESTROS.tabla} JOIN dashboard.actores_viales v ON v.siniestro_id = s.id`,
+      condicion: `v.gravedad IN ('herido', 'muerto') AND v.sexo IS NOT NULL AND v.edad IS NOT NULL`,
+    };
+    const { donde, valores } = armarCondiciones(victimas, filtros);
     return this.consultar(
-      `SELECT s.sexo, s.edad, count(*)::int AS total FROM ${SINIESTROS.tabla} WHERE ${donde} GROUP BY 1, 2`,
+      `SELECT v.sexo, v.edad, count(*)::int AS total FROM ${victimas.tabla} WHERE ${donde} GROUP BY 1, 2`,
       valores,
     );
   }
@@ -166,7 +199,7 @@ export class PostgresTableroRepository implements TableroRepositoryPort, OnModul
   contarActivacionesPorLugar(filtros: FiltrosTablero): Promise<ConteoPorLugar[]> {
     const { donde, valores } = armarCondiciones(PANICO, filtros);
     return this.consultar(
-      `SELECT l.nombre AS lugar, lo.nombre AS localidad, l.latitud, l.longitud, count(*)::int AS total
+      `SELECT l.nombre AS lugar, ${SIN_LOCALIDAD} AS localidad, l.latitud, l.longitud, count(*)::int AS total
        FROM ${PANICO.tabla} WHERE ${donde} GROUP BY l.id, lo.id`,
       valores,
     );

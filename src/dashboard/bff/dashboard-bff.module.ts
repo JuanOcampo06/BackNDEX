@@ -8,6 +8,8 @@ import { CicloviasModule } from '../../common/modules/ciclovias';
 import { AuthController } from './controllers/auth.controller';
 // Controlador nuevo con los endpoints de las tarjetas y graficas del tablero
 import { TableroController } from './controllers/tablero.controller';
+// Controlador del boton Exportar que descarga los KPIs elegidos en un Excel
+import { ExportarKpisController } from './controllers/exportar-kpis.controller';
 import { CicloviasController } from './controllers/ciclovias.controller';
 // Controlador para crear editar y eliminar usuarios del dashboard
 import { UsuariosController } from './controllers/usuarios.controller';
@@ -21,6 +23,6 @@ import { UsuariosController } from './controllers/usuarios.controller';
     CicloviasModule,
     RouterModule.register([{ path: 'dashboard/v1', module: DashboardBffModule }]),
   ],
-  controllers: [AuthController, TableroController, CicloviasController, UsuariosController],
+  controllers: [AuthController, TableroController, ExportarKpisController, CicloviasController, UsuariosController],
 })
 export class DashboardBffModule {}
