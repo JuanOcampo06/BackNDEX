@@ -1,8 +1,6 @@
 import { CredencialesInvalidasError } from '../domain/credenciales-invalidas.error';
+import { TokenEmisorPort } from './token-emisor.port';
 import { UsuarioRepositoryPort } from './usuario.repository.port';
-
-// Token fijo de la demo; se reemplazará por un JWT emitido desde platform/auth.
-const TOKEN_DE_PRUEBA = 'token-de-prueba';
 
 export interface LoginCommand {
   correo: string;
@@ -19,8 +17,12 @@ export interface LoginResult {
   };
 }
 
+// El token lleva el rol del usuario para que los endpoints solo de administrador lo puedan revisar
 export class LoginUseCase {
-  constructor(private readonly usuarios: UsuarioRepositoryPort) {}
+  constructor(
+    private readonly usuarios: UsuarioRepositoryPort,
+    private readonly tokens: TokenEmisorPort,
+  ) {}
 
   async execute(comando: LoginCommand): Promise<LoginResult> {
     const usuario = await this.usuarios.buscarPorCorreo(comando.correo);
@@ -28,6 +30,6 @@ export class LoginUseCase {
       throw new CredencialesInvalidasError();
     }
     const { id, nombreCompleto, correo, rol } = usuario;
-    return { token: TOKEN_DE_PRUEBA, usuario: { id, nombreCompleto, correo, rol } };
+    return { token: this.tokens.emitir(id, rol), usuario: { id, nombreCompleto, correo, rol } };
   }
 }

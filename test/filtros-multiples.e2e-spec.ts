@@ -5,6 +5,7 @@ import request from 'supertest';
 import { AppModule } from '../src/app.module';
 import { FiltrosTablero } from '../src/dashboard/modules/kpis';
 import { TABLERO_REPOSITORY, TableroRepositoryPort } from '../src/dashboard/modules/kpis/application/tablero.repository.port';
+import { tokenDashboard } from './token-dashboard';
 
 // Repositorio falso que guarda los filtros que le llegan para ver como los entrego la puerta HTTP
 function crearRepositorioFalso(alRecibir: (filtros: FiltrosTablero) => void): TableroRepositoryPort {
@@ -57,27 +58,27 @@ describe('Filtros con varios valores del tablero (e2e)', () => {
   it('entrega cada filtro como lista cuando llega repetido o separado por comas', async () => {
     const respuesta = await request(app.getHttpServer()).get(
       `${tarjeta}?localidad_id=4&localidad_id=6&tipo_vehiculo=bicicleta,patineta&fuente=app`,
-    );
+    ).set('Authorization', tokenDashboard());
 
     expect(respuesta.status).toBe(200);
     expect(recibido).toMatchObject({ localidadId: [4, 6], tipoVehiculo: ['bicicleta', 'patineta'], fuente: ['app'] });
   });
 
   it('acepta mezclar las dos formas en un mismo filtro', async () => {
-    await request(app.getHttpServer()).get(`${tarjeta}?localidad_id=1,2&localidad_id=3`);
+    await request(app.getHttpServer()).get(`${tarjeta}?localidad_id=1,2&localidad_id=3`).set('Authorization', tokenDashboard());
 
     expect(recibido?.localidadId).toEqual([1, 2, 3]);
   });
 
   it('un solo valor sigue funcionando y queda como lista de uno', async () => {
-    await request(app.getHttpServer()).get(`${tarjeta}?localidad_id=4&tipo_vehiculo=bicicleta`);
+    await request(app.getHttpServer()).get(`${tarjeta}?localidad_id=4&tipo_vehiculo=bicicleta`).set('Authorization', tokenDashboard());
 
     expect(recibido).toMatchObject({ localidadId: [4], tipoVehiculo: ['bicicleta'] });
     expect(recibido?.fuente).toBeUndefined();
   });
 
   it('sin filtros no manda ninguna lista', async () => {
-    await request(app.getHttpServer()).get(tarjeta);
+    await request(app.getHttpServer()).get(tarjeta).set('Authorization', tokenDashboard());
 
     expect(recibido?.localidadId).toBeUndefined();
     expect(recibido?.tipoVehiculo).toBeUndefined();
@@ -93,7 +94,7 @@ describe('Filtros con varios valores del tablero (e2e)', () => {
         `${tarjeta}?localidad_id=4.5`,
         `${tarjeta}?fuente=app,otra`,
         `${tarjeta}?fuente=`,
-      ].map((url) => request(app.getHttpServer()).get(url)),
+      ].map((url) => request(app.getHttpServer()).get(url).set('Authorization', tokenDashboard())),
     );
 
     expect(respuestas.map((respuesta) => respuesta.status)).toEqual([400, 400, 400, 400, 400, 400]);
@@ -101,7 +102,7 @@ describe('Filtros con varios valores del tablero (e2e)', () => {
   });
 
   it('el mensaje de error dice cuales son los valores permitidos', async () => {
-    const respuesta = await request(app.getHttpServer()).get(`${tarjeta}?tipo_vehiculo=bicicleta,carro`);
+    const respuesta = await request(app.getHttpServer()).get(`${tarjeta}?tipo_vehiculo=bicicleta,carro`).set('Authorization', tokenDashboard());
 
     expect(respuesta.body.message).toEqual([expect.stringContaining('bicicleta, bicicleta_electrica, patineta_electrica')]);
   });
@@ -109,6 +110,7 @@ describe('Filtros con varios valores del tablero (e2e)', () => {
   it('la exportacion a Excel tambien acepta varios valores y los muestra en la hoja de filtros', async () => {
     const respuesta = await request(app.getHttpServer())
       .get(`${exportar}?kpis=tarjeta_siniestros&localidad_id=4,6&tipo_vehiculo=bicicleta&tipo_vehiculo=patineta`)
+      .set('Authorization', tokenDashboard())
       .buffer(true)
       .parse((res, terminar) => {
         const partes: Buffer[] = [];

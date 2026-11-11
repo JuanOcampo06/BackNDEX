@@ -30,6 +30,11 @@ export interface SiniestroEnMapa {
   ocurridoEn: string;
 }
 
+// Siniestro con los datos que necesita la hoja de Excel ademas de los del mapa
+export interface SiniestroDetallado extends SiniestroEnMapa {
+  localidad: string;
+}
+
 export interface ConteoLugarHora {
   lugar: string;
   localidad: string;
@@ -63,6 +68,13 @@ export interface ReporteEnMapa {
   categoria: string;
 }
 
+// Reporte con los datos que necesita la hoja de Excel ademas de los del mapa
+export interface ReporteDetallado extends ReporteEnMapa {
+  localidad: string;
+  tipoVehiculo: string;
+  mes: string;
+}
+
 export interface ConteoPorMotivo {
   motivo: string;
   total: number;
@@ -73,13 +85,13 @@ export interface TableroRepositoryPort {
   listarLocalidades(): Promise<Localidad[]>;
   buscarUltimoMesConDatos(fuentes: readonly Fuente[]): Promise<string | null>;
   contarPorSemana(indicador: Indicador, filtros: FiltrosTablero): Promise<ConteoSemanal[]>;
-  listarSiniestros(filtros: FiltrosTablero): Promise<SiniestroEnMapa[]>;
+  listarSiniestros(filtros: FiltrosTablero): Promise<SiniestroDetallado[]>;
   contarSiniestrosPorLugarYHora(filtros: FiltrosTablero): Promise<ConteoLugarHora[]>;
   contarSiniestrosPorMes(filtros: FiltrosTablero): Promise<ConteoMensual[]>;
   contarVictimasPorSexoYEdad(filtros: FiltrosTablero): Promise<ConteoSexoEdad[]>;
   contarUsuariosPorTipo(filtros: FiltrosTablero): Promise<ConteoPorTipo[]>;
   contarActivacionesPorLugar(filtros: FiltrosTablero): Promise<ConteoPorLugar[]>;
-  listarReportes(filtros: FiltrosTablero): Promise<ReporteEnMapa[]>;
+  listarReportes(filtros: FiltrosTablero): Promise<ReporteDetallado[]>;
   contarFalsosPositivosPorMotivo(filtros: FiltrosTablero): Promise<ConteoPorMotivo[]>;
   contarFalsosPositivosPorMes(filtros: FiltrosTablero): Promise<ConteoMensual[]>;
 }

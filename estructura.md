@@ -35,11 +35,13 @@ Toda carpeta vacía lleva un `.gitkeep` para que Git la conserve.
 │   ├── docker/                        [VACÍO - FUTURO]  Compose de QA y producción (+ README.md de 2 líneas).
 │   └── nginx/                         [VACÍO - FUTURO]  Proxy inverso (+ README.md de 2 líneas).
 ├── test/                              [IMPLEMENTADO]    Pruebas e2e.
-│   ├── auth.e2e-spec.ts               [IMPLEMENTADO]    Llama al login real y comprueba 200 y 401.
+│   ├── auth.e2e-spec.ts               [IMPLEMENTADO]    Llama al login real con los dos roles y comprueba 200, el JWT y 401.
+│   ├── dashboard-roles.e2e-spec.ts    [IMPLEMENTADO]    Permisos del dashboard: sin token, token inválido o vencido (401), rol Usuario (403) y Administrador (200).
+│   ├── token-dashboard.ts             [IMPLEMENTADO]    Ayuda de las pruebas: arma el token del dashboard con su rol.
 │   ├── mobile.e2e-spec.ts             [IMPLEMENTADO]    Reportes del móvil por HTTP con un repositorio falso y token (201, 400, 401, 404).
 │   ├── auth-viajes-movil.e2e-spec.ts  [IMPLEMENTADO]    Registro, login y viajes del móvil por HTTP con repositorios falsos (201, 400, 401, 404, 409).
 │   ├── rutas-movil.e2e-spec.ts        [IMPLEMENTADO]    Ruta rápida y segura del móvil por HTTP con una red de ciclovías falsa (200, 400, 401).
-│   ├── exportar-kpis.e2e-spec.ts      [IMPLEMENTADO]    Descarga el Excel por HTTP, lo abre y comprueba sus hojas y los 400.
+│   ├── exportar-kpis.e2e-spec.ts      [IMPLEMENTADO]    Descarga el Excel por HTTP con token de Administrador, lo abre y comprueba sus hojas y los 400.
 │   └── filtros-multiples.e2e-spec.ts  [IMPLEMENTADO]    Comprueba que los filtros con varios valores llegan como lista y que un valor inválido da 400.
 └── src/
     ├── main.ts                        [IMPLEMENTADO]    Arranque: lee .env, prefijo /api, CORS, Swagger y puerto.
@@ -51,7 +53,7 @@ Toda carpeta vacía lleva un `.gitkeep` para que Git la conserve.
     │   ├── coordenadas.ts             [IMPLEMENTADO]    Valida latitud y longitud (lo usan reports y sos).
     │   └── tipos-vehiculo.ts          [IMPLEMENTADO]    Tipos de vehículo que piden reports y sos (los mismos del filtro del dashboard).
     ├── platform/                      [IMPLEMENTADO]    Herramientas técnicas reutilizables (solo database tiene código).
-    │   ├── auth/                      [IMPLEMENTADO]    JWT de la app móvil: jwt.ts (firma y verifica HS256 con JWT_SECRET), jwt-auth.guard.ts y usuario-actual.decorator.ts (+ jwt.spec.ts y README.md). Roles pendientes.
+    │   ├── auth/                      [IMPLEMENTADO]    JWT: jwt.ts (firma y verifica HS256 con JWT_SECRET), jwt-auth.guard.ts y usuario-actual.decorator.ts de la app móvil, y dashboard-auth.guard.ts con @SoloRoles para el dashboard (401 y 403) (+ jwt.spec.ts y README.md).
     │   ├── tenancy/                   [VACÍO - FUTURO]  Multi-tenant, una BD por entidad (+ README.md).
     │   ├── database/                  [IMPLEMENTADO]    PostgreSQL (MongoDB pendiente) (+ README.md).
     │   │   └── postgres.ts            [IMPLEMENTADO]    Crea la conexión a PostgreSQL con DATABASE_URL.
@@ -94,16 +96,18 @@ Toda carpeta vacía lleva un `.gitkeep` para que Git la conserve.
     │   └── modules/                   [IMPLEMENTADO]    Negocio del dashboard, sin controladores.
     │       ├── auth/                  [IMPLEMENTADO]    Login.
     │       │   ├── index.ts           [IMPLEMENTADO]    Lo único que el BFF puede importar del módulo.
-    │       │   ├── auth.module.ts     [IMPLEMENTADO]    Conecta el puerto con su adaptador en memoria.
+    │       │   ├── auth.module.ts     [IMPLEMENTADO]    Conecta los puertos con el repositorio en memoria y el emisor JWT.
     │       │   ├── domain/
     │       │   │   ├── usuario.ts     [IMPLEMENTADO]    Entidad Usuario; valida sus datos y su contraseña.
     │       │   │   └── credenciales-invalidas.error.ts [IMPLEMENTADO] Error genérico de login.
     │       │   ├── application/
     │       │   │   ├── login.use-case.ts       [IMPLEMENTADO] LoginUseCase.execute().
     │       │   │   ├── login.use-case.spec.ts  [IMPLEMENTADO] Prueba unitaria con repositorio falso.
-    │       │   │   └── usuario.repository.port.ts [IMPLEMENTADO] Puerto y token USUARIO_REPOSITORY.
+    │       │   │   ├── usuario.repository.port.ts [IMPLEMENTADO] Puerto y token USUARIO_REPOSITORY.
+    │       │   │   └── token-emisor.port.ts    [IMPLEMENTADO] Puerto y token TOKEN_EMISOR para el JWT con el rol.
     │       │   └── infrastructure/
-    │       │       └── in-memory-usuario.repository.ts [IMPLEMENTADO] Un usuario de prueba en memoria.
+    │       │       ├── in-memory-usuario.repository.ts [IMPLEMENTADO] Dos usuarios de prueba en memoria: admin@demo.local (admin) y lector@demo.local (lector).
+    │       │       └── jwt-token.emisor.ts     [IMPLEMENTADO] Firma el JWT del dashboard con su audiencia y el rol.
     │       ├── users/                 [IMPLEMENTADO]    Usuarios del dashboard con rol admin o lector (tabla dashboard.usuarios).
     │       │   ├── index.ts / users.module.ts [IMPLEMENTADO] Puerta del módulo y conexión puerto-adaptador.
     │       │   ├── domain/            [IMPLEMENTADO]    Usuario, roles, reglas de nombre, correo y rol, y errores.
@@ -123,9 +127,9 @@ Toda carpeta vacía lleva un `.gitkeep` para que Git la conserve.
     │           │   └── calculos.ts    [IMPLEMENTADO]    Porcentajes, variación, franjas horarias y rangos de edad.
     │           ├── application/
     │           │   ├── tablero.repository.port.ts [IMPLEMENTADO] Puerto y token TABLERO_REPOSITORY.
-    │           │   ├── obtener-*.use-case.ts      [IMPLEMENTADO] 11 casos de uso, uno por tarjeta o gráfica, y obtener-ultimo-mes-con-datos (mes final cuando no llegan meses).
+    │           │   ├── obtener-*.use-case.ts      [IMPLEMENTADO] 11 casos de uso, uno por tarjeta o gráfica, obtener-ultimo-mes-con-datos (mes final cuando no llegan meses) y obtener-siniestros-detallados / obtener-reportes-detallados (registros con su localidad para el Excel).
     │           │   ├── exportar-kpis.use-case.ts  [IMPLEMENTADO] Arma el libro de Excel reutilizando esos casos de uso.
-    │           │   ├── hojas-excel-kpis.ts        [IMPLEMENTADO] Cómo se convierte cada KPI en una hoja y la hoja de filtros.
+    │           │   ├── hojas-excel-kpis.ts        [IMPLEMENTADO] Cómo se convierte cada KPI en una hoja, las columnas de los filtros (separa por cada valor cuando un filtro trae varios) y la hoja de filtros.
     │           │   ├── generador-excel.port.ts    [IMPLEMENTADO] Puerto GENERADOR_EXCEL y la forma neutra del libro.
     │           │   └── *.use-case.spec.ts         [IMPLEMENTADO] Pruebas unitarias con repositorio falso.
     │           └── infrastructure/
@@ -194,7 +198,7 @@ Toda carpeta vacía lleva un `.gitkeep` para que Git la conserve.
 | Compartir otro dato de consulta entre dashboard y móvil | Módulo nuevo en `src/common/modules/<modulo>/` (mismas capas) → exportar desde su `index.ts` → un controlador en cada BFF (`dashboard/bff/` en snake_case y `mobile/bff/` en camelCase) → importar el módulo en los dos `*-bff.module.ts`. |
 | Agregar un KPI a la exportación de Excel | Nombre en `domain/kpis-exportables.ts` → su hoja en `application/hojas-excel-kpis.ts` (reutiliza el caso de uso del KPI) → agregarlo al `Record` de ese archivo y, si es un caso de uso nuevo, a `CasosDeUsoKpi` y a la fábrica de `kpis.module.ts`. |
 | Cambiar una gráfica del tablero | Caso de uso en `src/dashboard/modules/kpis/application/` → consulta en `infrastructure/postgres-tablero.repository.ts` (y en el puerto si cambia la forma) → ruta en `src/dashboard/bff/controllers/tablero.controller.ts`. |
-| Activar JWT en el dashboard | El JWT ya existe en `src/platform/auth/` (lo usa la app móvil) → sustituir `TOKEN_DE_PRUEBA` en `login.use-case.ts` por un puerto de tokens como el de `mobile/modules/auth/` → proteger los controladores de `src/dashboard/bff/controllers/` con `JwtAuthGuard`. |
+| Proteger un endpoint nuevo del dashboard | `@UseGuards(DashboardAuthGuard)` en el controlador (401 sin token válido) y `@SoloRoles(ROL_ADMINISTRADOR)` si es solo del Administrador (403 para el Usuario), ambos de `src/platform/auth/`. |
 | Proteger otro endpoint de la app móvil | `@UseGuards(JwtAuthGuard)` y `@ApiBearerAuth()` en su controlador → recibir al ciudadano con `@UsuarioActual() usuarioId: number` (nunca desde el cuerpo). |
 | Que un endpoint nuevo salga en Swagger | En su controlador: `@ApiTags` con uno de los grupos de `src/swagger/configurar-swagger.ts`, `@ApiOperation` y las respuestas (`@ApiOkResponse`...); en sus DTO: `@ApiProperty` o `@ApiPropertyOptional` en cada campo. |
 | Agregar un endpoint a la app móvil | Caso de uso en `src/mobile/modules/<modulo>/application/` → exportarlo en su `index.ts` → DTO y controlador en `src/mobile/bff/` (camelCase) → registrarlo en `mobile-bff.module.ts`; sus tablas van en el esquema `movil` si solo las usa la app, o en `compartido` si también las lee el dashboard. |

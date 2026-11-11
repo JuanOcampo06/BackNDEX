@@ -1,6 +1,6 @@
 import { CATEGORIAS_REPORTE } from '../domain/catalogos';
 import { FiltrosTablero } from '../domain/filtros-tablero';
-import { ReporteEnMapa, TableroRepositoryPort } from './tablero.repository.port';
+import { ReporteDetallado, ReporteEnMapa, TableroRepositoryPort } from './tablero.repository.port';
 
 export interface ReportesPorCategoria {
   categoria: string;
@@ -19,7 +19,7 @@ export class ObtenerReportesUseCase {
   constructor(private readonly tablero: TableroRepositoryPort) {}
 
   async execute(filtros: FiltrosTablero): Promise<Reportes> {
-    const puntos = await this.tablero.listarReportes(filtros);
+    const puntos = (await this.tablero.listarReportes(filtros)).map(aPuntoDelMapa);
     const totalPorCategoria = new Map<string, number>();
     for (const reporte of puntos) {
       totalPorCategoria.set(reporte.categoria, (totalPorCategoria.get(reporte.categoria) ?? 0) + 1);
@@ -30,4 +30,10 @@ export class ObtenerReportesUseCase {
     );
     return { total: puntos.length, puntos, porCategoria };
   }
+}
+
+// El endpoint responde solo estos campos y la localidad el vehiculo y el mes quedan para el Excel
+function aPuntoDelMapa(reporte: ReporteDetallado): ReporteEnMapa {
+  const { id, latitud, longitud, categoria } = reporte;
+  return { id, latitud, longitud, categoria };
 }

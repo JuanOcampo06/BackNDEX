@@ -2,7 +2,7 @@ import { FiltrosTablero } from '../domain/filtros-tablero';
 import { normalizarKpis } from '../domain/kpis-exportables';
 import { Periodo } from '../domain/periodo';
 import { GeneradorExcelPort } from './generador-excel.port';
-import { CasosDeUsoKpi, CONSTRUCTORES_HOJA, hojaDeFiltros } from './hojas-excel-kpis';
+import { armarHoja, CasosDeUsoKpi, hojaDeFiltros } from './hojas-excel-kpis';
 
 export interface ExportarKpisCommand {
   kpis: readonly string[];
@@ -23,10 +23,11 @@ export class ExportarKpisUseCase {
 
   async execute(comando: ExportarKpisCommand): Promise<ArchivoExcel> {
     const elegidos = normalizarKpis(comando.kpis);
-    const [disponibles, hojasKpi] = await Promise.all([
-      this.casos.filtros.execute(),
-      Promise.all(elegidos.map((kpi) => CONSTRUCTORES_HOJA[kpi](this.casos, comando.filtros))),
-    ]);
+    // Los nombres de las localidades se necesitan para las columnas de las hojas separadas por localidad
+    const disponibles = await this.casos.filtros.execute();
+    const hojasKpi = await Promise.all(
+      elegidos.map((kpi) => armarHoja(kpi, this.casos, comando.filtros, disponibles.localidades)),
+    );
     const hojas = [hojaDeFiltros(comando.filtros, disponibles.localidades, hojasKpi), ...hojasKpi];
     return { nombre: nombreDelArchivo(comando.filtros.periodo), contenido: await this.generador.generar({ hojas }) };
   }

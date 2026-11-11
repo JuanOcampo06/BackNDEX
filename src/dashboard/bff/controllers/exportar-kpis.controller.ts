@@ -1,6 +1,17 @@
-import { Controller, Get, Query, StreamableFile, UseFilters, ValidationPipe } from '@nestjs/common';
-import { ApiBadRequestResponse, ApiOkResponse, ApiOperation, ApiProduces, ApiTags } from '@nestjs/swagger';
+import { Controller, Get, Query, StreamableFile, UseFilters, UseGuards, ValidationPipe } from '@nestjs/common';
+import {
+  ApiBadRequestResponse,
+  ApiBearerAuth,
+  ApiForbiddenResponse,
+  ApiOkResponse,
+  ApiOperation,
+  ApiProduces,
+  ApiTags,
+  ApiUnauthorizedResponse,
+} from '@nestjs/swagger';
+import { DashboardAuthGuard, SoloRoles } from '../../../platform/auth';
 import { ExportarKpisUseCase, ObtenerUltimoMesConDatosUseCase, Periodo } from '../../modules/kpis';
+import { ROL_ADMINISTRADOR } from '../../modules/users';
 import { DomainErrorFilter } from '../domain-error.filter';
 import { ExportarKpisQuery } from '../dto/exportar-kpis.query';
 
@@ -9,6 +20,12 @@ const TIPO_XLSX = 'application/vnd.openxmlformats-officedocument.spreadsheetml.s
 // Exportacion a Excel del boton Exportar del tablero en /api/dashboard/v1/tablero/exportar
 // responde el archivo xlsx y los errores en snake_case como el resto del dashboard
 @ApiTags('Dashboard - Tablero')
+@ApiBearerAuth()
+@ApiUnauthorizedResponse({ description: 'Falta el token del dashboard o no es valido o esta vencido' })
+@ApiForbiddenResponse({ description: 'El token es valido pero el rol no es Administrador' })
+// Solo el Administrador puede exportar
+@UseGuards(DashboardAuthGuard)
+@SoloRoles(ROL_ADMINISTRADOR)
 @Controller('tablero/exportar')
 @UseFilters(DomainErrorFilter)
 export class ExportarKpisController {

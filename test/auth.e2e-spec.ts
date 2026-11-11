@@ -8,6 +8,7 @@ describe('POST /api/dashboard/v1/auth/login (e2e)', () => {
   let app: INestApplication;
 
   beforeAll(async () => {
+    process.env.JWT_SECRET = 'secreto-de-pruebas';
     const modulo = await Test.createTestingModule({ imports: [AppModule] }).compile();
     app = modulo.createNestApplication();
     app.setGlobalPrefix('api');
@@ -18,16 +19,25 @@ describe('POST /api/dashboard/v1/auth/login (e2e)', () => {
     await app.close();
   });
 
-  it('responde 200 con el token y el usuario en snake_case', async () => {
+  it('responde 200 con el token JWT y el usuario en snake_case', async () => {
     const respuesta = await request(app.getHttpServer())
       .post(ruta)
       .send({ email: 'admin@demo.local', password: 'demo1234' });
 
     expect(respuesta.status).toBe(200);
     expect(respuesta.body).toEqual({
-      access_token: 'token-de-prueba',
+      access_token: expect.stringMatching(/^eyJ[\w-]+\.[\w-]+\.[\w-]+$/),
       user: { id: '1', full_name: 'Admin Demo', email: 'admin@demo.local', role: 'admin' },
     });
+  });
+
+  it('el usuario de prueba con rol lector tambien inicia sesion', async () => {
+    const respuesta = await request(app.getHttpServer())
+      .post(ruta)
+      .send({ email: 'lector@demo.local', password: 'demo1234' });
+
+    expect(respuesta.status).toBe(200);
+    expect(respuesta.body.user).toEqual({ id: '2', full_name: 'Lector Demo', email: 'lector@demo.local', role: 'lector' });
   });
 
   it('responde 401 con un mensaje genérico si la contraseña es incorrecta', async () => {

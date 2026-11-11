@@ -4,6 +4,7 @@ import { Workbook } from 'exceljs';
 import request from 'supertest';
 import { AppModule } from '../src/app.module';
 import { TABLERO_REPOSITORY, TableroRepositoryPort } from '../src/dashboard/modules/kpis/application/tablero.repository.port';
+import { tokenDashboard } from './token-dashboard';
 
 // Repositorio falso para probar la puerta HTTP sin necesitar PostgreSQL
 function crearRepositorioFalso(): TableroRepositoryPort {
@@ -46,6 +47,7 @@ describe('GET /api/dashboard/v1/tablero/exportar (e2e)', () => {
   const descargar = (url: string) =>
     request(app.getHttpServer())
       .get(url)
+      .set('Authorization', tokenDashboard())
       .buffer(true)
       .parse((respuesta, terminar) => {
         const partes: Buffer[] = [];
@@ -71,21 +73,21 @@ describe('GET /api/dashboard/v1/tablero/exportar (e2e)', () => {
   });
 
   it('responde 400 si no llega ningun KPI', async () => {
-    const respuesta = await request(app.getHttpServer()).get(ruta);
+    const respuesta = await request(app.getHttpServer()).get(ruta).set('Authorization', tokenDashboard());
 
     expect(respuesta.status).toBe(400);
   });
 
   it('responde 400 si un KPI no existe o un filtro es invalido', async () => {
-    const kpiMalo = await request(app.getHttpServer()).get(`${ruta}?kpis=otro`);
-    const filtroMalo = await request(app.getHttpServer()).get(`${ruta}?kpis=reportes&tipo_vehiculo=carro`);
-    const parametroExtra = await request(app.getHttpServer()).get(`${ruta}?kpis=reportes&otro=1`);
+    const kpiMalo = await request(app.getHttpServer()).get(`${ruta}?kpis=otro`).set('Authorization', tokenDashboard());
+    const filtroMalo = await request(app.getHttpServer()).get(`${ruta}?kpis=reportes&tipo_vehiculo=carro`).set('Authorization', tokenDashboard());
+    const parametroExtra = await request(app.getHttpServer()).get(`${ruta}?kpis=reportes&otro=1`).set('Authorization', tokenDashboard());
 
     expect([kpiMalo.status, filtroMalo.status, parametroExtra.status]).toEqual([400, 400, 400]);
   });
 
   it('responde 400 con codigo y mensaje si el rango de meses esta al reves', async () => {
-    const respuesta = await request(app.getHttpServer()).get(`${ruta}?kpis=reportes&mes_desde=2026-10&mes_hasta=2026-08`);
+    const respuesta = await request(app.getHttpServer()).get(`${ruta}?kpis=reportes&mes_desde=2026-10&mes_hasta=2026-08`).set('Authorization', tokenDashboard());
 
     expect(respuesta.status).toBe(400);
     expect(respuesta.body).toEqual({

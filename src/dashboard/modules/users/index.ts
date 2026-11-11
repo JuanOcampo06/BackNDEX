@@ -1,6 +1,6 @@
 // Unica puerta del modulo y lo unico que el BFF puede importar de aqui
 export { UsersModule } from './users.module';
-export { ROLES } from './domain/catalogos';
+export { ROL_ADMINISTRADOR, ROLES } from './domain/catalogos';
 export type { Rol } from './domain/catalogos';
 export type { Usuario } from './domain/usuario';
 export { DomainError } from '../../../shared/domain-error';

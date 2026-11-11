@@ -9,8 +9,8 @@ import {
   ConteoSemanal,
   ConteoSexoEdad,
   Localidad,
-  ReporteEnMapa,
-  SiniestroEnMapa,
+  ReporteDetallado,
+  SiniestroDetallado,
   TableroRepositoryPort,
 } from '../application/tablero.repository.port';
 import { Fuente, Indicador } from '../domain/catalogos';
@@ -50,7 +50,8 @@ const USUARIOS: Origen = {
 };
 
 const REPORTES: Origen = {
-  tabla: 'compartido.reportes r JOIN compartido.lugares l ON l.id = r.lugar_id',
+  tabla:
+    'compartido.reportes r JOIN compartido.lugares l ON l.id = r.lugar_id LEFT JOIN compartido.localidades lo ON lo.id = l.localidad_id',
   fecha: 'r.creado_en',
   valor: 'count(*)',
   localidad: 'l.localidad_id',
@@ -146,13 +147,13 @@ export class PostgresTableroRepository implements TableroRepositoryPort, OnModul
     );
   }
 
-  listarSiniestros(filtros: FiltrosTablero): Promise<SiniestroEnMapa[]> {
+  listarSiniestros(filtros: FiltrosTablero): Promise<SiniestroDetallado[]> {
     const { donde, valores } = armarCondiciones(SINIESTROS, filtros);
     return this.consultar(
       // El id del anuario es bigint y postgres lo entrega como texto por eso se convierte a int que le alcanza
       `SELECT s.id::int AS id, s.latitud, s.longitud, s.gravedad, s.clase, s.tipo_vehiculo AS "tipoVehiculo",
-              to_char(s.ocurrido_en, 'YYYY-MM-DD"T"HH24:MI') AS "ocurridoEn"
-       FROM ${SINIESTROS.tabla} WHERE ${donde} ORDER BY s.ocurrido_en`,
+              to_char(s.ocurrido_en, 'YYYY-MM-DD"T"HH24:MI') AS "ocurridoEn", ${SIN_LOCALIDAD} AS localidad
+       FROM ${SINIESTROS.tabla} WHERE ${donde} ORDER BY s.ocurrido_en, s.id`,
       valores,
     );
   }
@@ -207,10 +208,12 @@ export class PostgresTableroRepository implements TableroRepositoryPort, OnModul
     );
   }
 
-  listarReportes(filtros: FiltrosTablero): Promise<ReporteEnMapa[]> {
+  listarReportes(filtros: FiltrosTablero): Promise<ReporteDetallado[]> {
     const { donde, valores } = armarCondiciones(REPORTES, filtros);
     return this.consultar(
-      `SELECT r.id, r.latitud, r.longitud, r.categoria FROM ${REPORTES.tabla} WHERE ${donde} ORDER BY r.creado_en`,
+      `SELECT r.id, r.latitud, r.longitud, r.categoria, ${SIN_LOCALIDAD} AS localidad, r.tipo_vehiculo AS "tipoVehiculo",
+              to_char(r.creado_en, 'YYYY-MM') AS mes
+       FROM ${REPORTES.tabla} WHERE ${donde} ORDER BY r.creado_en`,
       valores,
     );
   }

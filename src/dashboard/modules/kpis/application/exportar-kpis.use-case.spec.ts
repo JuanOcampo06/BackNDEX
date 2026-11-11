@@ -7,7 +7,9 @@ import { ObtenerFalsosPositivosUseCase } from './obtener-falsos-positivos.use-ca
 import { ObtenerFiltrosUseCase } from './obtener-filtros.use-case';
 import { ObtenerLugaresConMasSiniestrosUseCase } from './obtener-lugares-con-mas-siniestros.use-case';
 import { ObtenerMapaSiniestrosUseCase } from './obtener-mapa-siniestros.use-case';
+import { ObtenerReportesDetalladosUseCase } from './obtener-reportes-detallados.use-case';
 import { ObtenerReportesUseCase } from './obtener-reportes.use-case';
+import { ObtenerSiniestrosDetalladosUseCase } from './obtener-siniestros-detallados.use-case';
 import { ObtenerSiniestrosPorHoraUseCase } from './obtener-siniestros-por-hora.use-case';
 import { ObtenerSiniestrosPorSexoYEdadUseCase } from './obtener-siniestros-por-sexo-y-edad.use-case';
 import { ObtenerTarjetaUseCase } from './obtener-tarjeta.use-case';
@@ -22,14 +24,16 @@ function crearTablero(): TableroRepositoryPort {
     buscarUltimoMesConDatos: async () => null,
     contarPorSemana: async () => [{ semana: '2026-08-03', total: 10 }],
     listarSiniestros: async () => [
-      { id: 7, latitud: 4.7, longitud: -74.09, gravedad: 'con_heridos', clase: 'choque', tipoVehiculo: 'bicicleta_electrica', ocurridoEn: '2026-08-04T07:30' },
+      { id: 7, latitud: 4.7, longitud: -74.09, gravedad: 'con_heridos', clase: 'choque', tipoVehiculo: 'bicicleta_electrica', ocurridoEn: '2026-08-04T07:30', localidad: 'Engativa' },
     ],
     contarSiniestrosPorLugarYHora: async () => [{ lugar: 'Av. Boyaca x Calle 80', localidad: 'Engativa', hora: 7, total: 3 }],
     contarSiniestrosPorMes: async () => [{ mes: '2026-08', total: 40 }],
     contarVictimasPorSexoYEdad: async () => [{ sexo: 'mujer', edad: 30, total: 2 }],
     contarUsuariosPorTipo: async () => [{ tipoVehiculo: 'bicicleta', total: 500 }],
     contarActivacionesPorLugar: async () => [{ lugar: 'Calle 26 x Cra. 30', localidad: 'Teusaquillo', latitud: 4.63, longitud: -74.08, total: 5 }],
-    listarReportes: async () => [{ id: 1, latitud: 4.6, longitud: -74.1, categoria: 'danos_en_la_via' }],
+    listarReportes: async () => [
+      { id: 1, latitud: 4.6, longitud: -74.1, categoria: 'danos_en_la_via', localidad: 'Engativa', tipoVehiculo: 'bicicleta', mes: '2026-08' },
+    ],
     contarFalsosPositivosPorMotivo: async () => [{ motivo: 'duplicado', total: 4 }],
     contarFalsosPositivosPorMes: async () => [{ mes: '2026-08', total: 4 }],
   };
@@ -49,6 +53,8 @@ function crearCasos(): CasosDeUsoKpi {
     botonPanico: new ObtenerBotonPanicoUseCase(tablero),
     reportes: new ObtenerReportesUseCase(tablero),
     falsosPositivos: new ObtenerFalsosPositivosUseCase(tablero),
+    siniestrosDetallados: new ObtenerSiniestrosDetalladosUseCase(tablero),
+    reportesDetallados: new ObtenerReportesDetalladosUseCase(tablero),
   };
 }
 
@@ -102,7 +108,7 @@ describe('ExportarKpisUseCase', () => {
     });
 
     const [hojaFiltros, hojaMapa] = generador.libro?.hojas ?? [];
-    expect(hojaMapa.secciones[0].filas[0]).toEqual([7, '2026-08-04 07:30', 4.7, -74.09, 'Con heridos', 'Choque', 'Bicicleta electrica']);
+    expect(hojaMapa.secciones[0].filas[0]).toEqual([7, '2026-08-04 07:30', 4.7, -74.09, 'Con heridos', 'Choque', 'Bicicleta electrica', 'Engativa', 'Anuario']);
     expect(hojaFiltros.secciones[0].filas).toEqual([
       ['Mes desde', '2026-08'],
       ['Mes hasta', '2026-10'],
@@ -126,6 +132,86 @@ describe('ExportarKpisUseCase', () => {
       ['Tipo de vehículo', 'Bicicleta, Patineta'],
       ['Fuente', 'App'],
     ]);
+  });
+
+  it('con un solo valor por filtro las hojas agregadas no cambian de columnas', async () => {
+    const generador = new FakeGeneradorExcel();
+
+    await new ExportarKpisUseCase(crearCasos(), generador).execute({
+      kpis: ['siniestros_por_sexo_y_edad'],
+      filtros: { ...filtros, localidadId: [4], tipoVehiculo: ['bicicleta'] },
+    });
+
+    const [resumen, rangos] = generador.libro?.hojas[1].secciones ?? [];
+    expect(resumen.columnas).toEqual(['Dato', 'Valor']);
+    expect(rangos.columnas).toEqual(['Rango de edad', 'Mujeres', 'Hombres']);
+  });
+
+  it('con varias localidades separa cada fila agregada por localidad y calcula cada una con su propio filtro', async () => {
+    const generador = new FakeGeneradorExcel();
+    const tablero = crearTablero();
+    // Cada localidad devuelve un total distinto para comprobar que se calculo por separado
+    tablero.contarVictimasPorSexoYEdad = async (f) => [{ sexo: 'mujer', edad: 30, total: f.localidadId?.[0] ?? 0 }];
+    const casos = { ...crearCasos(), siniestrosPorSexoYEdad: new ObtenerSiniestrosPorSexoYEdadUseCase(tablero) };
+
+    await new ExportarKpisUseCase(casos, generador).execute({
+      kpis: ['siniestros_por_sexo_y_edad'],
+      filtros: { ...filtros, localidadId: [4, 9] },
+    });
+
+    const [resumen, rangos] = generador.libro?.hojas[1].secciones ?? [];
+    expect(resumen.columnas).toEqual(['Localidad', 'Dato', 'Valor']);
+    expect(resumen.filas).toEqual([
+      ['Engativa', 'Total de mujeres', 4],
+      ['Engativa', 'Total de hombres', 0],
+      ['Id 9', 'Total de mujeres', 9],
+      ['Id 9', 'Total de hombres', 0],
+    ]);
+    expect(rangos.columnas).toEqual(['Localidad', 'Rango de edad', 'Mujeres', 'Hombres']);
+    expect(rangos.filas.filter((fila) => fila[1] === '26-35')).toEqual([
+      ['Engativa', '26-35', 4, 0],
+      ['Id 9', '26-35', 9, 0],
+    ]);
+  });
+
+  it('con varios valores en varios filtros separa por cada combinacion', async () => {
+    const generador = new FakeGeneradorExcel();
+
+    await new ExportarKpisUseCase(crearCasos(), generador).execute({
+      kpis: ['tendencia_mensual'],
+      filtros: { ...filtros, localidadId: [4, 9], tipoVehiculo: ['bicicleta', 'patineta'], fuente: ['anuario', 'app'] },
+    });
+
+    const [tabla] = generador.libro?.hojas[1].secciones ?? [];
+    expect(tabla.columnas.slice(0, 4)).toEqual(['Localidad', 'Tipo de vehículo', 'Fuente', 'Mes']);
+    // Ocho combinaciones con los doce meses de la tendencia cada una
+    expect(tabla.filas).toHaveLength(8 * 12);
+    expect(tabla.filas[0].slice(0, 3)).toEqual(['Engativa', 'Bicicleta', 'Anuario']);
+    expect(tabla.filas[95].slice(0, 3)).toEqual(['Id 9', 'Patineta', 'App']);
+  });
+
+  it('no repite la columna Localidad en las hojas que ya la traen pero igual separa por localidad', async () => {
+    const generador = new FakeGeneradorExcel();
+
+    await new ExportarKpisUseCase(crearCasos(), generador).execute({
+      kpis: ['lugares_con_mas_siniestros'],
+      filtros: { ...filtros, localidadId: [4, 9], tipoVehiculo: ['bicicleta', 'patineta'] },
+    });
+
+    const [tabla] = generador.libro?.hojas[1].secciones ?? [];
+    expect(tabla.columnas).toEqual(['Tipo de vehículo', 'Posición', 'Lugar', 'Localidad', 'Franja pico', 'Total']);
+    expect(tabla.filas).toHaveLength(4);
+  });
+
+  it('las hojas de registros traen en cada fila su mes localidad tipo de vehiculo y fuente', async () => {
+    const generador = new FakeGeneradorExcel();
+
+    await new ExportarKpisUseCase(crearCasos(), generador).execute({ kpis: ['reportes'], filtros });
+
+    const secciones = generador.libro?.hojas[1].secciones ?? [];
+    expect(secciones.map((s) => s.titulo)).toEqual(['Resumen', 'Por categoría', 'Reportes en el mapa']);
+    expect(secciones[2].columnas).toEqual(['Id', 'Latitud', 'Longitud', 'Categoría', 'Mes', 'Localidad', 'Tipo de vehículo', 'Fuente']);
+    expect(secciones[2].filas[0]).toEqual([1, 4.6, -74.1, 'Danos en la via', '2026-08', 'Engativa', 'Bicicleta', 'App']);
   });
 
   it('genera una hoja con nombre valido para Excel por cada KPI del catalogo', async () => {

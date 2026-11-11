@@ -102,7 +102,7 @@ curl.exe -X POST http://localhost:3001/api/dashboard/v1/auth/login -H "Content-T
 Respuesta esperada:
 
 ```json
-{"access_token":"token-de-prueba","user":{"id":"1","full_name":"Admin Demo","email":"admin@demo.local","role":"admin"}}
+{"access_token":"eyJhbGciOiJIUzI1NiIs...","user":{"id":"1","full_name":"Admin Demo","email":"admin@demo.local","role":"admin"}}
 ```
 
 Con una contraseña errónea:
@@ -120,10 +120,10 @@ Invoke-RestMethod http://localhost:3001/api/health
 Invoke-RestMethod -Method Post -Uri http://localhost:3001/api/dashboard/v1/auth/login -ContentType "application/json" -Body '{"email":"admin@demo.local","password":"demo1234"}'
 ```
 
-Un endpoint del tablero:
+Un endpoint del tablero (pide el `access_token` del login en la cabecera `Authorization`):
 
 ```bash
-curl "http://localhost:3001/api/dashboard/v1/tablero/tarjetas/siniestros?mes_desde=2025-10&mes_hasta=2025-12"
+curl -H "Authorization: Bearer <access_token>" "http://localhost:3001/api/dashboard/v1/tablero/tarjetas/siniestros?mes_desde=2025-10&mes_hasta=2025-12"
 ```
 
 Respuesta esperada (siniestros del último trimestre del anuario 2025 comparados con el trimestre anterior; la serie semanal viene recortada):
@@ -132,14 +132,22 @@ Respuesta esperada (siniestros del último trimestre del anuario 2025 comparados
 {"valor":2832,"valor_periodo_anterior":2958,"variacion_porcentual":-4.3,"serie_semanal":[{"semana":"2025-09-29","total":169}]}
 ```
 
-**Con Swagger (en el navegador)**: abre http://localhost:3001/api/docs. Ahí están los 39 endpoints agrupados en este orden: compartidos, dashboard y app móvil; en cada uno pulsa *Try it out* y luego *Execute*. Los parámetros y cuerpos ya traen ejemplos; para ver cifras del anuario en el tablero usa `mes_desde=2025-01` y `mes_hasta=2025-12`. El documento en JSON (para importarlo en Postman o en el frontend) está en http://localhost:3001/api/docs-json.
+**Con Swagger (en el navegador)**: abre http://localhost:3001/api/docs. Ahí están los 39 endpoints agrupados en este orden: compartidos, dashboard y app móvil; en cada uno pulsa *Try it out* y luego *Execute*. Primero haz login y pega el `access_token` en el botón *Authorize* (el del dashboard o el de la app según lo que vayas a probar). Los parámetros y cuerpos ya traen ejemplos; para ver cifras del anuario en el tablero usa `mes_desde=2025-01` y `mes_hasta=2025-12`. El documento en JSON (para importarlo en Postman o en el frontend) está en http://localhost:3001/api/docs-json.
 
 **Con `demo.http`**: ábrelo en VS Code con la extensión *REST Client* y pulsa *Send Request* sobre cada petición. Incluye todas las del tablero.
 
 ### Credenciales de la demo
 
-- Correo: `admin@demo.local`
-- Contraseña: `demo1234`
+| Rol | Correo | Contraseña | Puede |
+|---|---|---|---|
+| Administrador (`admin`) | `admin@demo.local` | `demo1234` | Todo: ver el tablero, exportar a Excel y gestionar usuarios |
+| Usuario (`lector`) | `lector@demo.local` | `demo1234` | Solo ver el tablero y las ciclovías |
+
+**Permisos del dashboard.** El login devuelve un `access_token` (JWT firmado con `JWT_SECRET`, dura 7 días) que lleva el rol. Todos los endpoints del dashboard, menos el login, lo piden en la cabecera `Authorization: Bearer <access_token>`:
+
+- Sin token, con un token inválido o vencido, o con un token de la app móvil → `401` `{"codigo":"TOKEN_INVALIDO","mensaje":"Falta el token o no es valido"}`.
+- `GET /tablero/exportar` y todo `/usuarios` son **solo del Administrador**: con el rol Usuario → `403` `{"codigo":"ACCESO_DENEGADO","mensaje":"Tu rol no tiene permiso para esta accion: solo el Administrador puede usarla"}`.
+- El token del dashboard tampoco sirve en la app móvil (`401`).
 
 ### Correr las pruebas
 
@@ -256,7 +264,7 @@ docker compose exec postgres psql -U safepath -d safepath -f /docker-entrypoint-
 
 ## 4. Endpoints del tablero
 
-Todos son `GET`, cuelgan de `http://localhost:3001/api/dashboard/v1/tablero` y responden JSON en `snake_case`. No piden token.
+Todos son `GET`, cuelgan de `http://localhost:3001/api/dashboard/v1/tablero` y responden JSON en `snake_case`. Piden el token del login (cualquiera de los dos roles).
 
 **Filtros** (query string, todos opcionales; los mismos para cualquier endpoint):
 
@@ -327,15 +335,23 @@ El parámetro `kpis` es obligatorio y se puede mandar repetido (`?kpis=a&kpis=b`
 
 El archivo siempre trae una primera hoja **Filtros aplicados** (período, localidad, vehículo y fuente usados, y las hojas incluidas), y después una hoja por KPI, en el orden de la tabla anterior aunque se pidan desordenados. Se llama `kpis_<mes desde>_<mes hasta>.xlsx`.
 
+**Solo el Administrador puede exportar** (`403` con el rol Usuario, `401` sin token válido).
+
+**Columnas de los filtros en cada hoja**, para saber a qué localidad, vehículo o fuente corresponde cada número:
+
+- **Hojas de registros uno por uno** (*Mapa de siniestros* y la sección *Reportes en el mapa*): cada fila trae `Localidad`, `Tipo de vehículo` y `Fuente`. Los reportes traen también `Mes`; en los siniestros el mes ya está en la fecha y hora.
+- **Hojas agregadas** (tarjetas, *Lugares con más siniestros*, *Siniestros por hora*, *Tendencia mensual*, *Siniestros por sexo y edad*, *Usuarios por tipo*, *Botón de pánico*, *Falsos positivos* y las secciones agregadas de *Reportes*): si un filtro tiene **más de un valor**, los resultados se calculan por separado para cada valor y se agrega su columna al principio (`Localidad`, `Tipo de vehículo` y/o `Fuente`). Por ejemplo, con Chapinero y Ciudad Bolívar sale una fila por localidad y rango de edad. Con varios filtros de varios valores sale una fila por cada combinación. Si la sección ya trae esa columna (como `Localidad` en *Lugares con más siniestros*), no se repite.
+- Con **0 o 1 valor** en un filtro, las hojas agregadas quedan igual que antes (ese valor ya aparece en *Filtros aplicados*).
+
 ```bash
-curl -o kpis.xlsx "http://localhost:3001/api/dashboard/v1/tablero/exportar?kpis=tarjeta_siniestros&kpis=siniestros_por_hora&mes_desde=2025-08&mes_hasta=2025-10"
+curl -H "Authorization: Bearer <access_token del Administrador>" -o kpis.xlsx "http://localhost:3001/api/dashboard/v1/tablero/exportar?kpis=tarjeta_siniestros&kpis=siniestros_por_hora&mes_desde=2025-08&mes_hasta=2025-10"
 ```
 
-Errores (`400`): falta `kpis`, algún KPI no existe, un filtro es inválido o el rango de meses está al revés. La API expone la cabecera `Content-Disposition` por CORS, así que el frontend puede leer el nombre del archivo; si hace `fetch`, recibe el archivo con `respuesta.blob()`. En Swagger el resultado aparece como un enlace *Download file*.
+Errores: `401` sin token válido, `403` con el rol Usuario y `400` si falta `kpis`, algún KPI no existe, un filtro es inválido o el rango de meses está al revés. La API expone la cabecera `Content-Disposition` por CORS, así que el frontend puede leer el nombre del archivo; si hace `fetch`, recibe el archivo con `respuesta.blob()`. En Swagger el resultado aparece como un enlace *Download file*.
 
 ### Usuarios del dashboard
 
-Cuelgan de `http://localhost:3001/api/dashboard/v1/usuarios` y responden en `snake_case`. Todavía no piden token: los roles se harán cumplir cuando exista el login con JWT.
+Cuelgan de `http://localhost:3001/api/dashboard/v1/usuarios` y responden en `snake_case`. **Solo el Administrador** puede usarlos: `401` sin token válido y `403` con el rol Usuario.
 
 | Método y ruta | Para qué | Datos que recibe |
 |---|---|---|
@@ -498,8 +514,9 @@ Por eso el dashboard responde en `snake_case` y el móvil en `camelCase`, sin af
 2. Llama a `LoginUseCase` a través de `src/dashboard/modules/auth/index.ts` (la única puerta del módulo).
 3. `src/dashboard/modules/auth/application/login.use-case.ts` busca el usuario y compara la contraseña con la entidad `Usuario` (`domain/usuario.ts`).
 4. Para buscar el usuario usa el puerto `UsuarioRepositoryPort` (`application/usuario.repository.port.ts`).
-5. `auth.module.ts` conecta ese puerto con `InMemoryUsuarioRepository` (`infrastructure/in-memory-usuario.repository.ts`).
+5. `auth.module.ts` conecta ese puerto con `InMemoryUsuarioRepository` (`infrastructure/in-memory-usuario.repository.ts`, con los dos usuarios de prueba) y el puerto `TokenEmisorPort` con `JwtTokenEmisor`, que firma el JWT con el rol usando `src/platform/auth/`.
 6. Si algo falla, el caso de uso lanza `CredencialesInvalidasError`; el controlador la convierte en `401`. Si sale bien, responde en `snake_case`.
+7. En los demás endpoints, `DashboardAuthGuard` (`src/platform/auth/dashboard-auth.guard.ts`) revisa el token (`401`) y `@SoloRoles('admin')` el rol (`403`).
 
 ## 11. Cómo agregar una funcionalidad nueva
 
@@ -513,7 +530,7 @@ Por eso el dashboard responde en `snake_case` y el móvil en `camelCase`, sin af
 
 | Pendiente | Dónde va |
 |---|---|
-| JWT del dashboard y roles (`admin` / `lector`) que reemplacen `token-de-prueba` (el JWT de la app móvil ya está en `src/platform/auth/`) | `src/platform/auth/` + `src/dashboard/modules/auth/` |
+| Login del dashboard contra `dashboard.usuarios` con contraseña cifrada (hoy usa los dos usuarios de prueba en memoria; el JWT y los roles ya funcionan) | `src/dashboard/modules/auth/` |
 | Multi-tenant (una base de datos por entidad) | `src/platform/tenancy/` |
 | MongoDB y PostgreSQL para el resto de módulos (el tablero ya usa PostgreSQL) | `src/platform/database/` + `infrastructure/` de cada módulo |
 | Eventos con RabbitMQ (por ejemplo, reportes del móvil hacia el dashboard) | `src/platform/messaging/` |

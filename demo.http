@@ -4,7 +4,9 @@
 ### 1. Health
 GET {{base}}/health
 
-### 2. Login correcto (200)
+### 2. Login correcto del Administrador (200) y guardar el token
+### todos los endpoints del dashboard menos el login piden este token
+# @name loginDashboard
 POST {{base}}/dashboard/v1/auth/login
 Content-Type: application/json
 
@@ -12,6 +14,27 @@ Content-Type: application/json
   "email": "admin@demo.local",
   "password": "demo1234"
 }
+
+@tokenDash = {{loginDashboard.response.body.access_token}}
+
+### 2b. Login del Usuario de solo consulta (rol lector) para probar los permisos
+# @name loginLector
+POST {{base}}/dashboard/v1/auth/login
+Content-Type: application/json
+
+{
+  "email": "lector@demo.local",
+  "password": "demo1234"
+}
+
+@tokenLector = {{loginLector.response.body.access_token}}
+
+### 2c. El Usuario lector no puede exportar (403)
+GET {{base}}/dashboard/v1/tablero/exportar?kpis=tarjeta_siniestros
+Authorization: Bearer {{tokenLector}}
+
+### 2d. Sin token el tablero responde 401
+GET {{base}}/dashboard/v1/tablero/filtros
 
 ### 3. Login con contraseña errónea (401)
 POST {{base}}/dashboard/v1/auth/login
@@ -31,60 +54,78 @@ Content-Type: application/json
 
 ### 4. Opciones de los filtros
 GET {{tablero}}/filtros
+Authorization: Bearer {{tokenDash}}
 
 ### 5. Tarjeta de siniestros con filtros de un valor
 GET {{tablero}}/tarjetas/siniestros?mes_desde=2025-08&mes_hasta=2025-10&localidad_id=8&tipo_vehiculo=bicicleta
+Authorization: Bearer {{tokenDash}}
 
 ### 6. Tarjeta de usuarios
 GET {{tablero}}/tarjetas/usuarios?{{meses}}
+Authorization: Bearer {{tokenDash}}
 
 ### 7. Tarjeta de reportes
 GET {{tablero}}/tarjetas/reportes?{{meses}}
+Authorization: Bearer {{tokenDash}}
 
 ### 8. Tarjeta de boton de panico
 GET {{tablero}}/tarjetas/boton-panico?{{meses}}
+Authorization: Bearer {{tokenDash}}
 
 ### 9. Tarjeta de falsos positivos
 GET {{tablero}}/tarjetas/falsos-positivos?{{meses}}
+Authorization: Bearer {{tokenDash}}
 
 ### 10. Mapa de siniestros (las ciclovias salen de su propio endpoint)
 GET {{tablero}}/mapa-siniestros?{{meses}}
+Authorization: Bearer {{tokenDash}}
 
 ### 11. Lugares con mas siniestros
 GET {{tablero}}/lugares-con-mas-siniestros?{{meses}}
+Authorization: Bearer {{tokenDash}}
 
 ### 12. Siniestros por hora del dia
 GET {{tablero}}/siniestros-por-hora?{{meses}}
+Authorization: Bearer {{tokenDash}}
 
 ### 13. Tendencia mensual
 GET {{tablero}}/tendencia-mensual?{{meses}}
+Authorization: Bearer {{tokenDash}}
 
 ### 14. Siniestros por sexo y edad
 GET {{tablero}}/siniestros-por-sexo-y-edad?{{meses}}
+Authorization: Bearer {{tokenDash}}
 
 ### 15. Usuarios por tipo
 GET {{tablero}}/usuarios-por-tipo?{{meses}}
+Authorization: Bearer {{tokenDash}}
 
 ### 16. Boton de panico
 GET {{tablero}}/boton-panico?{{meses}}
+Authorization: Bearer {{tokenDash}}
 
 ### 17. Reportes
 GET {{tablero}}/reportes?{{meses}}
+Authorization: Bearer {{tokenDash}}
 
 ### 18. Falsos positivos
 GET {{tablero}}/falsos-positivos?{{meses}}
+Authorization: Bearer {{tokenDash}}
 
 ### 19. Rango de meses al reves (400)
 GET {{tablero}}/tarjetas/siniestros?mes_desde=2025-10&mes_hasta=2025-08
+Authorization: Bearer {{tokenDash}}
 
 ### --- Ciclovias por zona del mapa (dashboard y app movil) ---
 ### Las cuatro esquinas son las del mapa que se ve y tipo es opcional
 
 ### 20. Ciclovias en el dashboard (snake_case)
 GET {{base}}/dashboard/v1/ciclovias?min_lat=4.66&min_lon=-74.06&max_lat=4.68&max_lon=-74.04
+Authorization: Bearer {{tokenDash}}
 
 ### 21. Solo cruces en el dashboard
 GET {{base}}/dashboard/v1/ciclovias?min_lat=4.66&min_lon=-74.06&max_lat=4.68&max_lon=-74.04&tipo=cruce
+Authorization: Bearer {{tokenDash}}
 
 ### 22. Ciclovias en la app movil (camelCase)
 GET {{base}}/mobile/v1/ciclovias?minLat=4.66&minLon=-74.06&maxLat=4.68&maxLon=-74.04
@@ -228,12 +269,15 @@ Authorization: Bearer {{token}}
 
 ### 31. Listar usuarios
 GET {{usuarios}}
+Authorization: Bearer {{tokenDash}}
 
 ### 32. Listar solo los lectores
 GET {{usuarios}}?rol=lector
+Authorization: Bearer {{tokenDash}}
 
 ### 33. Crear un usuario (201)
 POST {{usuarios}}
+Authorization: Bearer {{tokenDash}}
 Content-Type: application/json
 
 {
@@ -244,9 +288,11 @@ Content-Type: application/json
 
 ### 34. Ver un usuario
 GET {{usuarios}}/1
+Authorization: Bearer {{tokenDash}}
 
 ### 35. Cambiar el rol de un usuario
 PATCH {{usuarios}}/3
+Authorization: Bearer {{tokenDash}}
 Content-Type: application/json
 
 {
@@ -255,6 +301,7 @@ Content-Type: application/json
 
 ### 36. Correo que ya existe (409)
 POST {{usuarios}}
+Authorization: Bearer {{tokenDash}}
 Content-Type: application/json
 
 {
@@ -265,33 +312,42 @@ Content-Type: application/json
 
 ### 37. Eliminar un usuario (204)
 DELETE {{usuarios}}/3
+Authorization: Bearer {{tokenDash}}
 
 ### --- Exportar KPIs a Excel (boton Exportar del dashboard) ---
 ### kpis acepta uno o varios y tambien los filtros del tablero
 
 ### 38. Exportar dos KPIs (descarga un xlsx)
 GET {{base}}/dashboard/v1/tablero/exportar?kpis=tarjeta_siniestros&kpis=siniestros_por_hora&{{meses}}
+Authorization: Bearer {{tokenDash}}
 
 ### 39. Exportar varios KPIs con filtros
 GET {{base}}/dashboard/v1/tablero/exportar?kpis=tarjeta_siniestros,mapa_siniestros,usuarios_por_tipo&mes_desde=2025-01&mes_hasta=2025-03&localidad_id=8
+Authorization: Bearer {{tokenDash}}
 
 ### 40. Sin KPIs (400)
 GET {{base}}/dashboard/v1/tablero/exportar
+Authorization: Bearer {{tokenDash}}
 
 ### --- Filtros con varios valores ---
 ### localidad_id tipo_vehiculo y fuente aceptan uno o varios valores repetidos o separados por comas
 
 ### 41. Siniestros de dos localidades y dos tipos de vehiculo
 GET {{tablero}}/tarjetas/siniestros?{{meses}}&localidad_id=8&localidad_id=10&tipo_vehiculo=bicicleta,patineta
+Authorization: Bearer {{tokenDash}}
 
 ### 42. Dos meses seguidos con varios vehiculos
 GET {{tablero}}/siniestros-por-hora?mes_desde=2025-08&mes_hasta=2025-09&tipo_vehiculo=bicicleta,patineta_electrica
+Authorization: Bearer {{tokenDash}}
 
 ### 43. Un valor invalido dentro de la lista (400)
 GET {{tablero}}/tarjetas/siniestros?tipo_vehiculo=bicicleta,carro
+Authorization: Bearer {{tokenDash}}
 
 ### 44. Solo las graficas del anuario sin meses (termina en el ultimo mes con datos)
 GET {{tablero}}/tarjetas/siniestros?fuente=anuario
+Authorization: Bearer {{tokenDash}}
 
 ### 45. Las dos fuentes combinadas
 GET {{tablero}}/tarjetas/siniestros?fuente=anuario,app
+Authorization: Bearer {{tokenDash}}

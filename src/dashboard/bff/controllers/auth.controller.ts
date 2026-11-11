@@ -23,8 +23,8 @@ export class AuthController {
 
   @Post('login')
   @HttpCode(HttpStatus.OK)
-  @ApiOperation({ summary: 'Iniciar sesion con el usuario de demostracion' })
-  @ApiOkResponse({ description: 'Token de prueba y datos del usuario en snake_case' })
+  @ApiOperation({ summary: 'Iniciar sesion con un usuario de demostracion (admin@demo.local o lector@demo.local)' })
+  @ApiOkResponse({ description: 'Token JWT del dashboard con el rol del usuario y sus datos en snake_case' })
   @ApiBadRequestResponse({ description: 'Correo con formato invalido o contrasena vacia' })
   @ApiUnauthorizedResponse({ description: 'Correo o contrasena incorrectos' })
   async login(@Body(new ValidationPipe()) body: LoginRequest): Promise<LoginResponse> {

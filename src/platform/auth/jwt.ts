@@ -1,13 +1,22 @@
 import { createHmac, timingSafeEqual } from 'node:crypto';
 
-// El token dura una semana y despues el ciudadano tiene que iniciar sesion otra vez
+// El token dura una semana y despues hay que iniciar sesion otra vez
 const DURACION_SEGUNDOS = 7 * 24 * 60 * 60;
 
 // Un JWT siempre empieza con este encabezado y solo se acepta este algoritmo
 const ENCABEZADO = Buffer.from(JSON.stringify({ alg: 'HS256', typ: 'JWT' })).toString('base64url');
 
-// Lo que guarda el token: sub es el id del ciudadano y iat y exp son segundos desde 1970
-export interface PayloadToken {
+// Los tokens del dashboard llevan esta audiencia y su rol asi no sirven en la app movil ni al reves
+export const AUDIENCIA_DASHBOARD = 'dashboard';
+
+// Datos opcionales del token donde aud dice para que producto es y rol es el rol del usuario del dashboard
+export interface DatosExtraToken {
+  aud?: string;
+  rol?: string;
+}
+
+// Lo que guarda el token donde sub es el id del usuario y iat y exp son segundos desde 1970
+export interface PayloadToken extends DatosExtraToken {
   sub: number;
   iat: number;
   exp: number;
@@ -26,10 +35,11 @@ function firmar(contenido: string): string {
   return createHmac('sha256', leerSecreto()).update(contenido).digest('base64url');
 }
 
-// Crea un JWT HS256 para el ciudadano con el formato estandar encabezado.payload.firma
-export function firmarToken(usuarioId: number, ahoraMs: number = Date.now()): string {
+// Crea un JWT HS256 con el formato estandar encabezado.payload.firma
+// sin datos extra es el token de un ciudadano de la app movil
+export function firmarToken(usuarioId: number, ahoraMs: number = Date.now(), extra: DatosExtraToken = {}): string {
   const iat = Math.floor(ahoraMs / 1000);
-  const payload: PayloadToken = { sub: usuarioId, iat, exp: iat + DURACION_SEGUNDOS };
+  const payload: PayloadToken = { sub: usuarioId, iat, exp: iat + DURACION_SEGUNDOS, ...extra };
   const contenido = `${ENCABEZADO}.${Buffer.from(JSON.stringify(payload)).toString('base64url')}`;
   return `${contenido}.${firmar(contenido)}`;
 }
@@ -57,4 +67,10 @@ function leerPayload(payloadCodificado: string, ahoraMs: number): PayloadToken |
   } catch {
     return null;
   }
+}
+
+// Saca el token del encabezado Authorization: Bearer <token> y lo verifica
+export function tokenDeLaPeticion(autorizacion: string | undefined): PayloadToken | null {
+  const [tipo, token] = (autorizacion ?? '').split(' ');
+  return tipo === 'Bearer' && token !== undefined ? verificarToken(token) : null;
 }

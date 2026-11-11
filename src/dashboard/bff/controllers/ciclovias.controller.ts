@@ -1,5 +1,13 @@
-import { BadRequestException, Controller, Get, Query, ValidationPipe } from '@nestjs/common';
-import { ApiBadRequestResponse, ApiOkResponse, ApiOperation, ApiTags } from '@nestjs/swagger';
+import { BadRequestException, Controller, Get, Query, UseGuards, ValidationPipe } from '@nestjs/common';
+import {
+  ApiBadRequestResponse,
+  ApiBearerAuth,
+  ApiOkResponse,
+  ApiOperation,
+  ApiTags,
+  ApiUnauthorizedResponse,
+} from '@nestjs/swagger';
+import { DashboardAuthGuard } from '../../../platform/auth';
 import { AreaMapa, DomainError, ObtenerCicloviasUseCase } from '../../../common/modules/ciclovias';
 import { CicloviasQuery } from '../dto/ciclovias.query';
 import { aSnakeCase } from '../snake-case';
@@ -7,6 +15,9 @@ import { aSnakeCase } from '../snake-case';
 // Ciclovias de la zona del mapa del dashboard en /api/dashboard/v1/ciclovias
 // usa el mismo caso de uso que la app movil pero responde en snake_case
 @ApiTags('Compartido - Ciclovias')
+@ApiBearerAuth()
+@ApiUnauthorizedResponse({ description: 'Falta el token del dashboard o no es valido o esta vencido' })
+@UseGuards(DashboardAuthGuard)
 @Controller('ciclovias')
 export class CicloviasController {
   constructor(private readonly obtenerCiclovias: ObtenerCicloviasUseCase) {}

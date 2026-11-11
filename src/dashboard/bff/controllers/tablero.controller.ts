@@ -1,5 +1,13 @@
-import { BadRequestException, Controller, Get, Query, ValidationPipe } from '@nestjs/common';
-import { ApiBadRequestResponse, ApiOkResponse, ApiOperation, ApiTags } from '@nestjs/swagger';
+import { BadRequestException, Controller, Get, Query, UseGuards, ValidationPipe } from '@nestjs/common';
+import {
+  ApiBadRequestResponse,
+  ApiBearerAuth,
+  ApiOkResponse,
+  ApiOperation,
+  ApiTags,
+  ApiUnauthorizedResponse,
+} from '@nestjs/swagger';
+import { DashboardAuthGuard } from '../../../platform/auth';
 import {
   DomainError,
   FiltrosTablero,
@@ -27,6 +35,9 @@ const validarFiltros = new ValidationPipe({ transform: true, whitelist: true, fo
 // Endpoints de solo lectura para cada tarjeta y grafica del tablero
 // todos cuelgan de /api/dashboard/v1/tablero y responden en snake_case
 @ApiTags('Dashboard - Tablero')
+@ApiBearerAuth()
+@ApiUnauthorizedResponse({ description: 'Falta el token del dashboard o no es valido o esta vencido' })
+@UseGuards(DashboardAuthGuard)
 @ApiBadRequestResponse({ description: 'Algun filtro tiene formato invalido o el rango de meses esta al reves' })
 @Controller('tablero')
 export class TableroController {
