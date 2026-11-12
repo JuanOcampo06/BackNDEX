@@ -1,5 +1,6 @@
-import { Module } from '@nestjs/common';
+import { Module, OnModuleInit } from '@nestjs/common';
 import { RouterModule } from '@nestjs/core';
+import { validarSecretoJwt } from '../../platform/auth';
 import { AuthModule } from '../modules/auth';
 import { UsersModule } from '../modules/users';
 import { KpisModule } from '../modules/kpis';
@@ -25,4 +26,9 @@ import { UsuariosController } from './controllers/usuarios.controller';
   ],
   controllers: [AuthController, TableroController, ExportarKpisController, CicloviasController, UsuariosController],
 })
-export class DashboardBffModule {}
+export class DashboardBffModule implements OnModuleInit {
+  // Sin un JWT_SECRET seguro la api no arranca porque cualquiera podria firmar tokens del dashboard
+  onModuleInit(): void {
+    validarSecretoJwt();
+  }
+}

@@ -10,8 +10,10 @@ services:
       DATABASE_URL: postgres://${POSTGRES_USER:-safepath}:${POSTGRES_PASSWORD:-safepath}@postgres:5432/${POSTGRES_DB:-safepath}
       # Vacio deja entrar a cualquier frontend y con una direccion solo deja entrar a esa
       CORS_ORIGIN: ${CORS_ORIGIN:-}
-      # Secreto de los tokens JWT de la app movil y el valor por defecto solo sirve para la demo
-      JWT_SECRET: ${JWT_SECRET:-cambia-este-secreto-en-produccion}
+      # Secreto de los tokens JWT y es obligatorio en el .env porque sin el cualquiera podria firmar tokens
+      JWT_SECRET: ${JWT_SECRET:?Falta JWT_SECRET en el archivo .env y se genera como dice el README}
+      # Direccion del frontend del dashboard para el enlace de restablecer la contrasena
+      DASHBOARD_URL: ${DASHBOARD_URL:-}
     ports:
       - "${PORT:-3001}:${PORT:-3001}"
     # La api espera a que la base de datos este lista antes de arrancar

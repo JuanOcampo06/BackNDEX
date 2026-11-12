@@ -2,47 +2,12 @@ import { INestApplication } from '@nestjs/common';
 import { Test } from '@nestjs/testing';
 import request from 'supertest';
 import { AppModule } from '../src/app.module';
-import { TABLERO_REPOSITORY, TableroRepositoryPort } from '../src/dashboard/modules/kpis/application/tablero.repository.port';
-import { USUARIOS_REPOSITORY, UsuariosRepositoryPort } from '../src/dashboard/modules/users/application/usuarios.repository.port';
+import { USUARIO_REPOSITORY } from '../src/dashboard/modules/auth/application/usuario.repository.port';
+import { TABLERO_REPOSITORY } from '../src/dashboard/modules/kpis/application/tablero.repository.port';
+import { USUARIOS_REPOSITORY } from '../src/dashboard/modules/users/application/usuarios.repository.port';
 import { firmarToken } from '../src/platform/auth';
+import { crearTablaDeUsuariosFalsa, crearTableroFalso } from './dashboard-falsos';
 import { tokenDashboard } from './token-dashboard';
-
-// Repositorios falsos para probar los permisos por HTTP sin necesitar PostgreSQL
-function crearTableroFalso(): TableroRepositoryPort {
-  return {
-    listarLocalidades: async () => [{ id: 8, nombre: 'Kennedy' }],
-    buscarUltimoMesConDatos: async () => null,
-    contarPorSemana: async () => [],
-    listarSiniestros: async () => [],
-    contarSiniestrosPorLugarYHora: async () => [],
-    contarSiniestrosPorMes: async () => [],
-    contarVictimasPorSexoYEdad: async () => [],
-    contarUsuariosPorTipo: async () => [],
-    contarActivacionesPorLugar: async () => [],
-    listarReportes: async () => [],
-    contarFalsosPositivosPorMotivo: async () => [],
-    contarFalsosPositivosPorMes: async () => [],
-  };
-}
-
-function crearUsuariosFalso(): UsuariosRepositoryPort {
-  const admin = {
-    id: 1,
-    nombreCompleto: 'Admin Demo',
-    correo: 'admin@demo.local',
-    rol: 'admin' as const,
-    creadoEn: '2026-11-01T00:00:00.000Z',
-    actualizadoEn: '2026-11-01T00:00:00.000Z',
-  };
-  return {
-    listar: async () => [admin],
-    buscarPorId: async (id) => (id === 1 ? admin : null),
-    existeCorreo: async () => false,
-    crear: async (nuevo) => ({ ...admin, ...nuevo, id: 2 }),
-    actualizar: async (_id, cambios) => ({ ...admin, ...cambios }),
-    eliminar: async () => true,
-  };
-}
 
 describe('Permisos del dashboard (e2e)', () => {
   const base = '/api/dashboard/v1';
@@ -53,12 +18,14 @@ describe('Permisos del dashboard (e2e)', () => {
   let app: INestApplication;
 
   beforeAll(async () => {
-    process.env.JWT_SECRET = 'secreto-de-pruebas';
+    const usuariosFalsos = await crearTablaDeUsuariosFalsa();
     const modulo = await Test.createTestingModule({ imports: [AppModule] })
       .overrideProvider(TABLERO_REPOSITORY)
       .useValue(crearTableroFalso())
       .overrideProvider(USUARIOS_REPOSITORY)
-      .useValue(crearUsuariosFalso())
+      .useValue(usuariosFalsos)
+      .overrideProvider(USUARIO_REPOSITORY)
+      .useValue(usuariosFalsos)
       .compile();
     app = modulo.createNestApplication();
     app.setGlobalPrefix('api');

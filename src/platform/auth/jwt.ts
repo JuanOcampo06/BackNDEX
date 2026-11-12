@@ -22,6 +22,22 @@ export interface PayloadToken extends DatosExtraToken {
   exp: number;
 }
 
+// Largo minimo del secreto para que no se pueda adivinar por fuerza bruta
+const LARGO_MINIMO_SECRETO = 32;
+
+// Valor que traia el ejemplo antes y que nunca debe usarse porque es publico
+const SECRETO_DE_EJEMPLO = 'cambia-este-secreto-en-produccion';
+
+// La api no arranca con un secreto vacio corto o el del ejemplo porque cualquiera podria firmar tokens
+export function validarSecretoJwt(): void {
+  const secreto = process.env.JWT_SECRET ?? '';
+  if (secreto.length < LARGO_MINIMO_SECRETO || secreto === SECRETO_DE_EJEMPLO) {
+    throw new Error(
+      `JWT_SECRET debe tener al menos ${LARGO_MINIMO_SECRETO} caracteres y no puede ser el valor de ejemplo. Genera uno con: node -e "console.log(require('crypto').randomBytes(48).toString('base64url'))"`,
+    );
+  }
+}
+
 // El secreto viene de la variable JWT_SECRET y sin el no se puede firmar ni verificar
 function leerSecreto(): string {
   const secreto = process.env.JWT_SECRET;

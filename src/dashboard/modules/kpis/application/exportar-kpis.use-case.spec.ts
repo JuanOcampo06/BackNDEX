@@ -21,7 +21,8 @@ import { TableroRepositoryPort } from './tablero.repository.port';
 function crearTablero(): TableroRepositoryPort {
   return {
     listarLocalidades: async () => [{ id: 4, nombre: 'Engativa' }],
-    buscarUltimoMesConDatos: async () => null,
+    buscarRangoDeMeses: async () => ({ primerMes: null, ultimoMes: null }),
+    buscarFechasDeCorte: async () => ({ anuario: null, ciclovias: null }),
     contarPorSemana: async () => [{ semana: '2026-08-03', total: 10 }],
     listarSiniestros: async () => [
       { id: 7, latitud: 4.7, longitud: -74.09, gravedad: 'con_heridos', clase: 'choque', tipoVehiculo: 'bicicleta_electrica', ocurridoEn: '2026-08-04T07:30', localidad: 'Engativa' },
@@ -108,7 +109,7 @@ describe('ExportarKpisUseCase', () => {
     });
 
     const [hojaFiltros, hojaMapa] = generador.libro?.hojas ?? [];
-    expect(hojaMapa.secciones[0].filas[0]).toEqual([7, '2026-08-04 07:30', 4.7, -74.09, 'Con heridos', 'Choque', 'Bicicleta electrica', 'Engativa', 'Anuario']);
+    expect(hojaMapa.secciones[0].filas[0]).toEqual([7, '2026-08-04 07:30', 4.7, -74.09, 'Con heridos', 'Choque', 'Bicicleta electrica', 'Engativa', 'Secretaría Distrital de Movilidad']);
     expect(hojaFiltros.secciones[0].filas).toEqual([
       ['Mes desde', '2026-08'],
       ['Mes hasta', '2026-10'],
@@ -186,7 +187,7 @@ describe('ExportarKpisUseCase', () => {
     expect(tabla.columnas.slice(0, 4)).toEqual(['Localidad', 'Tipo de vehículo', 'Fuente', 'Mes']);
     // Ocho combinaciones con los doce meses de la tendencia cada una
     expect(tabla.filas).toHaveLength(8 * 12);
-    expect(tabla.filas[0].slice(0, 3)).toEqual(['Engativa', 'Bicicleta', 'Anuario']);
+    expect(tabla.filas[0].slice(0, 3)).toEqual(['Engativa', 'Bicicleta', 'Secretaría Distrital de Movilidad']);
     expect(tabla.filas[95].slice(0, 3)).toEqual(['Id 9', 'Patineta', 'App']);
   });
 

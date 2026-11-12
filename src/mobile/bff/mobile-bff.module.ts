@@ -1,5 +1,6 @@
-import { Module } from '@nestjs/common';
+import { Module, OnModuleInit } from '@nestjs/common';
 import { RouterModule } from '@nestjs/core';
+import { validarSecretoJwt } from '../../platform/auth';
 import { MobileAuthModule } from '../modules/auth';
 import { ReportsModule } from '../modules/reports';
 import { RoutesModule } from '../modules/routes';
@@ -29,4 +30,9 @@ import { TripsController } from './controllers/trips.controller';
   ],
   controllers: [AuthController, CicloviasController, ReportsController, RoutesController, SosController, TripsController],
 })
-export class MobileBffModule {}
+export class MobileBffModule implements OnModuleInit {
+  // Sin un JWT_SECRET seguro la api no arranca porque cualquiera podria firmar tokens de ciudadanos
+  onModuleInit(): void {
+    validarSecretoJwt();
+  }
+}

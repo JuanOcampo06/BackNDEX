@@ -14,7 +14,8 @@ function crearRepositorioFalso(alRecibir: (filtros: FiltrosTablero) => void): Ta
       { id: 4, nombre: 'Engativa' },
       { id: 6, nombre: 'Kennedy' },
     ],
-    buscarUltimoMesConDatos: async () => null,
+    buscarRangoDeMeses: async () => ({ primerMes: null, ultimoMes: null }),
+    buscarFechasDeCorte: async () => ({ anuario: null, ciclovias: null }),
     contarPorSemana: async (_indicador, filtros) => {
       alRecibir(filtros);
       return [{ semana: '2026-08-03', total: 10 }];

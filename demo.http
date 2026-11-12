@@ -52,8 +52,46 @@ Content-Type: application/json
 @tablero = {{base}}/dashboard/v1/tablero
 @meses = mes_desde=2025-10&mes_hasta=2025-12
 
-### 4. Opciones de los filtros
+### --- Perfil y contrasena del dashboard ---
+
+### P1. Ver mi perfil
+GET {{base}}/dashboard/v1/auth/me
+Authorization: Bearer {{tokenDash}}
+
+### P2. Editar mi nombre y mi entidad (el rol no se puede cambiar aqui)
+PATCH {{base}}/dashboard/v1/auth/me
+Authorization: Bearer {{tokenDash}}
+Content-Type: application/json
+
+{
+  "full_name": "Admin Demo",
+  "entidad": "Secretaría Distrital de Movilidad"
+}
+
+### P3. Pedir el enlace para restablecer la contrasena (202 siempre)
+### el enlace sale en docker compose logs api mientras no haya servidor de correo
+POST {{base}}/dashboard/v1/auth/restablecer-contrasena/solicitar
+Content-Type: application/json
+
+{
+  "email": "lector@demo.local"
+}
+
+### P4. Poner la contrasena nueva con el token del enlace (204) y cambia el token por el del registro
+POST {{base}}/dashboard/v1/auth/restablecer-contrasena/confirmar
+Content-Type: application/json
+
+{
+  "token": "pega-aqui-el-token-del-enlace",
+  "password": "nueva-clave-123"
+}
+
+### 4. Opciones de los filtros y el rango de meses con datos
 GET {{tablero}}/filtros
+Authorization: Bearer {{tokenDash}}
+
+### 4b. Credito del anuario y de OpenStreetMap con enlace licencia y fecha de corte
+GET {{tablero}}/creditos
 Authorization: Bearer {{tokenDash}}
 
 ### 5. Tarjeta de siniestros con filtros de un valor
@@ -275,7 +313,7 @@ Authorization: Bearer {{tokenDash}}
 GET {{usuarios}}?rol=lector
 Authorization: Bearer {{tokenDash}}
 
-### 33. Crear un usuario (201)
+### 33. Crear un usuario (201) con contrasena para que pueda iniciar sesion
 POST {{usuarios}}
 Authorization: Bearer {{tokenDash}}
 Content-Type: application/json
@@ -283,7 +321,9 @@ Content-Type: application/json
 {
   "nombre_completo": "Ana Lopez",
   "correo": "ana.lopez@demo.local",
-  "rol": "lector"
+  "rol": "lector",
+  "entidad": "Secretaría Distrital de Movilidad",
+  "contrasena": "clave-inicial-123"
 }
 
 ### 34. Ver un usuario

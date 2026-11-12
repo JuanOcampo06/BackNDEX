@@ -13,6 +13,7 @@ import {
   FiltrosTablero,
   Indicador,
   ObtenerBotonPanicoUseCase,
+  ObtenerCreditosUseCase,
   ObtenerFalsosPositivosUseCase,
   ObtenerFiltrosUseCase,
   ObtenerLugaresConMasSiniestrosUseCase,
@@ -54,14 +55,28 @@ export class TableroController {
     private readonly obtenerReportes: ObtenerReportesUseCase,
     private readonly obtenerFalsosPositivos: ObtenerFalsosPositivosUseCase,
     private readonly obtenerUltimoMesConDatos: ObtenerUltimoMesConDatosUseCase,
+    private readonly obtenerCreditos: ObtenerCreditosUseCase,
   ) {}
 
   // Opciones de los selectores Localidad Vehiculo y Fuente
   @Get('filtros')
-  @ApiOperation({ summary: 'Opciones de los filtros Localidad Vehiculo y Fuente' })
-  @ApiOkResponse({ description: 'Responde localidades tipos_vehiculo y fuentes' })
+  @ApiOperation({ summary: 'Opciones de los filtros Localidad Vehiculo y Fuente y el rango de meses con datos' })
+  @ApiOkResponse({
+    description: 'Responde localidades tipos_vehiculo fuentes y primer_mes y ultimo_mes en AAAA-MM con datos de todas las fuentes (null si no hay datos)',
+  })
   async filtros(): Promise<unknown> {
     return aSnakeCase(await this.obtenerFiltros.execute());
+  }
+
+  // Credito de las fuentes externas para mostrar al pie del tablero
+  @Get('creditos')
+  @ApiOperation({ summary: 'Credito del Anuario de Siniestralidad Vial y de OpenStreetMap con enlace licencia y fecha de corte' })
+  @ApiOkResponse({
+    description:
+      'Responde fuentes con fuente nombre entidad enlace licencia enlace_licencia y fecha_corte (AAAA-MM-DD del ultimo dato cargado o null)',
+  })
+  async creditos(): Promise<unknown> {
+    return aSnakeCase(await this.obtenerCreditos.execute());
   }
 
   // Tarjetas de la parte de arriba

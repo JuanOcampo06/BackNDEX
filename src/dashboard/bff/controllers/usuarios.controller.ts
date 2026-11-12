@@ -82,7 +82,7 @@ export class UsuariosController {
 
   @Post()
   @HttpCode(HttpStatus.CREATED)
-  @ApiOperation({ summary: 'Crear un usuario del dashboard' })
+  @ApiOperation({ summary: 'Crear un usuario del dashboard y con contrasena ya puede iniciar sesion' })
   @ApiCreatedResponse({ type: UsuarioResponse })
   @ApiBadRequestResponse({ description: 'Faltan datos o tienen formato invalido' })
   @ApiConflictResponse({ description: 'Ya existe un usuario con ese correo' })
@@ -91,12 +91,14 @@ export class UsuariosController {
       nombreCompleto: cuerpo.nombre_completo,
       correo: cuerpo.correo,
       rol: cuerpo.rol,
+      entidad: cuerpo.entidad,
+      contrasena: cuerpo.contrasena,
     });
     return aSnakeCase(usuario);
   }
 
   @Patch(':id')
-  @ApiOperation({ summary: 'Editar el nombre el correo o el rol de un usuario' })
+  @ApiOperation({ summary: 'Editar el nombre el correo el rol la entidad o la contrasena de un usuario' })
   @ApiOkResponse({ type: UsuarioResponse })
   @ApiBadRequestResponse({ description: 'No llego ningun campo o alguno tiene formato invalido' })
   @ApiNotFoundResponse({ description: 'No existe un usuario con ese id' })
@@ -109,6 +111,8 @@ export class UsuariosController {
       nombreCompleto: cuerpo.nombre_completo,
       correo: cuerpo.correo,
       rol: cuerpo.rol,
+      entidad: cuerpo.entidad,
+      contrasena: cuerpo.contrasena,
     });
     return aSnakeCase(usuario);
   }

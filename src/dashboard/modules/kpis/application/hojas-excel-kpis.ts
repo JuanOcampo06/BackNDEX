@@ -1,5 +1,6 @@
 import { Fuente, Indicador, TipoVehiculo } from '../domain/catalogos';
 import { FiltrosTablero } from '../domain/filtros-tablero';
+import { NOMBRE_DE_FUENTE } from '../domain/fuentes-de-datos';
 import { KpiExportable } from '../domain/kpis-exportables';
 import { CeldaExcel, HojaExcel, SeccionExcel } from './generador-excel.port';
 import { ObtenerBotonPanicoUseCase } from './obtener-boton-panico.use-case';
@@ -117,7 +118,7 @@ const DEFINICIONES_HOJA: Record<KpiExportable, DefinicionHoja> = {
             etiqueta(s.clase),
             etiqueta(s.tipoVehiculo),
             s.localidad,
-            etiqueta(FUENTE_SINIESTROS),
+            NOMBRE_DE_FUENTE[FUENTE_SINIESTROS],
           ]),
         },
       ];
@@ -237,7 +238,7 @@ const DEFINICIONES_HOJA: Record<KpiExportable, DefinicionHoja> = {
             r.mes,
             r.localidad,
             etiqueta(r.tipoVehiculo),
-            etiqueta(FUENTE_REPORTES),
+            NOMBRE_DE_FUENTE[FUENTE_REPORTES],
           ]),
         },
       ];
@@ -308,7 +309,7 @@ function separaciones(filtros: FiltrosTablero, localidades: readonly Localidad[]
     resultado.push({
       columna: 'Fuente',
       opciones: (filtros.fuente ?? []).map((fuente: Fuente) => ({
-        etiqueta: etiqueta(fuente),
+        etiqueta: NOMBRE_DE_FUENTE[fuente],
         aplicar: (f) => ({ ...f, fuente: [fuente] }),
       })),
     });
@@ -391,7 +392,7 @@ export function hojaDeFiltros(
           ['Mes hasta', meses[meses.length - 1]],
           ['Localidad', valoresOTodos(filtros.localidadId?.map((id) => nombreDeLocalidad(localidades, id)), 'Todas')],
           ['Tipo de vehículo', valoresOTodos(filtros.tipoVehiculo?.map((tipo) => etiqueta(tipo)), 'Todos')],
-          ['Fuente', valoresOTodos(filtros.fuente?.map((fuente) => etiqueta(fuente)), 'Todas')],
+          ['Fuente', valoresOTodos(filtros.fuente?.map((fuente) => NOMBRE_DE_FUENTE[fuente]), 'Todas')],
         ],
       },
       { titulo: 'Hojas incluidas', columnas: ['Hoja'], filas: hojas.map((hoja) => [hoja.nombre]) },

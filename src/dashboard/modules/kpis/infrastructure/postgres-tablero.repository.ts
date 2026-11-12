@@ -8,7 +8,9 @@ import {
   ConteoPorTipo,
   ConteoSemanal,
   ConteoSexoEdad,
+  FechasDeCorte,
   Localidad,
+  RangoDeMeses,
   ReporteDetallado,
   SiniestroDetallado,
   TableroRepositoryPort,
@@ -125,16 +127,27 @@ export class PostgresTableroRepository implements TableroRepositoryPort, OnModul
     return this.consultar('SELECT id, nombre FROM compartido.localidades ORDER BY nombre', []);
   }
 
-  async buscarUltimoMesConDatos(fuentes: readonly Fuente[]): Promise<string | null> {
-    // Se toma la fecha mas reciente de cada tabla cuya fuente este elegida
+  async buscarRangoDeMeses(fuentes: readonly Fuente[]): Promise<RangoDeMeses> {
+    // Se toman la fecha mas antigua y la mas reciente de cada tabla cuya fuente este elegida
     const fechas = Object.values(ORIGEN_POR_INDICADOR)
       .filter((origen) => fuentes.includes(origen.fuente))
-      .map((origen) => `SELECT max(${origen.fecha})::date AS fecha FROM ${origen.tabla}`);
-    const [fila] = await this.consultar<{ mes: string | null }>(
-      `SELECT to_char(max(fecha), 'YYYY-MM') AS mes FROM (${fechas.join(' UNION ALL ')}) AS ultimas`,
+      .map((origen) => `SELECT min(${origen.fecha})::date AS primera, max(${origen.fecha})::date AS ultima FROM ${origen.tabla}`);
+    const [fila] = await this.consultar<RangoDeMeses>(
+      `SELECT to_char(min(primera), 'YYYY-MM') AS "primerMes", to_char(max(ultima), 'YYYY-MM') AS "ultimoMes"
+       FROM (${fechas.join(' UNION ALL ')}) AS extremos`,
       [],
     );
-    return fila.mes;
+    return fila;
+  }
+
+  async buscarFechasDeCorte(): Promise<FechasDeCorte> {
+    // El anuario corta en su ultimo siniestro y las ciclovias en la fecha del archivo de OpenStreetMap
+    const [fila] = await this.consultar<FechasDeCorte>(
+      `SELECT (SELECT to_char(max(ocurrido_en), 'YYYY-MM-DD') FROM dashboard.siniestros) AS anuario,
+              (SELECT to_char(max(fecha_datos) AT TIME ZONE 'UTC', 'YYYY-MM-DD') FROM compartido.ciclovias_fuente) AS ciclovias`,
+      [],
+    );
+    return fila;
   }
 
   contarPorSemana(indicador: Indicador, filtros: FiltrosTablero): Promise<ConteoSemanal[]> {

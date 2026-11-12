@@ -86,7 +86,7 @@ describe('Registro, login y viajes de la app movil (e2e)', () => {
   };
 
   beforeAll(async () => {
-    process.env.JWT_SECRET = 'secreto-de-pruebas';
+    process.env.JWT_SECRET = 'secreto-de-pruebas-con-mas-de-32-caracteres';
     const modulo = await Test.createTestingModule({ imports: [AppModule] })
       .overrideProvider(CIUDADANOS_REPOSITORY)
       .useValue(crearCiudadanosFalso())

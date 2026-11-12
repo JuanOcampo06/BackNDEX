@@ -29,7 +29,7 @@ describe('Reportes de la app movil (e2e)', () => {
   const autorizacion = (usuarioId = 1): string => `Bearer ${firmarToken(usuarioId)}`;
 
   beforeAll(async () => {
-    process.env.JWT_SECRET = 'secreto-de-pruebas';
+    process.env.JWT_SECRET = 'secreto-de-pruebas-con-mas-de-32-caracteres';
     const modulo = await Test.createTestingModule({ imports: [AppModule] })
       .overrideProvider(REPORTES_REPOSITORY)
       .useValue(crearRepositorioFalso())

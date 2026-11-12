@@ -170,16 +170,30 @@ CREATE TABLE dashboard.actores_viales (
   edad int CHECK (edad BETWEEN 0 AND 110)
 );
 
--- Usuarios del dashboard institucional con su rol
+-- Usuarios del dashboard institucional con su rol y son los que inician sesion en el tablero
 -- admin puede crear editar y eliminar usuarios y lector solo puede ver la informacion
--- la contrasena se agregara cuando exista el login real con JWT
+-- la contrasena se guarda cifrada con scrypt en el formato scrypt$sal$clave y nunca en texto plano
+-- sin contrasena el usuario no puede entrar hasta que se la asignen o la restablezca
 CREATE TABLE dashboard.usuarios (
   id serial PRIMARY KEY,
   nombre_completo text NOT NULL CHECK (char_length(nombre_completo) BETWEEN 1 AND 120),
   correo text NOT NULL UNIQUE,
   rol text NOT NULL DEFAULT 'lector' CHECK (rol IN ('admin', 'lector')),
+  entidad text CHECK (char_length(entidad) BETWEEN 1 AND 120),
+  contrasena_cifrada text,
   creado_en timestamptz NOT NULL DEFAULT now(),
   actualizado_en timestamptz NOT NULL DEFAULT now()
+);
+
+-- Solicitudes para restablecer la contrasena de un usuario del dashboard
+-- solo se guarda el hash del token que se envia al correo y cada token sirve una sola vez antes de vencer
+CREATE TABLE dashboard.restablecimientos_contrasena (
+  id serial PRIMARY KEY,
+  usuario_id int NOT NULL REFERENCES dashboard.usuarios (id) ON DELETE CASCADE,
+  token_hash text NOT NULL UNIQUE,
+  vence_en timestamptz NOT NULL,
+  usado_en timestamptz,
+  creado_en timestamptz NOT NULL DEFAULT now()
 );
 
 -- ============================== indices ==============================

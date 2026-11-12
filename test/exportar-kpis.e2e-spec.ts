@@ -10,7 +10,8 @@ import { tokenDashboard } from './token-dashboard';
 function crearRepositorioFalso(): TableroRepositoryPort {
   return {
     listarLocalidades: async () => [{ id: 4, nombre: 'Engativa' }],
-    buscarUltimoMesConDatos: async () => null,
+    buscarRangoDeMeses: async () => ({ primerMes: null, ultimoMes: null }),
+    buscarFechasDeCorte: async () => ({ anuario: null, ciclovias: null }),
     contarPorSemana: async () => [{ semana: '2026-08-03', total: 10 }],
     listarSiniestros: async () => [],
     contarSiniestrosPorLugarYHora: async () => [{ lugar: 'Av. Boyaca x Calle 80', localidad: 'Engativa', hora: 7, total: 3 }],

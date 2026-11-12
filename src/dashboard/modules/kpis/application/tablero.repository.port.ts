@@ -10,6 +10,18 @@ export interface Localidad {
   nombre: string;
 }
 
+// Primer y ultimo mes AAAA-MM con datos y null cuando no hay ninguno
+export interface RangoDeMeses {
+  primerMes: string | null;
+  ultimoMes: string | null;
+}
+
+// Ultimo dia AAAA-MM-DD con datos de cada fuente externa
+export interface FechasDeCorte {
+  anuario: string | null;
+  ciclovias: string | null;
+}
+
 export interface ConteoSemanal {
   semana: string;
   total: number;
@@ -83,7 +95,8 @@ export interface ConteoPorMotivo {
 // Puerto que el tablero necesita para leer sus datos sin saber de que base de datos vienen
 export interface TableroRepositoryPort {
   listarLocalidades(): Promise<Localidad[]>;
-  buscarUltimoMesConDatos(fuentes: readonly Fuente[]): Promise<string | null>;
+  buscarRangoDeMeses(fuentes: readonly Fuente[]): Promise<RangoDeMeses>;
+  buscarFechasDeCorte(): Promise<FechasDeCorte>;
   contarPorSemana(indicador: Indicador, filtros: FiltrosTablero): Promise<ConteoSemanal[]>;
   listarSiniestros(filtros: FiltrosTablero): Promise<SiniestroDetallado[]>;
   contarSiniestrosPorLugarYHora(filtros: FiltrosTablero): Promise<ConteoLugarHora[]>;

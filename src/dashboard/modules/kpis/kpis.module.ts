@@ -11,6 +11,7 @@ import { ObtenerSiniestrosPorHoraUseCase } from './application/obtener-siniestro
 import { ObtenerSiniestrosPorSexoYEdadUseCase } from './application/obtener-siniestros-por-sexo-y-edad.use-case';
 import { ObtenerTarjetaUseCase } from './application/obtener-tarjeta.use-case';
 import { ObtenerTendenciaMensualUseCase } from './application/obtener-tendencia-mensual.use-case';
+import { ObtenerCreditosUseCase } from './application/obtener-creditos.use-case';
 import { ObtenerReportesDetalladosUseCase } from './application/obtener-reportes-detallados.use-case';
 import { ObtenerSiniestrosDetalladosUseCase } from './application/obtener-siniestros-detallados.use-case';
 import { ObtenerUltimoMesConDatosUseCase } from './application/obtener-ultimo-mes-con-datos.use-case';
@@ -41,7 +42,7 @@ const CASOS_DE_USO = [
   providers: [
     { provide: TABLERO_REPOSITORY, useClass: PostgresTableroRepository },
     // Se arman con una fabrica porque la capa de aplicacion no conoce NestJS
-    ...[...CASOS_DE_USO, ObtenerUltimoMesConDatosUseCase].map((CasoDeUso) => ({
+    ...[...CASOS_DE_USO, ObtenerUltimoMesConDatosUseCase, ObtenerCreditosUseCase].map((CasoDeUso) => ({
       provide: CasoDeUso,
       useFactory: (tablero: TableroRepositoryPort) => new CasoDeUso(tablero),
       inject: [TABLERO_REPOSITORY],
@@ -87,6 +88,6 @@ const CASOS_DE_USO = [
       inject: [...CASOS_DE_USO, GENERADOR_EXCEL],
     },
   ],
-  exports: [...CASOS_DE_USO, ObtenerUltimoMesConDatosUseCase, ExportarKpisUseCase],
+  exports: [...CASOS_DE_USO, ObtenerUltimoMesConDatosUseCase, ObtenerCreditosUseCase, ExportarKpisUseCase],
 })
 export class KpisModule {}
