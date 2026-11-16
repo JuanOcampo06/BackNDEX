@@ -30,8 +30,11 @@ function crearViajesFalso(): ViajesRepositoryPort {
   const sinPuntos = (v: ViajeConPuntos): Viaje => ({
     id: v.id,
     usuarioId: v.usuarioId,
+    tipoVehiculo: v.tipoVehiculo,
     estado: v.estado,
     distanciaM: v.distanciaM,
+    duracionS: v.duracionS,
+    cantidadReportes: v.cantidadReportes,
     iniciadoEn: v.iniciadoEn,
     finalizadoEn: v.finalizadoEn,
   });
@@ -44,8 +47,11 @@ function crearViajesFalso(): ViajesRepositoryPort {
       const viaje: ViajeConPuntos = {
         id: viajes.length + 1,
         usuarioId: nuevo.usuarioId,
+        tipoVehiculo: nuevo.tipoVehiculo,
         estado: 'en_curso',
         distanciaM: 0,
+        duracionS: null,
+        cantidadReportes: 0,
         iniciadoEn: FECHA,
         finalizadoEn: null,
         puntos: [{ latitud: nuevo.latitud, longitud: nuevo.longitud, registradoEn: FECHA }],
@@ -59,11 +65,12 @@ function crearViajesFalso(): ViajesRepositoryPort {
       (viajes.find((v) => v.id === viajeId) as ViajeConPuntos).puntos.push(punto);
       return punto;
     },
-    finalizar: async (id, distanciaM) => {
+    finalizar: async (id, resultado) => {
       const viaje = viajes.find((v) => v.id === id) as ViajeConPuntos;
-      Object.assign(viaje, { estado: 'finalizado', distanciaM, finalizadoEn: FECHA });
+      Object.assign(viaje, { estado: 'finalizado', ...resultado });
       return sinPuntos(viaje);
     },
+    contarReportes: async () => 2,
     listar: async (usuarioId) => viajes.filter((v) => v.usuarioId === usuarioId).map(sinPuntos),
   };
 }
@@ -86,7 +93,7 @@ describe('Registro, login y viajes de la app movil (e2e)', () => {
   };
 
   beforeAll(async () => {
-    process.env.JWT_SECRET = 'secreto-de-pruebas';
+    process.env.JWT_SECRET = 'secreto-de-pruebas-con-mas-de-32-caracteres';
     const modulo = await Test.createTestingModule({ imports: [AppModule] })
       .overrideProvider(CIUDADANOS_REPOSITORY)
       .useValue(crearCiudadanosFalso())
@@ -173,7 +180,7 @@ describe('Registro, login y viajes de la app movil (e2e)', () => {
   describe('trips', () => {
     it('pide token en todas las rutas', async () => {
       const respuestas = await Promise.all([
-        http().post(`${base}/trips`).send({ latitud: 4.65, longitud: -74.08 }),
+        http().post(`${base}/trips`).send({ latitud: 4.65, longitud: -74.08, tipoVehiculo: 'bicicleta' }),
         http().get(`${base}/trips`),
         http().get(`${base}/trips/1`),
         http().post(`${base}/trips/1/puntos`).send({ latitud: 4.65, longitud: -74.08 }),
@@ -186,7 +193,7 @@ describe('Registro, login y viajes de la app movil (e2e)', () => {
     it('recorre el viaje completo: iniciar, agregar punto, ver y finalizar', async () => {
       const token = await registrarYObtenerToken('ciclista@demo.local');
 
-      const inicio = await http().post(`${base}/trips`).set('Authorization', token).send({ latitud: 4, longitud: -74 });
+      const inicio = await http().post(`${base}/trips`).set('Authorization', token).send({ latitud: 4, longitud: -74, tipoVehiculo: 'bicicleta' });
       const punto = await http().post(`${base}/trips/${inicio.body.id}/puntos`).set('Authorization', token).send({ latitud: 5, longitud: -74 });
       const detalle = await http().get(`${base}/trips/${inicio.body.id}`).set('Authorization', token);
       const fin = await http().patch(`${base}/trips/${inicio.body.id}/finalizar`).set('Authorization', token);
@@ -203,12 +210,32 @@ describe('Registro, login y viajes de la app movil (e2e)', () => {
       expect(otraVez.body.codigo).toBe('VIAJE_INVALIDO');
     });
 
+    it('guarda el vehiculo y al finalizar devuelve la duracion y la cantidad de reportes', async () => {
+      const token = await registrarYObtenerToken('vehiculo@demo.local');
+
+      const inicio = await http().post(`${base}/trips`).set('Authorization', token).send({ latitud: 4.65, longitud: -74.08, tipoVehiculo: 'bicicleta_electrica' });
+      const fin = await http().patch(`${base}/trips/${inicio.body.id}/finalizar`).set('Authorization', token);
+
+      expect(inicio.body).toMatchObject({ tipoVehiculo: 'bicicleta_electrica', duracionS: null, cantidadReportes: 0 });
+      expect(fin.body).toMatchObject({ tipoVehiculo: 'bicicleta_electrica', estado: 'finalizado', cantidadReportes: 2 });
+      expect(Number.isInteger(fin.body.duracionS) && fin.body.duracionS >= 0).toBe(true);
+    });
+
+    it('exige un tipoVehiculo valido para iniciar el viaje', async () => {
+      const token = await registrarYObtenerToken('sinvehiculo@demo.local');
+
+      const sin = await http().post(`${base}/trips`).set('Authorization', token).send({ latitud: 4.65, longitud: -74.08 });
+      const malo = await http().post(`${base}/trips`).set('Authorization', token).send({ latitud: 4.65, longitud: -74.08, tipoVehiculo: 'moto' });
+
+      expect([sin.status, malo.status]).toEqual([400, 400]);
+    });
+
     it('responde 409 si ya hay un viaje en curso y 400 con una ubicacion invalida', async () => {
       const token = await registrarYObtenerToken('doble@demo.local');
-      await http().post(`${base}/trips`).set('Authorization', token).send({ latitud: 4.65, longitud: -74.08 });
+      await http().post(`${base}/trips`).set('Authorization', token).send({ latitud: 4.65, longitud: -74.08, tipoVehiculo: 'bicicleta' });
 
-      const segundo = await http().post(`${base}/trips`).set('Authorization', token).send({ latitud: 4.65, longitud: -74.08 });
-      const invalida = await http().post(`${base}/trips`).set('Authorization', token).send({ latitud: 95, longitud: -74.08 });
+      const segundo = await http().post(`${base}/trips`).set('Authorization', token).send({ latitud: 4.65, longitud: -74.08, tipoVehiculo: 'bicicleta' });
+      const invalida = await http().post(`${base}/trips`).set('Authorization', token).send({ latitud: 95, longitud: -74.08, tipoVehiculo: 'bicicleta' });
 
       expect(segundo.status).toBe(409);
       expect(segundo.body.codigo).toBe('VIAJE_EN_CURSO_DUPLICADO');
@@ -218,7 +245,7 @@ describe('Registro, login y viajes de la app movil (e2e)', () => {
     it('un ciudadano no ve ni toca los viajes de otro', async () => {
       const dueno = await registrarYObtenerToken('dueno@demo.local');
       const intruso = await registrarYObtenerToken('intruso@demo.local');
-      const viaje = await http().post(`${base}/trips`).set('Authorization', dueno).send({ latitud: 4.65, longitud: -74.08 });
+      const viaje = await http().post(`${base}/trips`).set('Authorization', dueno).send({ latitud: 4.65, longitud: -74.08, tipoVehiculo: 'bicicleta' });
 
       const ver = await http().get(`${base}/trips/${viaje.body.id}`).set('Authorization', intruso);
       const punto = await http().post(`${base}/trips/${viaje.body.id}/puntos`).set('Authorization', intruso).send({ latitud: 4.65, longitud: -74.08 });

@@ -1,7 +1,7 @@
 import { Injectable, OnModuleDestroy } from '@nestjs/common';
 import { crearPoolPostgres } from '../../../../platform/database/postgres';
 import { ViajesRepositoryPort } from '../application/viajes.repository.port';
-import { NuevoViaje, PuntoViaje, Ubicacion, Viaje, ViajeConPuntos } from '../domain/viaje';
+import { NuevoViaje, PuntoViaje, ResultadoViaje, Ubicacion, Viaje, ViajeConPuntos } from '../domain/viaje';
 import { ViajeEnCursoDuplicadoError } from '../domain/viaje-en-curso-duplicado.error';
 
 const LIMITE_LISTADO = 100;
@@ -9,7 +9,8 @@ const LIMITE_LISTADO = 100;
 const VIOLACION_UNICA = '23505';
 
 // Columnas que se leen de la tabla con los nombres que usa el dominio
-const COLUMNAS = `id, usuario_id AS "usuarioId", estado, distancia_m AS "distanciaM", iniciado_en AS "iniciadoEn", finalizado_en AS "finalizadoEn"`;
+const COLUMNAS = `id, usuario_id AS "usuarioId", tipo_vehiculo AS "tipoVehiculo", estado, distancia_m AS "distanciaM",
+  duracion_s AS "duracionS", cantidad_reportes AS "cantidadReportes", iniciado_en AS "iniciadoEn", finalizado_en AS "finalizadoEn"`;
 
 interface FilaViaje extends Omit<Viaje, 'iniciadoEn' | 'finalizadoEn'> {
   iniciadoEn: Date;
@@ -53,9 +54,10 @@ export class PostgresViajesRepository implements ViajesRepositoryPort, OnModuleD
     const conexion = await this.pool.connect();
     try {
       await conexion.query('BEGIN');
-      const resultado = await conexion.query<FilaViaje>(`INSERT INTO movil.viajes (usuario_id) VALUES ($1) RETURNING ${COLUMNAS}`, [
-        viaje.usuarioId,
-      ]);
+      const resultado = await conexion.query<FilaViaje>(
+        `INSERT INTO movil.viajes (usuario_id, tipo_vehiculo) VALUES ($1, $2) RETURNING ${COLUMNAS}`,
+        [viaje.usuarioId, viaje.tipoVehiculo],
+      );
       await conexion.query('INSERT INTO movil.puntos_viaje (viaje_id, latitud, longitud) VALUES ($1, $2, $3)', [
         resultado.rows[0].id,
         viaje.latitud,
@@ -93,12 +95,24 @@ export class PostgresViajesRepository implements ViajesRepositoryPort, OnModuleD
     return aPunto(resultado.rows[0]);
   }
 
-  async finalizar(id: number, distanciaM: number): Promise<Viaje> {
-    const resultado = await this.pool.query<FilaViaje>(
-      `UPDATE movil.viajes SET estado = 'finalizado', distancia_m = $2, finalizado_en = now() WHERE id = $1 RETURNING ${COLUMNAS}`,
-      [id, distanciaM],
+  async finalizar(id: number, resultado: ResultadoViaje): Promise<Viaje> {
+    const actualizado = await this.pool.query<FilaViaje>(
+      `UPDATE movil.viajes
+       SET estado = 'finalizado', distancia_m = $2, duracion_s = $3, cantidad_reportes = $4, finalizado_en = $5
+       WHERE id = $1
+       RETURNING ${COLUMNAS}`,
+      [id, resultado.distanciaM, resultado.duracionS, resultado.cantidadReportes, resultado.finalizadoEn],
     );
-    return aViaje(resultado.rows[0]);
+    return aViaje(actualizado.rows[0]);
+  }
+
+  // Los reportes viven en la tabla compartida y solo se cuentan los del ciudadano que se enviaron durante el viaje
+  async contarReportes(usuarioId: number, desde: string, hasta: string): Promise<number> {
+    const resultado = await this.pool.query<{ total: number }>(
+      'SELECT count(*)::int AS total FROM compartido.reportes WHERE usuario_id = $1 AND creado_en >= $2 AND creado_en <= $3',
+      [usuarioId, desde, hasta],
+    );
+    return resultado.rows[0].total;
   }
 
   async listar(usuarioId: number): Promise<Viaje[]> {

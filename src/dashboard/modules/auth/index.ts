@@ -2,4 +2,6 @@
 export { AuthModule } from './auth.module';
 export { LoginUseCase } from './application/login.use-case';
 export type { LoginCommand, LoginResult } from './application/login.use-case';
+export { SolicitarRestablecimientoUseCase } from './application/solicitar-restablecimiento.use-case';
+export { ConfirmarRestablecimientoUseCase } from './application/confirmar-restablecimiento.use-case';
 export { DomainError } from '../../../shared/domain-error';

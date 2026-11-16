@@ -8,6 +8,6 @@ export class ObtenerUltimoMesConDatosUseCase {
   constructor(private readonly tablero: TableroRepositoryPort) {}
 
   async execute(fuentes: readonly Fuente[] = FUENTES): Promise<string | undefined> {
-    return (await this.tablero.buscarUltimoMesConDatos(fuentes)) ?? undefined;
+    return (await this.tablero.buscarRangoDeMeses(fuentes)).ultimoMes ?? undefined;
   }
 }

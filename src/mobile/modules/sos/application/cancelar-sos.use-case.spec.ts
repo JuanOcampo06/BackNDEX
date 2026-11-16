@@ -26,19 +26,19 @@ function crearRepositorio(): SosRepositoryPort {
 
 describe('ActivarSosUseCase', () => {
   it('guarda la activacion como activa', async () => {
-    const activacion = await new ActivarSosUseCase(crearRepositorio()).execute({ usuarioId: 1, latitud: 4.65, longitud: -74.08 });
+    const activacion = await new ActivarSosUseCase(crearRepositorio()).execute({ usuarioId: 1, tipoVehiculo: 'bicicleta', latitud: 4.65, longitud: -74.08 });
 
     expect(activacion.estado).toBe('activa');
   });
 
   it('rechaza una ubicacion fuera de rango', async () => {
-    await expect(new ActivarSosUseCase(crearRepositorio()).execute({ usuarioId: 1, latitud: 4.65, longitud: -200 })).rejects.toMatchObject({
+    await expect(new ActivarSosUseCase(crearRepositorio()).execute({ usuarioId: 1, tipoVehiculo: 'bicicleta', latitud: 4.65, longitud: -200 })).rejects.toMatchObject({
       codigo: 'SOS_INVALIDO',
     });
   });
 
   it('rechaza un ciudadano que no existe', async () => {
-    await expect(new ActivarSosUseCase(crearRepositorio()).execute({ usuarioId: 99, latitud: 4.65, longitud: -74.08 })).rejects.toMatchObject({
+    await expect(new ActivarSosUseCase(crearRepositorio()).execute({ usuarioId: 99, tipoVehiculo: 'bicicleta', latitud: 4.65, longitud: -74.08 })).rejects.toMatchObject({
       codigo: 'USUARIO_NO_ENCONTRADO',
     });
   });
@@ -47,7 +47,7 @@ describe('ActivarSosUseCase', () => {
 describe('CancelarSosUseCase', () => {
   it('cancela una activacion que sigue activa', async () => {
     const repositorio = crearRepositorio();
-    await new ActivarSosUseCase(repositorio).execute({ usuarioId: 1, latitud: 4.65, longitud: -74.08 });
+    await new ActivarSosUseCase(repositorio).execute({ usuarioId: 1, tipoVehiculo: 'bicicleta', latitud: 4.65, longitud: -74.08 });
 
     const cancelada = await new CancelarSosUseCase(repositorio).execute(1, 1);
 
@@ -56,7 +56,7 @@ describe('CancelarSosUseCase', () => {
 
   it('no deja cancelar dos veces la misma activacion', async () => {
     const repositorio = crearRepositorio();
-    await new ActivarSosUseCase(repositorio).execute({ usuarioId: 1, latitud: 4.65, longitud: -74.08 });
+    await new ActivarSosUseCase(repositorio).execute({ usuarioId: 1, tipoVehiculo: 'bicicleta', latitud: 4.65, longitud: -74.08 });
     await new CancelarSosUseCase(repositorio).execute(1, 1);
 
     await expect(new CancelarSosUseCase(repositorio).execute(1, 1)).rejects.toMatchObject({ codigo: 'SOS_INVALIDO' });
@@ -64,7 +64,7 @@ describe('CancelarSosUseCase', () => {
 
   it('la activacion de otro ciudadano responde como si no existiera', async () => {
     const repositorio = crearRepositorio();
-    await new ActivarSosUseCase(repositorio).execute({ usuarioId: 1, latitud: 4.65, longitud: -74.08 });
+    await new ActivarSosUseCase(repositorio).execute({ usuarioId: 1, tipoVehiculo: 'bicicleta', latitud: 4.65, longitud: -74.08 });
 
     await expect(new CancelarSosUseCase(repositorio).execute(1, 2)).rejects.toMatchObject({ codigo: 'SOS_NO_ENCONTRADO' });
   });

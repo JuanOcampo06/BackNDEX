@@ -16,6 +16,9 @@ export class UsuarioResponse {
   @ApiProperty({ enum: ROLES, example: 'admin' })
   rol!: Rol;
 
+  @ApiProperty({ example: 'Secretaría Distrital de Movilidad', nullable: true, type: String })
+  entidad!: string | null;
+
   @ApiProperty({ example: '2026-10-27T15:00:00.000Z' })
   creado_en!: string;
 

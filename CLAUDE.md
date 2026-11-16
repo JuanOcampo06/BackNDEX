@@ -95,7 +95,7 @@ Una sola base PostgreSQL (`safepath`) con tres esquemas, según quién usa cada 
 
 - `compartido`: lo que usan los dos productos. Aquí están las **tablas maestras** `reportes`, `activaciones_panico` y `conteos_usuarios`: la app móvil las escribe y el dashboard las lee. También `subcategorias_reporte`, `localidades`, `lugares` y `ciclovias`.
   - Los reportes guardan categoría principal y subcategoría; el dashboard solo lee y suma por la categoría principal.
-- `dashboard`: solo del tablero (`usuarios`, `siniestros`, `actores_viales`).
+- `dashboard`: solo del tablero (`usuarios` con su contraseña cifrada, `restablecimientos_contrasena`, `siniestros`, `actores_viales`). El login del dashboard usa `dashboard.usuarios`.
 - `movil`: solo de la app (`usuarios`, los ciudadanos autores de reportes y activaciones).
 
 Los datos del tablero salen **solo del Anuario de Siniestralidad Vial** (`infra/postgres/datos/`). No hay datos inventados: lo que el anuario no trae (reportes, botón de pánico, conteos de usuarios, ciudadanos) queda vacío. Los únicos datos de prueba son los usuarios del dashboard para el login.

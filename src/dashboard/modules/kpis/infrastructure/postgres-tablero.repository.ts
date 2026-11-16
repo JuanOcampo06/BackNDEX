@@ -8,9 +8,11 @@ import {
   ConteoPorTipo,
   ConteoSemanal,
   ConteoSexoEdad,
+  FechasDeCorte,
   Localidad,
-  ReporteEnMapa,
-  SiniestroEnMapa,
+  RangoDeMeses,
+  ReporteDetallado,
+  SiniestroDetallado,
   TableroRepositoryPort,
 } from '../application/tablero.repository.port';
 import { Fuente, Indicador } from '../domain/catalogos';
@@ -50,11 +52,13 @@ const USUARIOS: Origen = {
 };
 
 const REPORTES: Origen = {
-  tabla: 'compartido.reportes r JOIN compartido.lugares l ON l.id = r.lugar_id',
+  tabla:
+    'compartido.reportes r JOIN compartido.lugares l ON l.id = r.lugar_id LEFT JOIN compartido.localidades lo ON lo.id = l.localidad_id',
   fecha: 'r.creado_en',
   valor: 'count(*)',
   localidad: 'l.localidad_id',
   fuente: 'app',
+  vehiculo: 'r.tipo_vehiculo',
 };
 
 const FALSOS_POSITIVOS: Origen = { ...REPORTES, condicion: 'r.motivo_falso_positivo IS NOT NULL' };
@@ -66,6 +70,7 @@ const PANICO: Origen = {
   valor: 'count(*)',
   localidad: 'l.localidad_id',
   fuente: 'app',
+  vehiculo: 'a.tipo_vehiculo',
 };
 
 const ORIGEN_POR_INDICADOR: Record<Indicador, Origen> = {
@@ -122,16 +127,27 @@ export class PostgresTableroRepository implements TableroRepositoryPort, OnModul
     return this.consultar('SELECT id, nombre FROM compartido.localidades ORDER BY nombre', []);
   }
 
-  async buscarUltimoMesConDatos(fuentes: readonly Fuente[]): Promise<string | null> {
-    // Se toma la fecha mas reciente de cada tabla cuya fuente este elegida
+  async buscarRangoDeMeses(fuentes: readonly Fuente[]): Promise<RangoDeMeses> {
+    // Se toman la fecha mas antigua y la mas reciente de cada tabla cuya fuente este elegida
     const fechas = Object.values(ORIGEN_POR_INDICADOR)
       .filter((origen) => fuentes.includes(origen.fuente))
-      .map((origen) => `SELECT max(${origen.fecha})::date AS fecha FROM ${origen.tabla}`);
-    const [fila] = await this.consultar<{ mes: string | null }>(
-      `SELECT to_char(max(fecha), 'YYYY-MM') AS mes FROM (${fechas.join(' UNION ALL ')}) AS ultimas`,
+      .map((origen) => `SELECT min(${origen.fecha})::date AS primera, max(${origen.fecha})::date AS ultima FROM ${origen.tabla}`);
+    const [fila] = await this.consultar<RangoDeMeses>(
+      `SELECT to_char(min(primera), 'YYYY-MM') AS "primerMes", to_char(max(ultima), 'YYYY-MM') AS "ultimoMes"
+       FROM (${fechas.join(' UNION ALL ')}) AS extremos`,
       [],
     );
-    return fila.mes;
+    return fila;
+  }
+
+  async buscarFechasDeCorte(): Promise<FechasDeCorte> {
+    // El anuario corta en su ultimo siniestro y las ciclovias en la fecha del archivo de OpenStreetMap
+    const [fila] = await this.consultar<FechasDeCorte>(
+      `SELECT (SELECT to_char(max(ocurrido_en), 'YYYY-MM-DD') FROM dashboard.siniestros) AS anuario,
+              (SELECT to_char(max(fecha_datos) AT TIME ZONE 'UTC', 'YYYY-MM-DD') FROM compartido.ciclovias_fuente) AS ciclovias`,
+      [],
+    );
+    return fila;
   }
 
   contarPorSemana(indicador: Indicador, filtros: FiltrosTablero): Promise<ConteoSemanal[]> {
@@ -144,13 +160,13 @@ export class PostgresTableroRepository implements TableroRepositoryPort, OnModul
     );
   }
 
-  listarSiniestros(filtros: FiltrosTablero): Promise<SiniestroEnMapa[]> {
+  listarSiniestros(filtros: FiltrosTablero): Promise<SiniestroDetallado[]> {
     const { donde, valores } = armarCondiciones(SINIESTROS, filtros);
     return this.consultar(
       // El id del anuario es bigint y postgres lo entrega como texto por eso se convierte a int que le alcanza
       `SELECT s.id::int AS id, s.latitud, s.longitud, s.gravedad, s.clase, s.tipo_vehiculo AS "tipoVehiculo",
-              to_char(s.ocurrido_en, 'YYYY-MM-DD"T"HH24:MI') AS "ocurridoEn"
-       FROM ${SINIESTROS.tabla} WHERE ${donde} ORDER BY s.ocurrido_en`,
+              to_char(s.ocurrido_en, 'YYYY-MM-DD"T"HH24:MI') AS "ocurridoEn", ${SIN_LOCALIDAD} AS localidad
+       FROM ${SINIESTROS.tabla} WHERE ${donde} ORDER BY s.ocurrido_en, s.id`,
       valores,
     );
   }
@@ -205,10 +221,12 @@ export class PostgresTableroRepository implements TableroRepositoryPort, OnModul
     );
   }
 
-  listarReportes(filtros: FiltrosTablero): Promise<ReporteEnMapa[]> {
+  listarReportes(filtros: FiltrosTablero): Promise<ReporteDetallado[]> {
     const { donde, valores } = armarCondiciones(REPORTES, filtros);
     return this.consultar(
-      `SELECT r.id, r.latitud, r.longitud, r.categoria FROM ${REPORTES.tabla} WHERE ${donde} ORDER BY r.creado_en`,
+      `SELECT r.id, r.latitud, r.longitud, r.categoria, ${SIN_LOCALIDAD} AS localidad, r.tipo_vehiculo AS "tipoVehiculo",
+              to_char(r.creado_en, 'YYYY-MM') AS mes
+       FROM ${REPORTES.tabla} WHERE ${donde} ORDER BY r.creado_en`,
       valores,
     );
   }

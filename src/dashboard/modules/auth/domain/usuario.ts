@@ -1,35 +1,24 @@
-import { DomainError } from '../../../../shared/domain-error';
-
-export interface DatosUsuario {
-  id: string;
+// Cuenta de un usuario del dashboard tal como la necesita el inicio de sesion
+// sin contrasena cifrada el usuario todavia no puede entrar
+export interface CuentaUsuario {
+  id: number;
   nombreCompleto: string;
   correo: string;
   rol: string;
-  contrasena: string;
+  contrasenaCifrada: string | null;
 }
 
-export class Usuario {
-  readonly id: string;
-  readonly nombreCompleto: string;
-  readonly correo: string;
-  readonly rol: string;
-  private readonly contrasena: string;
+const MINIMO_CONTRASENA = 8;
+const MAXIMO_CONTRASENA = 72;
 
-  constructor(datos: DatosUsuario) {
-    for (const [campo, valor] of Object.entries(datos)) {
-      if (valor.trim() === '') {
-        throw new DomainError('USUARIO_INVALIDO', `El campo ${campo} es obligatorio`);
-      }
-    }
-    this.id = datos.id;
-    this.nombreCompleto = datos.nombreCompleto;
-    this.correo = datos.correo;
-    this.rol = datos.rol;
-    this.contrasena = datos.contrasena;
-  }
-
-  // Demo: comparación en texto plano; el hashing llegará con la base de datos real.
-  tieneContrasena(contrasena: string): boolean {
-    return this.contrasena === contrasena;
-  }
+// Los correos se guardan en minusculas y asi se buscan
+export function normalizarCorreo(correo: string): string {
+  return correo.trim().toLowerCase();
 }
+
+// Mismas reglas de largo que usa la gestion de usuarios
+export function contrasenaTieneLargoValido(contrasena: string): boolean {
+  return contrasena.length >= MINIMO_CONTRASENA && contrasena.length <= MAXIMO_CONTRASENA;
+}
+
+export const MENSAJE_LARGO_CONTRASENA = `La contrasena debe tener entre ${MINIMO_CONTRASENA} y ${MAXIMO_CONTRASENA} caracteres`;

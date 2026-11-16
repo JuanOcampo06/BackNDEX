@@ -33,7 +33,7 @@ describe('Rutas de la app movil (e2e)', () => {
   };
 
   beforeAll(async () => {
-    process.env.JWT_SECRET = 'secreto-de-pruebas';
+    process.env.JWT_SECRET = 'secreto-de-pruebas-con-mas-de-32-caracteres';
     autorizacion = `Bearer ${firmarToken(1)}`;
     const vias = VIAS;
     const modulo = await Test.createTestingModule({ imports: [AppModule] })

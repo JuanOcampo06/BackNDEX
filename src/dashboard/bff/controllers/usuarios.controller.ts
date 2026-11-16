@@ -11,24 +11,30 @@ import {
   Post,
   Query,
   UseFilters,
+  UseGuards,
   ValidationPipe,
 } from '@nestjs/common';
 import {
   ApiBadRequestResponse,
+  ApiBearerAuth,
   ApiConflictResponse,
   ApiCreatedResponse,
+  ApiForbiddenResponse,
   ApiNoContentResponse,
   ApiNotFoundResponse,
   ApiOkResponse,
   ApiOperation,
   ApiTags,
+  ApiUnauthorizedResponse,
 } from '@nestjs/swagger';
+import { DashboardAuthGuard, SoloRoles } from '../../../platform/auth';
 import {
   ActualizarUsuarioUseCase,
   CrearUsuarioUseCase,
   EliminarUsuarioUseCase,
   ListarUsuariosUseCase,
   ObtenerUsuarioUseCase,
+  ROL_ADMINISTRADOR,
 } from '../../modules/users';
 import { DomainErrorFilter } from '../domain-error.filter';
 import { ActualizarUsuarioRequest } from '../dto/actualizar-usuario.request';
@@ -41,8 +47,13 @@ import { aSnakeCase } from '../snake-case';
 const validar = new ValidationPipe({ transform: true, whitelist: true, forbidNonWhitelisted: true });
 
 // Gestion de usuarios del dashboard en /api/dashboard/v1/usuarios y responde en snake_case
-// por ahora no pide token y los roles se haran cumplir cuando exista el login con JWT
+// solo el Administrador puede usarla
 @ApiTags('Dashboard - Usuarios')
+@ApiBearerAuth()
+@ApiUnauthorizedResponse({ description: 'Falta el token del dashboard o no es valido o esta vencido' })
+@ApiForbiddenResponse({ description: 'El token es valido pero el rol no es Administrador' })
+@UseGuards(DashboardAuthGuard)
+@SoloRoles(ROL_ADMINISTRADOR)
 @Controller('usuarios')
 @UseFilters(DomainErrorFilter)
 export class UsuariosController {
@@ -71,7 +82,7 @@ export class UsuariosController {
 
   @Post()
   @HttpCode(HttpStatus.CREATED)
-  @ApiOperation({ summary: 'Crear un usuario del dashboard' })
+  @ApiOperation({ summary: 'Crear un usuario del dashboard y con contrasena ya puede iniciar sesion' })
   @ApiCreatedResponse({ type: UsuarioResponse })
   @ApiBadRequestResponse({ description: 'Faltan datos o tienen formato invalido' })
   @ApiConflictResponse({ description: 'Ya existe un usuario con ese correo' })
@@ -80,12 +91,14 @@ export class UsuariosController {
       nombreCompleto: cuerpo.nombre_completo,
       correo: cuerpo.correo,
       rol: cuerpo.rol,
+      entidad: cuerpo.entidad,
+      contrasena: cuerpo.contrasena,
     });
     return aSnakeCase(usuario);
   }
 
   @Patch(':id')
-  @ApiOperation({ summary: 'Editar el nombre el correo o el rol de un usuario' })
+  @ApiOperation({ summary: 'Editar el nombre el correo el rol la entidad o la contrasena de un usuario' })
   @ApiOkResponse({ type: UsuarioResponse })
   @ApiBadRequestResponse({ description: 'No llego ningun campo o alguno tiene formato invalido' })
   @ApiNotFoundResponse({ description: 'No existe un usuario con ese id' })
@@ -98,6 +111,8 @@ export class UsuariosController {
       nombreCompleto: cuerpo.nombre_completo,
       correo: cuerpo.correo,
       rol: cuerpo.rol,
+      entidad: cuerpo.entidad,
+      contrasena: cuerpo.contrasena,
     });
     return aSnakeCase(usuario);
   }

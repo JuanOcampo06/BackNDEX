@@ -9,13 +9,17 @@ import { ViajesRepositoryPort } from './viajes.repository.port';
 const FECHA = '2026-10-22T18:00:00.000Z';
 
 // Repositorio falso que guarda en memoria
-function crearRepositorio(): ViajesRepositoryPort {
+// los reportes son las fechas ISO en que cada ciudadano envio uno
+function crearRepositorio(reportes: { usuarioId: number; creadoEn: string }[] = []): ViajesRepositoryPort {
   const viajes: ViajeConPuntos[] = [];
   const sinPuntos = (v: ViajeConPuntos): Viaje => ({
     id: v.id,
     usuarioId: v.usuarioId,
+    tipoVehiculo: v.tipoVehiculo,
     estado: v.estado,
     distanciaM: v.distanciaM,
+    duracionS: v.duracionS,
+    cantidadReportes: v.cantidadReportes,
     iniciadoEn: v.iniciadoEn,
     finalizadoEn: v.finalizadoEn,
   });
@@ -28,8 +32,11 @@ function crearRepositorio(): ViajesRepositoryPort {
       const viaje: ViajeConPuntos = {
         id: viajes.length + 1,
         usuarioId: nuevo.usuarioId,
+        tipoVehiculo: nuevo.tipoVehiculo,
         estado: 'en_curso',
         distanciaM: 0,
+        duracionS: null,
+        cantidadReportes: 0,
         iniciadoEn: FECHA,
         finalizadoEn: null,
         puntos: [{ latitud: nuevo.latitud, longitud: nuevo.longitud, registradoEn: FECHA }],
@@ -43,18 +50,22 @@ function crearRepositorio(): ViajesRepositoryPort {
       (viajes.find((v) => v.id === viajeId) as ViajeConPuntos).puntos.push(punto);
       return punto;
     },
-    finalizar: async (id, distanciaM) => {
+    finalizar: async (id, resultado) => {
       const viaje = viajes.find((v) => v.id === id) as ViajeConPuntos;
       viaje.estado = 'finalizado';
-      viaje.distanciaM = distanciaM;
-      viaje.finalizadoEn = FECHA;
+      viaje.distanciaM = resultado.distanciaM;
+      viaje.duracionS = resultado.duracionS;
+      viaje.cantidadReportes = resultado.cantidadReportes;
+      viaje.finalizadoEn = resultado.finalizadoEn;
       return sinPuntos(viaje);
     },
+    contarReportes: async (usuarioId, desde, hasta) =>
+      reportes.filter((r) => r.usuarioId === usuarioId && r.creadoEn >= desde && r.creadoEn <= hasta).length,
     listar: async (usuarioId) => viajes.filter((v) => v.usuarioId === usuarioId).map(sinPuntos),
   };
 }
 
-const salida = { latitud: 4.65, longitud: -74.08 };
+const salida = { latitud: 4.65, longitud: -74.08, tipoVehiculo: 'bicicleta' };
 
 describe('IniciarViajeUseCase', () => {
   it('inicia el viaje en curso con distancia cero', async () => {
@@ -64,7 +75,7 @@ describe('IniciarViajeUseCase', () => {
   });
 
   it('rechaza una ubicacion fuera de rango', async () => {
-    await expect(new IniciarViajeUseCase(crearRepositorio()).execute({ usuarioId: 1, latitud: 95, longitud: -74.08 })).rejects.toMatchObject({
+    await expect(new IniciarViajeUseCase(crearRepositorio()).execute({ usuarioId: 1, latitud: 95, longitud: -74.08, tipoVehiculo: 'bicicleta' })).rejects.toMatchObject({
       codigo: 'VIAJE_INVALIDO',
     });
   });
@@ -121,7 +132,7 @@ describe('RegistrarPuntoUseCase', () => {
 describe('FinalizarViajeUseCase', () => {
   it('cierra el viaje y calcula los metros recorridos con todos los puntos', async () => {
     const repositorio = crearRepositorio();
-    await new IniciarViajeUseCase(repositorio).execute({ usuarioId: 1, latitud: 4, longitud: -74 });
+    await new IniciarViajeUseCase(repositorio).execute({ usuarioId: 1, latitud: 4, longitud: -74, tipoVehiculo: 'bicicleta' });
     await new RegistrarPuntoUseCase(repositorio).execute(1, 1, { latitud: 5, longitud: -74 });
 
     const viaje = await new FinalizarViajeUseCase(repositorio).execute(1, 1);
@@ -161,5 +172,68 @@ describe('ListarViajesUseCase y ObtenerViajeUseCase', () => {
 
     expect(detalle.puntos).toHaveLength(1);
     await expect(new ObtenerViajeUseCase(repositorio).execute(2, 1)).rejects.toMatchObject({ codigo: 'VIAJE_NO_ENCONTRADO' });
+  });
+});
+
+describe('vehiculo, duracion y reportes del viaje', () => {
+  const HORA_FIN = new Date('2026-10-22T18:10:00.000Z');
+
+  it('guarda el vehiculo con el que sale el ciudadano', async () => {
+    const viaje = await new IniciarViajeUseCase(crearRepositorio()).execute({ usuarioId: 1, ...salida, tipoVehiculo: 'patineta_electrica' });
+
+    expect(viaje.tipoVehiculo).toBe('patineta_electrica');
+    expect(viaje).toMatchObject({ duracionS: null, cantidadReportes: 0 });
+  });
+
+  it('rechaza un vehiculo que no existe', async () => {
+    await expect(new IniciarViajeUseCase(crearRepositorio()).execute({ usuarioId: 1, ...salida, tipoVehiculo: 'moto' })).rejects.toMatchObject({
+      codigo: 'VIAJE_INVALIDO',
+    });
+  });
+
+  it('al finalizar guarda cuantos segundos duro el viaje', async () => {
+    const repositorio = crearRepositorio();
+    await new IniciarViajeUseCase(repositorio).execute({ usuarioId: 1, ...salida });
+
+    const viaje = await new FinalizarViajeUseCase(repositorio, () => HORA_FIN).execute(1, 1);
+
+    // El viaje empezo a las 18:00 y termino a las 18:10
+    expect(viaje.duracionS).toBe(600);
+    expect(viaje.finalizadoEn).toBe('2026-10-22T18:10:00.000Z');
+  });
+
+  it('la duracion nunca es negativa aunque el reloj de la api vaya atrasado', async () => {
+    const repositorio = crearRepositorio();
+    await new IniciarViajeUseCase(repositorio).execute({ usuarioId: 1, ...salida });
+
+    const viaje = await new FinalizarViajeUseCase(repositorio, () => new Date('2026-10-22T17:59:59.000Z')).execute(1, 1);
+
+    expect(viaje.duracionS).toBe(0);
+  });
+
+  it('cuenta solo los reportes que el ciudadano envio durante el viaje', async () => {
+    const repositorio = crearRepositorio([
+      { usuarioId: 1, creadoEn: '2026-10-22T17:59:00.000Z' },
+      { usuarioId: 1, creadoEn: '2026-10-22T18:00:00.000Z' },
+      { usuarioId: 1, creadoEn: '2026-10-22T18:05:00.000Z' },
+      { usuarioId: 1, creadoEn: '2026-10-22T18:10:00.000Z' },
+      { usuarioId: 1, creadoEn: '2026-10-22T18:20:00.000Z' },
+      { usuarioId: 2, creadoEn: '2026-10-22T18:05:00.000Z' },
+    ]);
+    await new IniciarViajeUseCase(repositorio).execute({ usuarioId: 1, ...salida });
+
+    const viaje = await new FinalizarViajeUseCase(repositorio, () => HORA_FIN).execute(1, 1);
+
+    // Cuentan los de las 18:00, 18:05 y 18:10 de ella y no el de antes, el de despues ni el de otro ciudadano
+    expect(viaje.cantidadReportes).toBe(3);
+  });
+
+  it('un viaje sin reportes termina con cero', async () => {
+    const repositorio = crearRepositorio();
+    await new IniciarViajeUseCase(repositorio).execute({ usuarioId: 1, ...salida });
+
+    const viaje = await new FinalizarViajeUseCase(repositorio, () => HORA_FIN).execute(1, 1);
+
+    expect(viaje.cantidadReportes).toBe(0);
   });
 });

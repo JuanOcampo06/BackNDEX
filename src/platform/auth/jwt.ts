@@ -1,16 +1,41 @@
 import { createHmac, timingSafeEqual } from 'node:crypto';
 
-// El token dura una semana y despues el ciudadano tiene que iniciar sesion otra vez
+// El token dura una semana y despues hay que iniciar sesion otra vez
 const DURACION_SEGUNDOS = 7 * 24 * 60 * 60;
 
 // Un JWT siempre empieza con este encabezado y solo se acepta este algoritmo
 const ENCABEZADO = Buffer.from(JSON.stringify({ alg: 'HS256', typ: 'JWT' })).toString('base64url');
 
-// Lo que guarda el token: sub es el id del ciudadano y iat y exp son segundos desde 1970
-export interface PayloadToken {
+// Los tokens del dashboard llevan esta audiencia y su rol asi no sirven en la app movil ni al reves
+export const AUDIENCIA_DASHBOARD = 'dashboard';
+
+// Datos opcionales del token donde aud dice para que producto es y rol es el rol del usuario del dashboard
+export interface DatosExtraToken {
+  aud?: string;
+  rol?: string;
+}
+
+// Lo que guarda el token donde sub es el id del usuario y iat y exp son segundos desde 1970
+export interface PayloadToken extends DatosExtraToken {
   sub: number;
   iat: number;
   exp: number;
+}
+
+// Largo minimo del secreto para que no se pueda adivinar por fuerza bruta
+const LARGO_MINIMO_SECRETO = 32;
+
+// Valor que traia el ejemplo antes y que nunca debe usarse porque es publico
+const SECRETO_DE_EJEMPLO = 'cambia-este-secreto-en-produccion';
+
+// La api no arranca con un secreto vacio corto o el del ejemplo porque cualquiera podria firmar tokens
+export function validarSecretoJwt(): void {
+  const secreto = process.env.JWT_SECRET ?? '';
+  if (secreto.length < LARGO_MINIMO_SECRETO || secreto === SECRETO_DE_EJEMPLO) {
+    throw new Error(
+      `JWT_SECRET debe tener al menos ${LARGO_MINIMO_SECRETO} caracteres y no puede ser el valor de ejemplo. Genera uno con: node -e "console.log(require('crypto').randomBytes(48).toString('base64url'))"`,
+    );
+  }
 }
 
 // El secreto viene de la variable JWT_SECRET y sin el no se puede firmar ni verificar
@@ -26,10 +51,11 @@ function firmar(contenido: string): string {
   return createHmac('sha256', leerSecreto()).update(contenido).digest('base64url');
 }
 
-// Crea un JWT HS256 para el ciudadano con el formato estandar encabezado.payload.firma
-export function firmarToken(usuarioId: number, ahoraMs: number = Date.now()): string {
+// Crea un JWT HS256 con el formato estandar encabezado.payload.firma
+// sin datos extra es el token de un ciudadano de la app movil
+export function firmarToken(usuarioId: number, ahoraMs: number = Date.now(), extra: DatosExtraToken = {}): string {
   const iat = Math.floor(ahoraMs / 1000);
-  const payload: PayloadToken = { sub: usuarioId, iat, exp: iat + DURACION_SEGUNDOS };
+  const payload: PayloadToken = { sub: usuarioId, iat, exp: iat + DURACION_SEGUNDOS, ...extra };
   const contenido = `${ENCABEZADO}.${Buffer.from(JSON.stringify(payload)).toString('base64url')}`;
   return `${contenido}.${firmar(contenido)}`;
 }
@@ -57,4 +83,10 @@ function leerPayload(payloadCodificado: string, ahoraMs: number): PayloadToken |
   } catch {
     return null;
   }
+}
+
+// Saca el token del encabezado Authorization: Bearer <token> y lo verifica
+export function tokenDeLaPeticion(autorizacion: string | undefined): PayloadToken | null {
+  const [tipo, token] = (autorizacion ?? '').split(' ');
+  return tipo === 'Bearer' && token !== undefined ? verificarToken(token) : null;
 }

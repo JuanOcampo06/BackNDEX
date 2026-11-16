@@ -17,7 +17,7 @@ function crearRepositorio(): ReportesRepositoryPort {
   };
 }
 
-const datosValidos = { usuarioId: 1, categoria: 'danos_en_la_via', subcategoria: 'hueco', descripcion: '  Hueco grande  ', latitud: 4.65, longitud: -74.08 };
+const datosValidos = { usuarioId: 1, categoria: 'danos_en_la_via', subcategoria: 'hueco', tipoVehiculo: 'bicicleta', descripcion: '  Hueco grande  ', latitud: 4.65, longitud: -74.08 };
 
 describe('CrearReporteUseCase', () => {
   it('guarda el reporte como recibido y limpia los espacios de la descripcion', async () => {
@@ -50,6 +50,12 @@ describe('CrearReporteUseCase', () => {
     const reporte = await new CrearReporteUseCase(crearRepositorio()).execute({ ...datosValidos, categoria: 'transito', subcategoria: 'accidente' });
 
     expect(reporte).toMatchObject({ categoria: 'transito', subcategoria: 'accidente' });
+  });
+
+  it('rechaza un tipo de vehiculo que no existe', async () => {
+    await expect(new CrearReporteUseCase(crearRepositorio()).execute({ ...datosValidos, tipoVehiculo: 'carro' })).rejects.toMatchObject({
+      codigo: 'REPORTE_INVALIDO',
+    });
   });
 
   it('rechaza una ubicacion fuera de rango', async () => {

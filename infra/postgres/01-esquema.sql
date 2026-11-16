@@ -29,11 +29,18 @@ CREATE TABLE movil.usuarios (
 CREATE TABLE movil.viajes (
   id serial PRIMARY KEY,
   usuario_id int NOT NULL REFERENCES movil.usuarios (id),
+  -- Vehiculo en el que va el ciudadano y es el mismo que se elige al reportar o al activar el boton de panico
+  tipo_vehiculo text NOT NULL CHECK (tipo_vehiculo IN ('bicicleta', 'bicicleta_electrica', 'patineta_electrica', 'patineta', 'otro')),
   estado text NOT NULL DEFAULT 'en_curso' CHECK (estado IN ('en_curso', 'finalizado')),
   distancia_m double precision NOT NULL DEFAULT 0 CHECK (distancia_m >= 0),
+  -- Segundos que duro el viaje y quedan vacios hasta que se finaliza
+  duracion_s int CHECK (duracion_s >= 0),
+  -- Reportes que el ciudadano envio mientras duraba el viaje y se cuentan al finalizarlo
+  cantidad_reportes int NOT NULL DEFAULT 0 CHECK (cantidad_reportes >= 0),
   iniciado_en timestamptz NOT NULL DEFAULT now(),
   finalizado_en timestamptz,
-  CONSTRAINT finalizado_con_fecha CHECK ((estado = 'finalizado') = (finalizado_en IS NOT NULL))
+  CONSTRAINT finalizado_con_fecha CHECK ((estado = 'finalizado') = (finalizado_en IS NOT NULL)),
+  CONSTRAINT finalizado_con_duracion CHECK ((estado = 'finalizado') = (duracion_s IS NOT NULL))
 );
 
 -- Puntos GPS del recorrido y el primero es la salida del viaje
@@ -103,6 +110,8 @@ CREATE TABLE compartido.reportes (
   lugar_id int NOT NULL REFERENCES compartido.lugares (id),
   categoria text NOT NULL,
   subcategoria text NOT NULL,
+  -- Vehiculo en el que iba el ciudadano y sirve para el filtro Vehiculo del dashboard
+  tipo_vehiculo text NOT NULL CHECK (tipo_vehiculo IN ('bicicleta', 'bicicleta_electrica', 'patineta_electrica', 'patineta', 'otro')),
   descripcion text CHECK (char_length(descripcion) <= 500),
   latitud double precision NOT NULL CHECK (latitud BETWEEN -90 AND 90),
   longitud double precision NOT NULL CHECK (longitud BETWEEN -180 AND 180),
@@ -121,6 +130,8 @@ CREATE TABLE compartido.activaciones_panico (
   id serial PRIMARY KEY,
   usuario_id int NOT NULL REFERENCES movil.usuarios (id),
   lugar_id int NOT NULL REFERENCES compartido.lugares (id),
+  -- Vehiculo en el que iba el ciudadano y sirve para el filtro Vehiculo del dashboard
+  tipo_vehiculo text NOT NULL CHECK (tipo_vehiculo IN ('bicicleta', 'bicicleta_electrica', 'patineta_electrica', 'patineta', 'otro')),
   latitud double precision NOT NULL CHECK (latitud BETWEEN -90 AND 90),
   longitud double precision NOT NULL CHECK (longitud BETWEEN -180 AND 180),
   estado text NOT NULL DEFAULT 'activa' CHECK (estado IN ('activa', 'atendida', 'cancelada')),
@@ -166,16 +177,30 @@ CREATE TABLE dashboard.actores_viales (
   edad int CHECK (edad BETWEEN 0 AND 110)
 );
 
--- Usuarios del dashboard institucional con su rol
+-- Usuarios del dashboard institucional con su rol y son los que inician sesion en el tablero
 -- admin puede crear editar y eliminar usuarios y lector solo puede ver la informacion
--- la contrasena se agregara cuando exista el login real con JWT
+-- la contrasena se guarda cifrada con scrypt en el formato scrypt$sal$clave y nunca en texto plano
+-- sin contrasena el usuario no puede entrar hasta que se la asignen o la restablezca
 CREATE TABLE dashboard.usuarios (
   id serial PRIMARY KEY,
   nombre_completo text NOT NULL CHECK (char_length(nombre_completo) BETWEEN 1 AND 120),
   correo text NOT NULL UNIQUE,
   rol text NOT NULL DEFAULT 'lector' CHECK (rol IN ('admin', 'lector')),
+  entidad text CHECK (char_length(entidad) BETWEEN 1 AND 120),
+  contrasena_cifrada text,
   creado_en timestamptz NOT NULL DEFAULT now(),
   actualizado_en timestamptz NOT NULL DEFAULT now()
+);
+
+-- Solicitudes para restablecer la contrasena de un usuario del dashboard
+-- solo se guarda el hash del token que se envia al correo y cada token sirve una sola vez antes de vencer
+CREATE TABLE dashboard.restablecimientos_contrasena (
+  id serial PRIMARY KEY,
+  usuario_id int NOT NULL REFERENCES dashboard.usuarios (id) ON DELETE CASCADE,
+  token_hash text NOT NULL UNIQUE,
+  vence_en timestamptz NOT NULL,
+  usado_en timestamptz,
+  creado_en timestamptz NOT NULL DEFAULT now()
 );
 
 -- ============================== indices ==============================

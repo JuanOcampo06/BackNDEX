@@ -45,7 +45,15 @@ cp .env.example .env        # macOS, Linux o Git Bash
 copy .env.example .env      # Windows (CMD o PowerShell)
 ```
 
-`.env` guarda la configuración de tu máquina y **no se sube al repositorio**. Los valores por defecto sirven tal cual: puerto `3001` para la API, `5432` para PostgreSQL y `8081` para Adminer, con usuario, contraseña y base `safepath`.
+`.env` guarda la configuración de tu máquina y **no se sube al repositorio**. Los valores por defecto sirven tal cual (puerto `3001` para la API, `5432` para PostgreSQL y `8081` para Adminer, con usuario, contraseña y base `safepath`), **salvo `JWT_SECRET`, que es obligatorio**: sin él, o con menos de 32 caracteres, la API no arranca y `docker compose` muestra *Falta JWT_SECRET*. Genera uno propio y pégalo en `.env`:
+
+```bash
+node -e "console.log(require('crypto').randomBytes(48).toString('base64url'))"
+```
+
+Si no tienes Node, en PowerShell sirve `[Convert]::ToBase64String((1..48 | % { Get-Random -Max 256 }))`. Usa un secreto distinto en cada entorno y nunca el de otra persona. Al cambiarlo, los tokens ya emitidos dejan de servir y hay que volver a iniciar sesión.
+
+`DASHBOARD_URL` es opcional: la dirección del frontend del dashboard (por ejemplo `http://localhost:5173`) para armar el enlace de restablecer la contraseña.
 
 ### Opción A: con Docker (la más fácil)
 
@@ -102,7 +110,7 @@ curl.exe -X POST http://localhost:3001/api/dashboard/v1/auth/login -H "Content-T
 Respuesta esperada:
 
 ```json
-{"access_token":"token-de-prueba","user":{"id":"1","full_name":"Admin Demo","email":"admin@demo.local","role":"admin"}}
+{"access_token":"eyJhbGciOiJIUzI1NiIs...","user":{"id":"1","full_name":"Admin Demo","email":"admin@demo.local","role":"admin"}}
 ```
 
 Con una contraseña errónea:
@@ -120,10 +128,10 @@ Invoke-RestMethod http://localhost:3001/api/health
 Invoke-RestMethod -Method Post -Uri http://localhost:3001/api/dashboard/v1/auth/login -ContentType "application/json" -Body '{"email":"admin@demo.local","password":"demo1234"}'
 ```
 
-Un endpoint del tablero:
+Un endpoint del tablero (pide el `access_token` del login en la cabecera `Authorization`):
 
 ```bash
-curl "http://localhost:3001/api/dashboard/v1/tablero/tarjetas/siniestros?mes_desde=2025-10&mes_hasta=2025-12"
+curl -H "Authorization: Bearer <access_token>" "http://localhost:3001/api/dashboard/v1/tablero/tarjetas/siniestros?mes_desde=2025-10&mes_hasta=2025-12"
 ```
 
 Respuesta esperada (siniestros del último trimestre del anuario 2025 comparados con el trimestre anterior; la serie semanal viene recortada):
@@ -132,14 +140,42 @@ Respuesta esperada (siniestros del último trimestre del anuario 2025 comparados
 {"valor":2832,"valor_periodo_anterior":2958,"variacion_porcentual":-4.3,"serie_semanal":[{"semana":"2025-09-29","total":169}]}
 ```
 
-**Con Swagger (en el navegador)**: abre http://localhost:3001/api/docs. Ahí están los 39 endpoints agrupados en este orden: compartidos, dashboard y app móvil; en cada uno pulsa *Try it out* y luego *Execute*. Los parámetros y cuerpos ya traen ejemplos; para ver cifras del anuario en el tablero usa `mes_desde=2025-01` y `mes_hasta=2025-12`. El documento en JSON (para importarlo en Postman o en el frontend) está en http://localhost:3001/api/docs-json.
+**Con Swagger (en el navegador)**: abre http://localhost:3001/api/docs. Ahí están los 39 endpoints agrupados en este orden: compartidos, dashboard y app móvil; en cada uno pulsa *Try it out* y luego *Execute*. Primero haz login y pega el `access_token` en el botón *Authorize* (el del dashboard o el de la app según lo que vayas a probar). Los parámetros y cuerpos ya traen ejemplos; para ver cifras del anuario en el tablero usa `mes_desde=2025-01` y `mes_hasta=2025-12`. El documento en JSON (para importarlo en Postman o en el frontend) está en http://localhost:3001/api/docs-json.
 
 **Con `demo.http`**: ábrelo en VS Code con la extensión *REST Client* y pulsa *Send Request* sobre cada petición. Incluye todas las del tablero.
 
 ### Credenciales de la demo
 
-- Correo: `admin@demo.local`
-- Contraseña: `demo1234`
+El login usa la tabla real `dashboard.usuarios` (contraseñas cifradas con scrypt). La base trae estos usuarios de prueba, todos con contraseña `demo1234`:
+
+| Rol | Correo | Puede |
+|---|---|---|
+| Administrador (`admin`) | `admin@demo.local` | Todo: ver el tablero, exportar a Excel y gestionar usuarios |
+| Usuario (`lector`) | `lector@demo.local` | Solo ver el tablero, las ciclovías y su propio perfil |
+| Usuario (`lector`) | `carlos.perez@demo.local` | Igual que el anterior |
+
+Un usuario creado desde el tablero (`POST /usuarios`) puede entrar si se le da una `contrasena` al crearlo o editarlo, o si la restablece con el enlace (ver *Perfil y contraseña*).
+
+**Permisos del dashboard.** El login devuelve un `access_token` (JWT firmado con `JWT_SECRET`, dura 7 días) que lleva el rol. Todos los endpoints del dashboard, menos el login, lo piden en la cabecera `Authorization: Bearer <access_token>`:
+
+- Sin token, con un token inválido o vencido, o con un token de la app móvil → `401` `{"codigo":"TOKEN_INVALIDO","mensaje":"Falta el token o no es valido"}`.
+- `GET /tablero/exportar` y todo `/usuarios` son **solo del Administrador**: con el rol Usuario → `403` `{"codigo":"ACCESO_DENEGADO","mensaje":"Tu rol no tiene permiso para esta accion: solo el Administrador puede usarla"}`.
+- El token del dashboard tampoco sirve en la app móvil (`401`).
+
+### Perfil y contraseña (dashboard)
+
+Cuelgan de `http://localhost:3001/api/dashboard/v1/auth` y usan los mismos nombres que el `user` del login.
+
+| Método y ruta | Token | Para qué | Datos |
+|---|---|---|---|
+| `GET /auth/me` | Sí (cualquier rol) | Ver el propio perfil | Responde `id`, `full_name`, `email`, `role`, `entidad` |
+| `PATCH /auth/me` | Sí (cualquier rol) | Editar el propio perfil (solo los campos que se envíen) | Cuerpo: cualquiera de `full_name`, `email`, `entidad` (texto vacío la borra). El rol no se puede cambiar aquí (`400`); un correo de otro usuario da `409` |
+| `POST /auth/restablecer-contrasena/solicitar` | No | Pedir el enlace para restablecer la contraseña | Cuerpo: `email`. Siempre responde `202` con el mismo mensaje, exista o no el correo |
+| `POST /auth/restablecer-contrasena/confirmar` | No | Poner la contraseña nueva con el token del enlace | Cuerpo: `token`, `password` (8 a 72 caracteres). `204` si quedó; `400` `RESTABLECIMIENTO_INVALIDO` si el token no existe, ya se usó o venció |
+
+El enlace dura **1 hora**, sirve **una sola vez** (y al usarlo se anulan los demás que haya pedido ese usuario), y en la base solo se guarda el hash del token. Tiene la forma `<DASHBOARD_URL>/restablecer-contrasena?token=...`: el frontend lee el `token` de la URL y lo manda a `/confirmar`.
+
+**Todavía no hay servidor de correo**: por ahora el enlace se escribe en el registro de la API (`docker compose logs api`, línea `Enlace para <correo> ...`). Para enviarlo por correo hay que crear otro adaptador del puerto `NotificadorRestablecimientoPort` (`src/dashboard/modules/auth/`) con los datos del servidor SMTP de la entidad y cambiarlo en `auth.module.ts`.
 
 ### Correr las pruebas
 
@@ -210,7 +246,8 @@ Es **una sola base** (`safepath`) dividida en **tres esquemas** según quién us
 
 | Tabla | Qué guarda |
 |---|---|
-| `dashboard.usuarios` | Usuarios del dashboard: nombre, correo (único, en minúsculas) y `rol` (`admin` administra usuarios, `lector` solo consulta). No guarda contraseña todavía: llegará con el login real. |
+| `dashboard.usuarios` | Usuarios del dashboard y los que inician sesión: nombre, correo (único, en minúsculas), `rol` (`admin` administra usuarios, `lector` solo consulta), `entidad` (opcional) y `contrasena_cifrada` (scrypt; vacía = no puede entrar todavía). |
+| `dashboard.restablecimientos_contrasena` | Enlaces para restablecer la contraseña: usuario, hash del token, vencimiento y cuándo se usó. |
 | `dashboard.siniestros` | Los 11.573 siniestros del anuario 2025: código del anuario como `id`, fecha y hora, lugar (dirección), localidad, coordenadas, gravedad, clase y tipo de vehículo. |
 | `dashboard.actores_viales` | Las 28.029 personas de esos siniestros: condición (`conductor`, `motociclista`, `ciclista`, `pasajero`, `peaton`), gravedad (`ileso`, `herido`, `muerto`), sexo y edad. |
 
@@ -219,7 +256,7 @@ Es **una sola base** (`safepath`) dividida en **tres esquemas** según quién us
 | Tabla | Qué guarda |
 |---|---|
 | `movil.usuarios` | Ciudadanos de la app (nombre, correo único, teléfono, `fecha_nacimiento`, `genero` y `contrasena_cifrada`). Son los autores de los reportes, activaciones y viajes: la base no deja borrar uno que tenga registros. La contraseña se guarda cifrada con scrypt y nunca en texto plano. **Vacía**: no hay ciudadanos de prueba, se crean con `POST /auth/register`. |
-| `movil.viajes` | Viajes en bicicleta del ciudadano: `estado` (`en_curso` o `finalizado`), `distancia_m` (metros recorridos, se calcula al finalizar) y fechas. Un índice único en la base garantiza **un solo viaje en curso por ciudadano**. |
+| `movil.viajes` | Viajes del ciudadano: `tipo_vehiculo` (`bicicleta`, `bicicleta_electrica`, `patineta_electrica`, `patineta` u `otro`), `estado` (`en_curso` o `finalizado`), fechas de inicio y de fin, y lo que se calcula al finalizar: `distancia_m` (metros recorridos), `duracion_s` (segundos que duró) y `cantidad_reportes` (reportes que el ciudadano envió durante el viaje). Un índice único en la base garantiza **un solo viaje en curso por ciudadano**. |
 | `movil.puntos_viaje` | Puntos GPS del recorrido de cada viaje; el primero es la salida. Se borran junto con su viaje. |
 
 **Cómo se ubica un evento de la app.** La app solo manda latitud y longitud. Al guardar, la base le asigna el **lugar conocido más cercano** (función `compartido.lugar_mas_cercano`), y ese lugar trae su localidad. Así el dashboard puede filtrar por localidad y agrupar el botón de pánico por ubicación.
@@ -256,7 +293,7 @@ docker compose exec postgres psql -U safepath -d safepath -f /docker-entrypoint-
 
 ## 4. Endpoints del tablero
 
-Todos son `GET`, cuelgan de `http://localhost:3001/api/dashboard/v1/tablero` y responden JSON en `snake_case`. No piden token.
+Todos son `GET`, cuelgan de `http://localhost:3001/api/dashboard/v1/tablero` y responden JSON en `snake_case`. Piden el token del login (cualquiera de los dos roles).
 
 **Filtros** (query string, todos opcionales; los mismos para cualquier endpoint):
 
@@ -264,7 +301,7 @@ Todos son `GET`, cuelgan de `http://localhost:3001/api/dashboard/v1/tablero` y r
 |---|---|---|
 | `mes_desde`, `mes_hasta` | `2025-01`, `2025-12` | Rango de meses (formato `AAAA-MM`). Sin ellos: los últimos 3 meses **hasta el último mes que tiene datos** en las fuentes elegidas (hoy, octubre a diciembre de 2025), así el tablero nunca abre vacío. Si llega solo `mes_desde`, el final es el mes actual. |
 | `localidad_id` | `8` o `8,10` | Una o varias localidades (los ids salen de `/filtros`). |
-| `tipo_vehiculo` | `bicicleta` o `bicicleta,patineta` | Uno o varios de: `bicicleta`, `bicicleta_electrica`, `patineta_electrica`, `patineta`, `otro`. Aplica a siniestros y usuarios. |
+| `tipo_vehiculo` | `bicicleta` o `bicicleta,patineta` | Uno o varios de: `bicicleta`, `bicicleta_electrica`, `patineta_electrica`, `patineta`, `otro`. Aplica a siniestros, usuarios, reportes, falsos positivos y botón de pánico. |
 | `fuente` | `anuario` o `anuario,app` | Una o las dos: `anuario` (Anuario de Siniestralidad de la Secretaría de Movilidad) y `app` (app móvil). Cada gráfica tiene su fuente: **anuario** → tarjeta de siniestros, mapa, lugares, horas, tendencia y sexo y edad; **app** → usuarios, reportes, botón de pánico y falsos positivos. Las gráficas de una fuente no elegida responden en cero. Sin `fuente`, o con las dos, salen todas combinadas. |
 
 **Varios valores en un filtro.** `localidad_id`, `tipo_vehiculo` y `fuente` aceptan uno o varios valores, repetidos o separados por comas (también se pueden mezclar):
@@ -283,7 +320,7 @@ Un filtro mal escrito responde `400` con el motivo, y basta con que **uno** de l
 
 | Parte del mockup | Endpoint | Qué devuelve |
 |---|---|---|
-| Selectores de filtros | `/filtros` | `localidades` (`id`, `nombre`), `tipos_vehiculo` y `fuentes` |
+| Selectores de filtros | `/filtros` | `localidades` (`id`, `nombre`), `tipos_vehiculo`, `fuentes` y `primer_mes` / `ultimo_mes` (`AAAA-MM`, el rango con datos de todas las fuentes; `null` si no hay datos) |
 | Tarjeta Siniestros | `/tarjetas/siniestros` | `valor`, `valor_periodo_anterior`, `variacion_porcentual`, `serie_semanal` (para la minigráfica) |
 | Tarjeta Usuarios de micromovilidad | `/tarjetas/usuarios` | igual que la anterior |
 | Tarjeta Reportes | `/tarjetas/reportes` | igual que la anterior |
@@ -298,6 +335,7 @@ Un filtro mal escrito responde `400` con el motivo, y basta con que **uno** de l
 | Botón de pánico | `/boton-panico` | `total`, `lugares` (círculos del mapa con coordenadas y `total`) y `top_ubicaciones` (las 5 primeras) |
 | Reportes | `/reportes` | `total`, `puntos` (mapa) y `por_categoria` |
 | Falsos positivos | `/falsos-positivos` | `total`, `porcentaje_de_reportes`, `por_motivo` (`motivo`, `total`, `porcentaje`) y `evolucion_mensual` (12 meses) |
+| Créditos de los datos | `/creditos` | `fuentes`: una por fuente externa (`anuario` y `ciclovias`) con `nombre`, `entidad`, `enlace` oficial, `licencia`, `enlace_licencia` y `fecha_corte` (`AAAA-MM-DD`, último dato cargado) |
 
 Las franjas horarias son `madrugada` (0–6), `manana` (6–12), `tarde` (12–18) y `noche` (18–24).
 La API acepta peticiones desde otro origen (CORS), así que el frontend puede llamarla desde su propio puerto. Para limitarlo a una sola dirección, pon `CORS_ORIGIN=http://localhost:5173` (o la que corresponda) en `.env`.
@@ -327,22 +365,30 @@ El parámetro `kpis` es obligatorio y se puede mandar repetido (`?kpis=a&kpis=b`
 
 El archivo siempre trae una primera hoja **Filtros aplicados** (período, localidad, vehículo y fuente usados, y las hojas incluidas), y después una hoja por KPI, en el orden de la tabla anterior aunque se pidan desordenados. Se llama `kpis_<mes desde>_<mes hasta>.xlsx`.
 
+**Solo el Administrador puede exportar** (`403` con el rol Usuario, `401` sin token válido).
+
+**Columnas de los filtros en cada hoja**, para saber a qué localidad, vehículo o fuente corresponde cada número:
+
+- **Hojas de registros uno por uno** (*Mapa de siniestros* y la sección *Reportes en el mapa*): cada fila trae `Localidad`, `Tipo de vehículo` y `Fuente` (la fuente se llama *Secretaría Distrital de Movilidad* o *App*, también en *Filtros aplicados*). Los reportes traen también `Mes`; en los siniestros el mes ya está en la fecha y hora.
+- **Hojas agregadas** (tarjetas, *Lugares con más siniestros*, *Siniestros por hora*, *Tendencia mensual*, *Siniestros por sexo y edad*, *Usuarios por tipo*, *Botón de pánico*, *Falsos positivos* y las secciones agregadas de *Reportes*): si un filtro tiene **más de un valor**, los resultados se calculan por separado para cada valor y se agrega su columna al principio (`Localidad`, `Tipo de vehículo` y/o `Fuente`). Por ejemplo, con Chapinero y Ciudad Bolívar sale una fila por localidad y rango de edad. Con varios filtros de varios valores sale una fila por cada combinación. Si la sección ya trae esa columna (como `Localidad` en *Lugares con más siniestros*), no se repite.
+- Con **0 o 1 valor** en un filtro, las hojas agregadas quedan igual que antes (ese valor ya aparece en *Filtros aplicados*).
+
 ```bash
-curl -o kpis.xlsx "http://localhost:3001/api/dashboard/v1/tablero/exportar?kpis=tarjeta_siniestros&kpis=siniestros_por_hora&mes_desde=2025-08&mes_hasta=2025-10"
+curl -H "Authorization: Bearer <access_token del Administrador>" -o kpis.xlsx "http://localhost:3001/api/dashboard/v1/tablero/exportar?kpis=tarjeta_siniestros&kpis=siniestros_por_hora&mes_desde=2025-08&mes_hasta=2025-10"
 ```
 
-Errores (`400`): falta `kpis`, algún KPI no existe, un filtro es inválido o el rango de meses está al revés. La API expone la cabecera `Content-Disposition` por CORS, así que el frontend puede leer el nombre del archivo; si hace `fetch`, recibe el archivo con `respuesta.blob()`. En Swagger el resultado aparece como un enlace *Download file*.
+Errores: `401` sin token válido, `403` con el rol Usuario y `400` si falta `kpis`, algún KPI no existe, un filtro es inválido o el rango de meses está al revés. La API expone la cabecera `Content-Disposition` por CORS, así que el frontend puede leer el nombre del archivo; si hace `fetch`, recibe el archivo con `respuesta.blob()`. En Swagger el resultado aparece como un enlace *Download file*.
 
 ### Usuarios del dashboard
 
-Cuelgan de `http://localhost:3001/api/dashboard/v1/usuarios` y responden en `snake_case`. Todavía no piden token: los roles se harán cumplir cuando exista el login con JWT.
+Cuelgan de `http://localhost:3001/api/dashboard/v1/usuarios` y responden en `snake_case`. **Solo el Administrador** puede usarlos: `401` sin token válido y `403` con el rol Usuario.
 
 | Método y ruta | Para qué | Datos que recibe |
 |---|---|---|
 | `GET /usuarios` | Listar usuarios | Opcional: `?rol=admin` o `?rol=lector` |
 | `GET /usuarios/:id` | Ver un usuario | — |
-| `POST /usuarios` | Crear un usuario (`201`) | Cuerpo: `nombre_completo`, `correo`, `rol` |
-| `PATCH /usuarios/:id` | Editar nombre, correo o rol (solo los campos que se envíen) | Cuerpo: cualquiera de `nombre_completo`, `correo`, `rol` |
+| `POST /usuarios` | Crear un usuario (`201`) | Cuerpo: `nombre_completo`, `correo`, `rol` y opcionales `entidad` y `contrasena` (8 a 72; sin ella el usuario no puede entrar todavía) |
+| `PATCH /usuarios/:id` | Editar nombre, correo, rol, entidad o asignar una contraseña (solo los campos que se envíen) | Cuerpo: cualquiera de `nombre_completo`, `correo`, `rol`, `entidad`, `contrasena` |
 | `DELETE /usuarios/:id` | Eliminar un usuario (`204`, sin cuerpo) | — |
 
 Errores: datos inválidos o `PATCH` sin campos responden `400`; un id que no existe, `404`; un correo que ya usa otro usuario, `409` con `{"codigo":"CORREO_DUPLICADO",...}`.
@@ -392,16 +438,16 @@ Todos cuelgan de `http://localhost:3001/api/mobile/v1` y responden en `camelCase
 |---|---|---|
 | `POST /auth/register` | Crear la cuenta del ciudadano y dejarlo con sesión abierta (201) | Cuerpo: `nombreCompleto`, `correo`, `contrasena` (8 a 72 caracteres), `fechaNacimiento` (`AAAA-MM-DD`, mayor de 18 años) y `genero` (`femenino`, `masculino`, `no_binario` o `prefiero_no_decirlo`); `telefono` es opcional (7 a 15 dígitos) |
 | `POST /auth/login` | Iniciar sesión (200) | Cuerpo: `correo` y `contrasena` |
-| `POST /reports` 🔒 | Crear un reporte ciudadano (nace `recibido`) | Cuerpo: `categoria`, `subcategoria`, `latitud`, `longitud` y `descripcion` opcional (máx. 500) |
+| `POST /reports` 🔒 | Crear un reporte ciudadano (nace `recibido`) | Cuerpo: `categoria`, `subcategoria`, `tipoVehiculo`, `latitud`, `longitud` y `descripcion` opcional (máx. 500) |
 | `GET /reports` 🔒 | Listar **mis** reportes, los más recientes primero (máx. 100) | Opcionales: `?categoria=seguridad&subcategoria=robo` |
 | `GET /reports/:id` 🔒 | Ver uno de mis reportes | — |
 | `GET /routes` 🔒 | Calcular la **ruta segura**, la **equilibrada** y la **rápida** entre dos puntos | Obligatorios: `?origenLat=4.6486&origenLon=-74.0818&destinoLat=4.6702&destinoLon=-74.0623` |
-| `POST /sos` 🔒 | Activar el botón de pánico (nace `activa`) | Cuerpo: `latitud`, `longitud` |
+| `POST /sos` 🔒 | Activar el botón de pánico (nace `activa`) | Cuerpo: `tipoVehiculo`, `latitud`, `longitud` |
 | `GET /sos` 🔒 | Listar **mis** activaciones, las más recientes primero (máx. 100) | Opcional: `?estado=activa` |
 | `PATCH /sos/:id/cancelar` 🔒 | Cancelar una de mis activaciones que sigue activa | — |
-| `POST /trips` 🔒 | Iniciar un viaje desde la ubicación actual (201, nace `en_curso`) | Cuerpo: `latitud`, `longitud` |
+| `POST /trips` 🔒 | Iniciar un viaje desde la ubicación actual (201, nace `en_curso`) | Cuerpo: `latitud`, `longitud` y `tipoVehiculo` (`bicicleta`, `bicicleta_electrica`, `patineta_electrica`, `patineta` u `otro`) |
 | `POST /trips/:id/puntos` 🔒 | Agregar un punto GPS al recorrido de un viaje en curso (201) | Cuerpo: `latitud`, `longitud` |
-| `PATCH /trips/:id/finalizar` 🔒 | Cerrar el viaje y calcular los metros recorridos | — |
+| `PATCH /trips/:id/finalizar` 🔒 | Cerrar el viaje y calcular los metros recorridos, los segundos que duró y cuántos reportes envió el ciudadano mientras tanto | — |
 | `GET /trips` 🔒 | Listar **mis** viajes, los más recientes primero (máx. 100) | — |
 | `GET /trips/:id` 🔒 | Ver uno de mis viajes con todo su recorrido (`puntos`) | — |
 | `GET /ciclovias` | Ciclovías de la zona del mapa (ver sección 5) | `minLat`, `minLon`, `maxLat`, `maxLon` y `tipo` opcional |
@@ -496,10 +542,11 @@ Por eso el dashboard responde en `snake_case` y el móvil en `camelCase`, sin af
 
 1. `src/dashboard/bff/controllers/auth.controller.ts` recibe `POST /api/dashboard/v1/auth/login` y valida el cuerpo con `src/dashboard/bff/dto/login.request.ts`.
 2. Llama a `LoginUseCase` a través de `src/dashboard/modules/auth/index.ts` (la única puerta del módulo).
-3. `src/dashboard/modules/auth/application/login.use-case.ts` busca el usuario y compara la contraseña con la entidad `Usuario` (`domain/usuario.ts`).
-4. Para buscar el usuario usa el puerto `UsuarioRepositoryPort` (`application/usuario.repository.port.ts`).
-5. `auth.module.ts` conecta ese puerto con `InMemoryUsuarioRepository` (`infrastructure/in-memory-usuario.repository.ts`).
+3. `src/dashboard/modules/auth/application/login.use-case.ts` busca la cuenta por correo y compara la contraseña con el puerto `ContrasenaCifradorPort`.
+4. Para buscar la cuenta usa el puerto `UsuarioRepositoryPort` (`application/usuario.repository.port.ts`).
+5. `auth.module.ts` conecta ese puerto con `PostgresUsuarioRepository` (tabla `dashboard.usuarios`), el cifrador con `ScryptContrasenaCifrador` y el puerto `TokenEmisorPort` con `JwtTokenEmisor`, que firma el JWT con el rol usando `src/platform/auth/`.
 6. Si algo falla, el caso de uso lanza `CredencialesInvalidasError`; el controlador la convierte en `401`. Si sale bien, responde en `snake_case`.
+7. En los demás endpoints, `DashboardAuthGuard` (`src/platform/auth/dashboard-auth.guard.ts`) revisa el token (`401`) y `@SoloRoles('admin')` el rol (`403`).
 
 ## 11. Cómo agregar una funcionalidad nueva
 
@@ -513,7 +560,7 @@ Por eso el dashboard responde en `snake_case` y el móvil en `camelCase`, sin af
 
 | Pendiente | Dónde va |
 |---|---|
-| JWT del dashboard y roles (`admin` / `lector`) que reemplacen `token-de-prueba` (el JWT de la app móvil ya está en `src/platform/auth/`) | `src/platform/auth/` + `src/dashboard/modules/auth/` |
+| Enviar por correo el enlace de restablecer la contraseña (hoy se escribe en el registro de la API) | Adaptador nuevo de `NotificadorRestablecimientoPort` en `src/dashboard/modules/auth/infrastructure/` |
 | Multi-tenant (una base de datos por entidad) | `src/platform/tenancy/` |
 | MongoDB y PostgreSQL para el resto de módulos (el tablero ya usa PostgreSQL) | `src/platform/database/` + `infrastructure/` de cada módulo |
 | Eventos con RabbitMQ (por ejemplo, reportes del móvil hacia el dashboard) | `src/platform/messaging/` |

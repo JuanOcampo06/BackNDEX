@@ -1,7 +1,7 @@
 import { ApiProperty } from '@nestjs/swagger';
 import { IsNumber, Max, Min } from 'class-validator';
 
-// Cuerpo del POST /trips y del POST /trips/:id/puntos: donde esta el ciudadano
+// Cuerpo del POST /trips/:id/puntos y base del POST /trips: donde esta el ciudadano
 export class UbicacionRequest {
   @ApiProperty({ example: 4.6486, minimum: -90, maximum: 90 })
   @IsNumber()

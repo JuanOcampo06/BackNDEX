@@ -1,4 +1,4 @@
-import { firmarToken, verificarToken } from './jwt';
+import { firmarToken, validarSecretoJwt, verificarToken } from './jwt';
 
 const AHORA = Date.parse('2026-11-08T12:00:00.000Z');
 const UNA_SEMANA_MS = 7 * 24 * 60 * 60 * 1000;
@@ -47,5 +47,14 @@ describe('jwt', () => {
     delete process.env.JWT_SECRET;
 
     expect(() => firmarToken(7)).toThrow('JWT_SECRET');
+  });
+
+  it('la api no acepta un secreto vacio corto o el del ejemplo y si uno largo', () => {
+    for (const malo of ['', 'corto', 'cambia-este-secreto-en-produccion']) {
+      process.env.JWT_SECRET = malo;
+      expect(() => validarSecretoJwt()).toThrow('JWT_SECRET');
+    }
+    process.env.JWT_SECRET = 'un-secreto-largo-de-mas-de-treinta-y-dos-caracteres';
+    expect(() => validarSecretoJwt()).not.toThrow();
   });
 });

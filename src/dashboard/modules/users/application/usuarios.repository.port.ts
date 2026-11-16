@@ -1,5 +1,5 @@
 import { Rol } from '../domain/catalogos';
-import { CambiosUsuario, NuevoUsuario, Usuario } from '../domain/usuario';
+import { CambiosParaGuardar, Usuario, UsuarioParaGuardar } from '../domain/usuario';
 
 export const USUARIOS_REPOSITORY = Symbol('USUARIOS_REPOSITORY');
 
@@ -14,8 +14,8 @@ export interface UsuariosRepositoryPort {
   buscarPorId(id: number): Promise<Usuario | null>;
   // Dice si otro usuario distinto al excluido ya usa ese correo
   existeCorreo(correo: string, idExcluido?: number): Promise<boolean>;
-  crear(usuario: NuevoUsuario): Promise<Usuario>;
-  actualizar(id: number, cambios: CambiosUsuario): Promise<Usuario>;
+  crear(usuario: UsuarioParaGuardar): Promise<Usuario>;
+  actualizar(id: number, cambios: CambiosParaGuardar): Promise<Usuario>;
   // Devuelve false cuando no habia un usuario con ese id
   eliminar(id: number): Promise<boolean>;
 }

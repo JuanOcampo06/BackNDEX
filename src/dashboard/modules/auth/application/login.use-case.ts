@@ -1,8 +1,8 @@
 import { CredencialesInvalidasError } from '../domain/credenciales-invalidas.error';
+import { normalizarCorreo } from '../domain/usuario';
+import { ContrasenaCifradorPort } from './contrasena-cifrador.port';
+import { TokenEmisorPort } from './token-emisor.port';
 import { UsuarioRepositoryPort } from './usuario.repository.port';
-
-// Token fijo de la demo; se reemplazará por un JWT emitido desde platform/auth.
-const TOKEN_DE_PRUEBA = 'token-de-prueba';
 
 export interface LoginCommand {
   correo: string;
@@ -19,15 +19,27 @@ export interface LoginResult {
   };
 }
 
+// Inicia sesion con los usuarios de la tabla del dashboard
+// el token lleva el rol del usuario para que los endpoints solo de administrador lo puedan revisar
 export class LoginUseCase {
-  constructor(private readonly usuarios: UsuarioRepositoryPort) {}
+  constructor(
+    private readonly usuarios: UsuarioRepositoryPort,
+    private readonly cifrador: ContrasenaCifradorPort,
+    private readonly tokens: TokenEmisorPort,
+  ) {}
 
   async execute(comando: LoginCommand): Promise<LoginResult> {
-    const usuario = await this.usuarios.buscarPorCorreo(comando.correo);
-    if (!usuario || !usuario.tieneContrasena(comando.contrasena)) {
+    const cuenta = await this.usuarios.buscarPorCorreo(normalizarCorreo(comando.correo));
+    // El mismo error para correo inexistente usuario sin contrasena o contrasena errada asi no se revela cual fallo
+    const valida =
+      cuenta !== null &&
+      cuenta.contrasenaCifrada !== null &&
+      (await this.cifrador.coincide(comando.contrasena, cuenta.contrasenaCifrada));
+    if (!valida) {
       throw new CredencialesInvalidasError();
     }
-    const { id, nombreCompleto, correo, rol } = usuario;
-    return { token: TOKEN_DE_PRUEBA, usuario: { id, nombreCompleto, correo, rol } };
+    const id = String(cuenta.id);
+    const { nombreCompleto, correo, rol } = cuenta;
+    return { token: this.tokens.emitir(id, rol), usuario: { id, nombreCompleto, correo, rol } };
   }
 }

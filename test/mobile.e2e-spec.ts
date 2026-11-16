@@ -23,13 +23,13 @@ function crearRepositorioFalso(): ReportesRepositoryPort {
 
 describe('Reportes de la app movil (e2e)', () => {
   const ruta = '/api/mobile/v1/reports';
-  const cuerpo = { categoria: 'danos_en_la_via', subcategoria: 'hueco', descripcion: 'Hueco', latitud: 4.65, longitud: -74.08 };
+  const cuerpo = { categoria: 'danos_en_la_via', subcategoria: 'hueco', tipoVehiculo: 'bicicleta', descripcion: 'Hueco', latitud: 4.65, longitud: -74.08 };
   let app: INestApplication;
   // El ciudadano 1 es el dueno de los reportes de estas pruebas
   const autorizacion = (usuarioId = 1): string => `Bearer ${firmarToken(usuarioId)}`;
 
   beforeAll(async () => {
-    process.env.JWT_SECRET = 'secreto-de-pruebas';
+    process.env.JWT_SECRET = 'secreto-de-pruebas-con-mas-de-32-caracteres';
     const modulo = await Test.createTestingModule({ imports: [AppModule] })
       .overrideProvider(REPORTES_REPOSITORY)
       .useValue(crearRepositorioFalso())

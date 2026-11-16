@@ -1,6 +1,6 @@
 import { ApiProperty } from '@nestjs/swagger';
-import { CATEGORIAS_REPORTE, ESTADOS_REPORTE, SUBCATEGORIAS_REPORTE } from '../../modules/reports';
-import type { CategoriaReporte, EstadoReporte, SubcategoriaReporte } from '../../modules/reports';
+import { CATEGORIAS_REPORTE, ESTADOS_REPORTE, SUBCATEGORIAS_REPORTE, TIPOS_VEHICULO } from '../../modules/reports';
+import type { CategoriaReporte, EstadoReporte, SubcategoriaReporte, TipoVehiculo } from '../../modules/reports';
 
 // Forma del reporte que responde la API (solo para documentar en Swagger)
 export class ReporteResponse {
@@ -15,6 +15,9 @@ export class ReporteResponse {
 
   @ApiProperty({ enum: SUBCATEGORIAS_REPORTE, example: 'hueco' })
   subcategoria!: SubcategoriaReporte;
+
+  @ApiProperty({ enum: TIPOS_VEHICULO, example: 'bicicleta' })
+  tipoVehiculo!: TipoVehiculo;
 
   @ApiProperty({ example: 'Hueco grande en la ciclorruta', nullable: true, type: String })
   descripcion!: string | null;

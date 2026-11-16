@@ -2,7 +2,7 @@ import { Fuente, TipoVehiculo } from './catalogos';
 import { Periodo } from './periodo';
 
 // Filtros de la barra superior del tablero
-// el vehiculo solo aplica a siniestros y usuarios
+// el vehiculo aplica a siniestros usuarios reportes falsos positivos y boton de panico
 // la fuente decide que graficas traen datos y sin fuente o con las dos salen todas combinadas
 // localidad vehiculo y fuente son listas y un registro entra si coincide con cualquiera de sus valores
 export interface FiltrosTablero {

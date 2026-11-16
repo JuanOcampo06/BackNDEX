@@ -7,7 +7,7 @@ import { EstadoSos } from '../domain/catalogos';
 const LIMITE_LISTADO = 100;
 
 // Columnas que se leen de la tabla con los nombres que usa el dominio
-const COLUMNAS = `id, usuario_id AS "usuarioId", latitud, longitud, estado, activado_en AS "activadoEn"`;
+const COLUMNAS = `id, usuario_id AS "usuarioId", tipo_vehiculo AS "tipoVehiculo", latitud, longitud, estado, activado_en AS "activadoEn"`;
 
 interface FilaSos extends Omit<ActivacionSos, 'activadoEn'> {
   activadoEn: Date;
@@ -37,10 +37,10 @@ export class PostgresSosRepository implements SosRepositoryPort, OnModuleDestroy
   async guardar(activacion: NuevaActivacionSos): Promise<ActivacionSos> {
     // El dashboard agrupa las activaciones por lugar asi que se guarda el lugar conocido mas cercano a las coordenadas
     const resultado = await this.pool.query<FilaSos>(
-      `INSERT INTO compartido.activaciones_panico (usuario_id, latitud, longitud, lugar_id)
-       VALUES ($1, $2, $3, compartido.lugar_mas_cercano($2, $3))
+      `INSERT INTO compartido.activaciones_panico (usuario_id, tipo_vehiculo, latitud, longitud, lugar_id)
+       VALUES ($1, $2, $3, $4, compartido.lugar_mas_cercano($3, $4))
        RETURNING ${COLUMNAS}`,
-      [activacion.usuarioId, activacion.latitud, activacion.longitud],
+      [activacion.usuarioId, activacion.tipoVehiculo, activacion.latitud, activacion.longitud],
     );
     return aActivacion(resultado.rows[0]);
   }

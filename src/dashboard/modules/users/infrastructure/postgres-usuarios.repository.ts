@@ -1,17 +1,19 @@
 import { Injectable, OnModuleDestroy } from '@nestjs/common';
 import { crearPoolPostgres } from '../../../../platform/database/postgres';
 import { FiltrosUsuarios, UsuariosRepositoryPort } from '../application/usuarios.repository.port';
-import { CambiosUsuario, NuevoUsuario, Usuario } from '../domain/usuario';
+import { CambiosParaGuardar, Usuario, UsuarioParaGuardar } from '../domain/usuario';
 
-// Columnas que se leen de la tabla con los nombres que usa el dominio
-const COLUMNAS = `id, nombre_completo AS "nombreCompleto", correo, rol,
+// Columnas que se leen de la tabla con los nombres que usa el dominio y la contrasena nunca se lee
+const COLUMNAS = `id, nombre_completo AS "nombreCompleto", correo, rol, entidad,
   creado_en AS "creadoEn", actualizado_en AS "actualizadoEn"`;
 
 // Columna de la tabla que corresponde a cada campo que se puede cambiar
-const COLUMNA_POR_CAMPO: Record<keyof CambiosUsuario, string> = {
+const COLUMNA_POR_CAMPO: Record<keyof CambiosParaGuardar, string> = {
   nombreCompleto: 'nombre_completo',
   correo: 'correo',
   rol: 'rol',
+  entidad: 'entidad',
+  contrasenaCifrada: 'contrasena_cifrada',
 };
 
 interface FilaUsuario extends Omit<Usuario, 'creadoEn' | 'actualizadoEn'> {
@@ -55,17 +57,18 @@ export class PostgresUsuariosRepository implements UsuariosRepositoryPort, OnMod
     return (resultado.rowCount ?? 0) > 0;
   }
 
-  async crear(usuario: NuevoUsuario): Promise<Usuario> {
+  async crear(usuario: UsuarioParaGuardar): Promise<Usuario> {
     const resultado = await this.pool.query<FilaUsuario>(
-      `INSERT INTO dashboard.usuarios (nombre_completo, correo, rol) VALUES ($1, $2, $3) RETURNING ${COLUMNAS}`,
-      [usuario.nombreCompleto, usuario.correo, usuario.rol],
+      `INSERT INTO dashboard.usuarios (nombre_completo, correo, rol, entidad, contrasena_cifrada)
+       VALUES ($1, $2, $3, $4, $5) RETURNING ${COLUMNAS}`,
+      [usuario.nombreCompleto, usuario.correo, usuario.rol, usuario.entidad, usuario.contrasenaCifrada ?? null],
     );
     return aUsuario(resultado.rows[0]);
   }
 
-  async actualizar(id: number, cambios: CambiosUsuario): Promise<Usuario> {
+  async actualizar(id: number, cambios: CambiosParaGuardar): Promise<Usuario> {
     // Solo se escriben los campos que llegaron y los valores van como parametros
-    const campos = Object.keys(cambios) as (keyof CambiosUsuario)[];
+    const campos = (Object.keys(cambios) as (keyof CambiosParaGuardar)[]).filter((campo) => cambios[campo] !== undefined);
     const asignaciones = campos.map((campo, posicion) => `${COLUMNA_POR_CAMPO[campo]} = $${posicion + 2}`);
     const resultado = await this.pool.query<FilaUsuario>(
       `UPDATE dashboard.usuarios SET ${asignaciones.join(', ')}, actualizado_en = now() WHERE id = $1 RETURNING ${COLUMNAS}`,
