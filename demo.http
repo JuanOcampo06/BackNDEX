@@ -277,7 +277,8 @@ Content-Type: application/json
 
 {
   "latitud": 4.6486,
-  "longitud": -74.0818
+  "longitud": -74.0818,
+  "tipoVehiculo": "bicicleta"
 }
 
 ### M16. Agregar un punto GPS al recorrido (cambia el 1 por el id del viaje)

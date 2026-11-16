@@ -35,6 +35,7 @@ import {
   ViajeConPuntos,
 } from '../../modules/trips';
 import { DomainErrorFilter } from '../domain-error.filter';
+import { IniciarViajeRequest } from '../dto/iniciar-viaje.request';
 import { UbicacionRequest } from '../dto/ubicacion.request';
 import { PuntoViajeResponse, ViajeDetalleResponse, ViajeResponse } from '../dto/viaje.response';
 
@@ -60,11 +61,11 @@ export class TripsController {
 
   @Post()
   @HttpCode(HttpStatus.CREATED)
-  @ApiOperation({ summary: 'Iniciar un viaje desde la ubicacion actual' })
+  @ApiOperation({ summary: 'Iniciar un viaje desde la ubicacion actual y con el vehiculo elegido' })
   @ApiCreatedResponse({ type: ViajeResponse })
-  @ApiBadRequestResponse({ description: 'Ubicacion invalida' })
+  @ApiBadRequestResponse({ description: 'Ubicacion o vehiculo invalidos' })
   @ApiConflictResponse({ description: 'Ya tienes un viaje en curso' })
-  iniciar(@UsuarioActual() usuarioId: number, @Body(validar) cuerpo: UbicacionRequest): Promise<Viaje> {
+  iniciar(@UsuarioActual() usuarioId: number, @Body(validar) cuerpo: IniciarViajeRequest): Promise<Viaje> {
     return this.iniciarViaje.execute({ usuarioId, ...cuerpo });
   }
 
@@ -98,7 +99,7 @@ export class TripsController {
   }
 
   @Patch(':id/finalizar')
-  @ApiOperation({ summary: 'Finalizar un viaje en curso y calcular los metros recorridos' })
+  @ApiOperation({ summary: 'Finalizar un viaje en curso y calcular los metros recorridos, lo que duro y los reportes que se enviaron' })
   @ApiOkResponse({ type: ViajeResponse })
   @ApiBadRequestResponse({ description: 'El viaje ya termino' })
   @ApiNotFoundResponse({ description: 'No existe un viaje mio con ese id' })

@@ -1,4 +1,4 @@
-import { NuevoViaje, PuntoViaje, Ubicacion, Viaje, ViajeConPuntos } from '../domain/viaje';
+import { NuevoViaje, PuntoViaje, ResultadoViaje, Ubicacion, Viaje, ViajeConPuntos } from '../domain/viaje';
 
 export const VIAJES_REPOSITORY = Symbol('VIAJES_REPOSITORY');
 
@@ -10,7 +10,9 @@ export interface ViajesRepositoryPort {
   iniciar(viaje: NuevoViaje): Promise<Viaje>;
   buscarPorId(id: number): Promise<ViajeConPuntos | null>;
   agregarPunto(viajeId: number, ubicacion: Ubicacion): Promise<PuntoViaje>;
-  finalizar(id: number, distanciaM: number): Promise<Viaje>;
+  finalizar(id: number, resultado: ResultadoViaje): Promise<Viaje>;
+  // Cuantos reportes envio el ciudadano entre las dos fechas ISO y los dos extremos cuentan
+  contarReportes(usuarioId: number, desde: string, hasta: string): Promise<number>;
   // Los viajes del ciudadano sin sus puntos y los mas recientes primero
   listar(usuarioId: number): Promise<Viaje[]>;
 }

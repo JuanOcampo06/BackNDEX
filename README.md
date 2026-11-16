@@ -256,7 +256,7 @@ Es **una sola base** (`safepath`) dividida en **tres esquemas** según quién us
 | Tabla | Qué guarda |
 |---|---|
 | `movil.usuarios` | Ciudadanos de la app (nombre, correo único, teléfono, `fecha_nacimiento`, `genero` y `contrasena_cifrada`). Son los autores de los reportes, activaciones y viajes: la base no deja borrar uno que tenga registros. La contraseña se guarda cifrada con scrypt y nunca en texto plano. **Vacía**: no hay ciudadanos de prueba, se crean con `POST /auth/register`. |
-| `movil.viajes` | Viajes en bicicleta del ciudadano: `estado` (`en_curso` o `finalizado`), `distancia_m` (metros recorridos, se calcula al finalizar) y fechas. Un índice único en la base garantiza **un solo viaje en curso por ciudadano**. |
+| `movil.viajes` | Viajes del ciudadano: `tipo_vehiculo` (`bicicleta`, `bicicleta_electrica`, `patineta_electrica`, `patineta` u `otro`), `estado` (`en_curso` o `finalizado`), fechas de inicio y de fin, y lo que se calcula al finalizar: `distancia_m` (metros recorridos), `duracion_s` (segundos que duró) y `cantidad_reportes` (reportes que el ciudadano envió durante el viaje). Un índice único en la base garantiza **un solo viaje en curso por ciudadano**. |
 | `movil.puntos_viaje` | Puntos GPS del recorrido de cada viaje; el primero es la salida. Se borran junto con su viaje. |
 
 **Cómo se ubica un evento de la app.** La app solo manda latitud y longitud. Al guardar, la base le asigna el **lugar conocido más cercano** (función `compartido.lugar_mas_cercano`), y ese lugar trae su localidad. Así el dashboard puede filtrar por localidad y agrupar el botón de pánico por ubicación.
@@ -445,9 +445,9 @@ Todos cuelgan de `http://localhost:3001/api/mobile/v1` y responden en `camelCase
 | `POST /sos` 🔒 | Activar el botón de pánico (nace `activa`) | Cuerpo: `tipoVehiculo`, `latitud`, `longitud` |
 | `GET /sos` 🔒 | Listar **mis** activaciones, las más recientes primero (máx. 100) | Opcional: `?estado=activa` |
 | `PATCH /sos/:id/cancelar` 🔒 | Cancelar una de mis activaciones que sigue activa | — |
-| `POST /trips` 🔒 | Iniciar un viaje desde la ubicación actual (201, nace `en_curso`) | Cuerpo: `latitud`, `longitud` |
+| `POST /trips` 🔒 | Iniciar un viaje desde la ubicación actual (201, nace `en_curso`) | Cuerpo: `latitud`, `longitud` y `tipoVehiculo` (`bicicleta`, `bicicleta_electrica`, `patineta_electrica`, `patineta` u `otro`) |
 | `POST /trips/:id/puntos` 🔒 | Agregar un punto GPS al recorrido de un viaje en curso (201) | Cuerpo: `latitud`, `longitud` |
-| `PATCH /trips/:id/finalizar` 🔒 | Cerrar el viaje y calcular los metros recorridos | — |
+| `PATCH /trips/:id/finalizar` 🔒 | Cerrar el viaje y calcular los metros recorridos, los segundos que duró y cuántos reportes envió el ciudadano mientras tanto | — |
 | `GET /trips` 🔒 | Listar **mis** viajes, los más recientes primero (máx. 100) | — |
 | `GET /trips/:id` 🔒 | Ver uno de mis viajes con todo su recorrido (`puntos`) | — |
 | `GET /ciclovias` | Ciclovías de la zona del mapa (ver sección 5) | `minLat`, `minLon`, `maxLat`, `maxLon` y `tipo` opcional |
