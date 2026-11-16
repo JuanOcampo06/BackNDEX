@@ -15,6 +15,7 @@ export { ObtenerSiniestrosPorHoraUseCase } from './application/obtener-siniestro
 export { ObtenerTendenciaMensualUseCase } from './application/obtener-tendencia-mensual.use-case';
 export { ObtenerSiniestrosPorSexoYEdadUseCase } from './application/obtener-siniestros-por-sexo-y-edad.use-case';
 export { ObtenerCreditosUseCase } from './application/obtener-creditos.use-case';
+export { ObtenerTopAlertasUseCase } from './application/obtener-top-alertas.use-case';
 export { ObtenerUltimoMesConDatosUseCase } from './application/obtener-ultimo-mes-con-datos.use-case';
 export { ObtenerUsuariosPorTipoUseCase } from './application/obtener-usuarios-por-tipo.use-case';
 export { ObtenerBotonPanicoUseCase } from './application/obtener-boton-panico.use-case';

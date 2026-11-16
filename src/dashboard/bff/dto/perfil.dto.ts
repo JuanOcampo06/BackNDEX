@@ -1,5 +1,5 @@
 import { ApiProperty, ApiPropertyOptional } from '@nestjs/swagger';
-import { IsEmail, IsNotEmpty, IsOptional, IsString, MaxLength, MinLength } from 'class-validator';
+import { IsEmail, IsNotEmpty, IsOptional, IsString, MaxLength } from 'class-validator';
 
 // Usa los mismos nombres que el user del login para que el frontend maneje una sola forma de usuario
 
@@ -56,9 +56,19 @@ export class ConfirmarRestablecimientoRequest {
   @IsNotEmpty()
   token!: string;
 
-  @ApiProperty({ example: 'nueva-clave-123', minLength: 8, maxLength: 72 })
+  @ApiProperty({ example: 'Nueva-clave1', minLength: 8, maxLength: 72, description: 'De 8 a 72 caracteres con al menos una mayúscula, una minúscula y un número. Se guarda cifrada' })
   @IsString()
-  @MinLength(8)
-  @MaxLength(72)
   password!: string;
+}
+
+// Cuerpo de PATCH /auth/me/contrasena
+export class CambiarContrasenaRequest {
+  @ApiProperty({ example: 'demo1234' })
+  @IsString()
+  @IsNotEmpty()
+  contrasena_actual!: string;
+
+  @ApiProperty({ example: 'Nueva-clave1', minLength: 8, maxLength: 72, description: 'De 8 a 72 caracteres con al menos una mayúscula, una minúscula y un número. Se guarda cifrada' })
+  @IsString()
+  contrasena_nueva!: string;
 }

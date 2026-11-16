@@ -14,11 +14,23 @@ export class PostgresUsuarioRepository implements UsuarioRepositoryPort, OnModul
     await this.pool.end();
   }
 
-  async buscarPorCorreo(correo: string): Promise<CuentaUsuario | null> {
+  buscarPorCorreo(correo: string): Promise<CuentaUsuario | null> {
+    return this.buscarUna('correo = $1', correo);
+  }
+
+  buscarPorId(usuarioId: number): Promise<CuentaUsuario | null> {
+    return this.buscarUna('id = $1', usuarioId);
+  }
+
+  async registrarIngreso(usuarioId: number): Promise<void> {
+    await this.pool.query('UPDATE dashboard.usuarios SET ultimo_ingreso = now() WHERE id = $1', [usuarioId]);
+  }
+
+  private async buscarUna(condicion: string, valor: string | number): Promise<CuentaUsuario | null> {
     const resultado = await this.pool.query<CuentaUsuario>(
-      `SELECT id, nombre_completo AS "nombreCompleto", correo, rol, contrasena_cifrada AS "contrasenaCifrada"
-       FROM dashboard.usuarios WHERE correo = $1`,
-      [correo],
+      `SELECT id, nombre_completo AS "nombreCompleto", correo, rol, entidad, contrasena_cifrada AS "contrasenaCifrada"
+       FROM dashboard.usuarios WHERE ${condicion}`,
+      [valor],
     );
     return resultado.rows[0] ?? null;
   }

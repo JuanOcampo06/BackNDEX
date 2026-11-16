@@ -14,6 +14,13 @@ services:
       JWT_SECRET: ${JWT_SECRET:?Falta JWT_SECRET en el archivo .env y se genera como dice el README}
       # Direccion del frontend del dashboard para el enlace de restablecer la contrasena
       DASHBOARD_URL: ${DASHBOARD_URL:-}
+      # Servidor de correo para el enlace de restablecer la contrasena y vacio lo deja en el registro de la api
+      SMTP_HOST: ${SMTP_HOST:-}
+      SMTP_PORT: ${SMTP_PORT:-587}
+      SMTP_SECURE: ${SMTP_SECURE:-false}
+      SMTP_USER: ${SMTP_USER:-}
+      SMTP_PASSWORD: ${SMTP_PASSWORD:-}
+      SMTP_FROM: ${SMTP_FROM:-}
     ports:
       - "${PORT:-3001}:${PORT:-3001}"
     # La api espera a que la base de datos este lista antes de arrancar

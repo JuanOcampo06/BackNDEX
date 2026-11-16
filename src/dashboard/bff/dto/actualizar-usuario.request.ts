@@ -1,5 +1,5 @@
 import { ApiPropertyOptional } from '@nestjs/swagger';
-import { IsEmail, IsIn, IsOptional, IsString, MaxLength, MinLength } from 'class-validator';
+import { IsEmail, IsIn, IsOptional, IsString, MaxLength } from 'class-validator';
 import { ROLES } from '../../modules/users';
 import type { Rol } from '../../modules/users';
 
@@ -27,15 +27,9 @@ export class ActualizarUsuarioRequest {
   @MaxLength(120)
   entidad?: string;
 
-  @ApiPropertyOptional({
-    example: 'clave-inicial-123',
-    minLength: 8,
-    maxLength: 72,
-    description: 'Contrasena para iniciar sesion y se guarda cifrada; sin ella el usuario no puede entrar hasta tener una',
-  })
+  // Las reglas de largo mayuscula minuscula y numero las revisa el dominio para responder un solo mensaje en espanol
+  @ApiPropertyOptional({ example: 'Clave-nueva1', minLength: 8, maxLength: 72, description: 'Asignar una contraseña nueva. De 8 a 72 caracteres con al menos una mayúscula, una minúscula y un número. Se guarda cifrada' })
   @IsOptional()
   @IsString()
-  @MinLength(8)
-  @MaxLength(72)
   contrasena?: string;
 }

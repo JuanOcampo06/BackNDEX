@@ -23,9 +23,9 @@ describe('Permisos del dashboard (e2e)', () => {
       .overrideProvider(TABLERO_REPOSITORY)
       .useValue(crearTableroFalso())
       .overrideProvider(USUARIOS_REPOSITORY)
-      .useValue(usuariosFalsos)
+      .useValue(usuariosFalsos.usuarios)
       .overrideProvider(USUARIO_REPOSITORY)
-      .useValue(usuariosFalsos)
+      .useValue(usuariosFalsos.cuentas)
       .compile();
     app = modulo.createNestApplication();
     app.setGlobalPrefix('api');

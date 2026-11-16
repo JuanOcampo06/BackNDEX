@@ -22,6 +22,7 @@ function crearRepositorioFalso(): TableroRepositoryPort {
     listarReportes: async () => [],
     contarFalsosPositivosPorMotivo: async () => [],
     contarFalsosPositivosPorMes: async () => [],
+    contarReportesPorSubcategoria: async () => [],
   };
 }
 

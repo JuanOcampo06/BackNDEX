@@ -17,16 +17,16 @@ let contrasenasGuardadas: Map<number, string>;
 function crearRepositorio(): UsuariosRepositoryPort {
   contrasenasGuardadas = new Map();
   const guardados: Usuario[] = [
-    { id: 1, nombreCompleto: 'Admin Demo', correo: 'admin@demo.local', rol: 'admin', entidad: null, creadoEn: FECHA, actualizadoEn: FECHA },
+    { id: 1, nombreCompleto: 'Admin Demo', correo: 'admin@demo.local', rol: 'admin', entidad: null, ultimoIngreso: null, creadoEn: FECHA, actualizadoEn: FECHA },
   ];
   return {
     listar: async () => guardados,
     buscarPorId: async (id) => guardados.find((u) => u.id === id) ?? null,
     existeCorreo: async (correo, idExcluido) => guardados.some((u) => u.correo === correo && u.id !== idExcluido),
     crear: async ({ contrasenaCifrada, ...nuevo }: UsuarioParaGuardar) => {
-      const usuario: Usuario = { id: guardados.length + 1, ...nuevo, creadoEn: FECHA, actualizadoEn: FECHA };
+      const usuario: Usuario = { id: guardados.length + 1, ...nuevo, ultimoIngreso: null, creadoEn: FECHA, actualizadoEn: FECHA };
       guardados.push(usuario);
-      if (contrasenaCifrada !== undefined) contrasenasGuardadas.set(usuario.id, contrasenaCifrada);
+      contrasenasGuardadas.set(usuario.id, contrasenaCifrada);
       return usuario;
     },
     actualizar: async (id, { contrasenaCifrada, ...cambios }: CambiosParaGuardar) => {
@@ -50,6 +50,7 @@ describe('CrearUsuarioUseCase', () => {
       nombreCompleto: '  Ana Lopez ',
       correo: 'Ana.Lopez@Demo.Local',
       rol: 'lector',
+      contrasena: 'Clave-segura1',
     });
 
     expect(usuario).toMatchObject({ id: 2, nombreCompleto: 'Ana Lopez', correo: 'ana.lopez@demo.local', rol: 'lector' });
@@ -57,13 +58,13 @@ describe('CrearUsuarioUseCase', () => {
 
   it('rechaza un rol que no existe', async () => {
     await expect(
-      new CrearUsuarioUseCase(crearRepositorio(), cifrador).execute({ nombreCompleto: 'Ana', correo: 'ana@demo.local', rol: 'jefe' }),
+      new CrearUsuarioUseCase(crearRepositorio(), cifrador).execute({ nombreCompleto: 'Ana', correo: 'ana@demo.local', rol: 'jefe', contrasena: 'Clave-segura1' }),
     ).rejects.toMatchObject({ codigo: 'USUARIO_INVALIDO' });
   });
 
   it('rechaza un correo que ya usa otro usuario aunque cambien las mayusculas', async () => {
     await expect(
-      new CrearUsuarioUseCase(crearRepositorio(), cifrador).execute({ nombreCompleto: 'Otro', correo: 'ADMIN@demo.local', rol: 'lector' }),
+      new CrearUsuarioUseCase(crearRepositorio(), cifrador).execute({ nombreCompleto: 'Otro', correo: 'ADMIN@demo.local', rol: 'lector', contrasena: 'Clave-segura1' }),
     ).rejects.toMatchObject({ codigo: 'CORREO_DUPLICADO' });
   });
 });
@@ -101,32 +102,39 @@ describe('Contrasena y entidad de los usuarios', () => {
       correo: 'ana@demo.local',
       rol: 'lector',
       entidad: '  Secretaria de Movilidad ',
-      contrasena: 'clave-segura',
+      contrasena: 'Clave-segura1',
     });
 
     expect(usuario).toMatchObject({ entidad: 'Secretaria de Movilidad' });
     expect(usuario).not.toHaveProperty('contrasena');
-    expect(contrasenasGuardadas.get(usuario.id)).toBe('cifrada:clave-segura');
+    expect(contrasenasGuardadas.get(usuario.id)).toBe('cifrada:Clave-segura1');
   });
 
-  it('sin contrasena crea el usuario pero sin guardarle ninguna', async () => {
-    const usuario = await new CrearUsuarioUseCase(crearRepositorio(), cifrador).execute({ nombreCompleto: 'Ana', correo: 'ana@demo.local', rol: 'lector' });
-
-    expect(usuario.entidad).toBeNull();
-    expect(contrasenasGuardadas.has(usuario.id)).toBe(false);
-  });
-
-  it('rechaza una contrasena de menos de 8 caracteres', async () => {
+  it('sin contrasena no crea el usuario', async () => {
     await expect(
-      new CrearUsuarioUseCase(crearRepositorio(), cifrador).execute({ nombreCompleto: 'Ana', correo: 'ana@demo.local', rol: 'lector', contrasena: 'corta' }),
-    ).rejects.toMatchObject({ codigo: 'USUARIO_INVALIDO' });
+      new CrearUsuarioUseCase(crearRepositorio(), cifrador).execute({ nombreCompleto: 'Ana', correo: 'ana@demo.local', rol: 'lector' }),
+    ).rejects.toMatchObject({ codigo: 'USUARIO_INVALIDO', message: expect.stringContaining('contraseña') });
+  });
+
+  it('rechaza contrasenas cortas o sin mayuscula minuscula o numero y acepta letras con tilde', async () => {
+    const crear = (contrasena: string) =>
+      new CrearUsuarioUseCase(crearRepositorio(), cifrador).execute({ nombreCompleto: 'Ana', correo: 'ana@demo.local', rol: 'lector', contrasena });
+
+    for (const mala of ['Corta1', 'abcdefgh', 'abcdefg1', 'ABCDEFG1', 'Abcdefgh', 'A'.repeat(70) + 'b12']) {
+      await expect(crear(mala)).rejects.toMatchObject({
+        codigo: 'USUARIO_INVALIDO',
+        message: 'La contraseña debe tener entre 8 y 72 caracteres, una mayúscula, una minúscula y un número',
+      });
+    }
+    await expect(crear('Abcdefg1')).resolves.toMatchObject({ correo: 'ana@demo.local' });
+    await expect(crear('ÑANDÚñandú9')).resolves.toMatchObject({ correo: 'ana@demo.local' });
   });
 
   it('al actualizar la contrasena la cifra y un texto vacio borra la entidad', async () => {
     const repositorio = crearRepositorio();
-    const usuario = await new ActualizarUsuarioUseCase(repositorio, cifrador).execute(1, { contrasena: 'nueva-clave', entidad: '' });
+    const usuario = await new ActualizarUsuarioUseCase(repositorio, cifrador).execute(1, { contrasena: 'Nueva-clave1', entidad: '' });
 
-    expect(contrasenasGuardadas.get(1)).toBe('cifrada:nueva-clave');
+    expect(contrasenasGuardadas.get(1)).toBe('cifrada:Nueva-clave1');
     expect(usuario.entidad).toBeNull();
   });
 });

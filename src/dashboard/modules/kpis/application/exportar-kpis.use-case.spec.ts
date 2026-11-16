@@ -14,6 +14,7 @@ import { ObtenerSiniestrosPorHoraUseCase } from './obtener-siniestros-por-hora.u
 import { ObtenerSiniestrosPorSexoYEdadUseCase } from './obtener-siniestros-por-sexo-y-edad.use-case';
 import { ObtenerTarjetaUseCase } from './obtener-tarjeta.use-case';
 import { ObtenerTendenciaMensualUseCase } from './obtener-tendencia-mensual.use-case';
+import { ObtenerTopAlertasUseCase } from './obtener-top-alertas.use-case';
 import { ObtenerUsuariosPorTipoUseCase } from './obtener-usuarios-por-tipo.use-case';
 import { TableroRepositoryPort } from './tablero.repository.port';
 
@@ -37,6 +38,10 @@ function crearTablero(): TableroRepositoryPort {
     ],
     contarFalsosPositivosPorMotivo: async () => [{ motivo: 'duplicado', total: 4 }],
     contarFalsosPositivosPorMes: async () => [{ mes: '2026-08', total: 4 }],
+    contarReportesPorSubcategoria: async () => [
+      { subcategoria: 'hueco', categoria: 'danos_en_la_via', total: 3 },
+      { subcategoria: 'robo', categoria: 'seguridad', total: 1 },
+    ],
   };
 }
 
@@ -56,6 +61,7 @@ function crearCasos(): CasosDeUsoKpi {
     falsosPositivos: new ObtenerFalsosPositivosUseCase(tablero),
     siniestrosDetallados: new ObtenerSiniestrosDetalladosUseCase(tablero),
     reportesDetallados: new ObtenerReportesDetalladosUseCase(tablero),
+    topAlertas: new ObtenerTopAlertasUseCase(tablero),
   };
 }
 

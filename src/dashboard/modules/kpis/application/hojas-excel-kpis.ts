@@ -15,6 +15,7 @@ import { ObtenerSiniestrosPorHoraUseCase } from './obtener-siniestros-por-hora.u
 import { ObtenerSiniestrosPorSexoYEdadUseCase } from './obtener-siniestros-por-sexo-y-edad.use-case';
 import { ObtenerTarjetaUseCase } from './obtener-tarjeta.use-case';
 import { ObtenerTendenciaMensualUseCase } from './obtener-tendencia-mensual.use-case';
+import { ObtenerTopAlertasUseCase } from './obtener-top-alertas.use-case';
 import { ObtenerUsuariosPorTipoUseCase } from './obtener-usuarios-por-tipo.use-case';
 import { Localidad } from './tablero.repository.port';
 
@@ -34,6 +35,7 @@ export interface CasosDeUsoKpi {
   falsosPositivos: ObtenerFalsosPositivosUseCase;
   siniestrosDetallados: ObtenerSiniestrosDetalladosUseCase;
   reportesDetallados: ObtenerReportesDetalladosUseCase;
+  topAlertas: ObtenerTopAlertasUseCase;
 }
 
 type ArmarSecciones = (casos: CasosDeUsoKpi, filtros: FiltrosTablero) => Promise<SeccionExcel[]>;
@@ -240,6 +242,21 @@ const DEFINICIONES_HOJA: Record<KpiExportable, DefinicionHoja> = {
             etiqueta(r.tipoVehiculo),
             NOMBRE_DE_FUENTE[FUENTE_REPORTES],
           ]),
+        },
+      ];
+    },
+  },
+
+  top_alertas: {
+    nombre: 'Top 5 alertas',
+    agregadas: async (casos, filtros) => {
+      const datos = await casos.topAlertas.execute(filtros);
+      return [
+        { titulo: 'Resumen', columnas: ['Dato', 'Valor'], filas: [['Total de alertas', datos.totalAlertas]] },
+        {
+          titulo: 'Top 5',
+          columnas: ['Posición', 'Subcategoría', 'Categoría', 'Total', 'Porcentaje (%)'],
+          filas: datos.top.map((a, i) => [i + 1, etiqueta(a.subcategoria), etiqueta(a.categoria), a.total, a.porcentaje]),
         },
       ];
     },

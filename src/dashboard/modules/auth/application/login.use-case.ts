@@ -16,6 +16,7 @@ export interface LoginResult {
     nombreCompleto: string;
     correo: string;
     rol: string;
+    entidad: string | null;
   };
 }
 
@@ -38,8 +39,9 @@ export class LoginUseCase {
     if (!valida) {
       throw new CredencialesInvalidasError();
     }
+    await this.usuarios.registrarIngreso(cuenta.id);
     const id = String(cuenta.id);
-    const { nombreCompleto, correo, rol } = cuenta;
-    return { token: this.tokens.emitir(id, rol), usuario: { id, nombreCompleto, correo, rol } };
+    const { nombreCompleto, correo, rol, entidad } = cuenta;
+    return { token: this.tokens.emitir(id, rol), usuario: { id, nombreCompleto, correo, rol, entidad } };
   }
 }

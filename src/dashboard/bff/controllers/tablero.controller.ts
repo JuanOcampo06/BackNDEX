@@ -1,4 +1,4 @@
-import { BadRequestException, Controller, Get, Query, UseGuards, ValidationPipe } from '@nestjs/common';
+import { BadRequestException, Controller, Get, Query, UseGuards } from '@nestjs/common';
 import {
   ApiBadRequestResponse,
   ApiBearerAuth,
@@ -23,15 +23,17 @@ import {
   ObtenerSiniestrosPorSexoYEdadUseCase,
   ObtenerTarjetaUseCase,
   ObtenerTendenciaMensualUseCase,
+  ObtenerTopAlertasUseCase,
   ObtenerUltimoMesConDatosUseCase,
   ObtenerUsuariosPorTipoUseCase,
   Periodo,
 } from '../../modules/kpis';
 import { TableroQuery } from '../dto/tablero.query';
 import { aSnakeCase } from '../snake-case';
+import { crearValidador } from '../validacion';
 
 // Convierte localidad_id a numero y rechaza parametros que no existen
-const validarFiltros = new ValidationPipe({ transform: true, whitelist: true, forbidNonWhitelisted: true });
+const validarFiltros = crearValidador();
 
 // Endpoints de solo lectura para cada tarjeta y grafica del tablero
 // todos cuelgan de /api/dashboard/v1/tablero y responden en snake_case
@@ -56,6 +58,7 @@ export class TableroController {
     private readonly obtenerFalsosPositivos: ObtenerFalsosPositivosUseCase,
     private readonly obtenerUltimoMesConDatos: ObtenerUltimoMesConDatosUseCase,
     private readonly obtenerCreditos: ObtenerCreditosUseCase,
+    private readonly obtenerTopAlertas: ObtenerTopAlertasUseCase,
   ) {}
 
   // Opciones de los selectores Localidad Vehiculo y Fuente
@@ -170,6 +173,16 @@ export class TableroController {
   @ApiOkResponse({ description: 'Responde total puntos y por_categoria' })
   async reportes(@Query(validarFiltros) consulta: TableroQuery): Promise<unknown> {
     return aSnakeCase(await this.obtenerReportes.execute(await this.aFiltros(consulta)));
+  }
+
+  @Get('top-alertas')
+  @ApiOperation({ summary: 'Las cinco subcategorias de alerta ciudadana mas reportadas' })
+  @ApiOkResponse({
+    description:
+      'Responde total_alertas y top con subcategoria categoria total y porcentaje sobre total_alertas (maximo 5 de mayor a menor y vacio si no hay alertas)',
+  })
+  async topAlertas(@Query(validarFiltros) consulta: TableroQuery): Promise<unknown> {
+    return aSnakeCase(await this.obtenerTopAlertas.execute(await this.aFiltros(consulta)));
   }
 
   @Get('falsos-positivos')

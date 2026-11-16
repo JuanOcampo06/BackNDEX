@@ -19,13 +19,13 @@ Toda carpeta vacía lleva un `.gitkeep` para que Git la conserve.
 ├── Dockerfile                         [CONFIG]          Imagen única multietapa, USER node y HEALTHCHECK.
 ├── docker-compose.yml                 [CONFIG]          Servicios api, postgres (con el anuario 2025) y adminer (puerto 8081); mongo, redis y rabbitmq comentados.
 ├── .dockerignore                      [CONFIG]          Lo que no entra a la imagen (node_modules, dist, .env...).
-├── .env.example                       [CONFIG]          Plantilla de variables (puertos, PostgreSQL, DATABASE_URL, CORS_ORIGIN, JWT_SECRET obligatorio y DASHBOARD_URL); se copia a .env.
+├── .env.example                       [CONFIG]          Plantilla de variables (puertos, PostgreSQL, DATABASE_URL, CORS_ORIGIN, JWT_SECRET obligatorio, DASHBOARD_URL y SMTP_* para el correo); se copia a .env.
 ├── .env                               [CONFIG]          Tu configuración local; no se versiona.
 ├── .gitignore                         [CONFIG]          Lo que Git ignora.
 ├── demo.http                          [CONFIG]          Peticiones de prueba: health, login y todos los endpoints del tablero.
 ├── infra/                             [IMPLEMENTADO]    Despliegue adicional.
 │   ├── postgres/                      [IMPLEMENTADO]    Scripts que PostgreSQL ejecuta al crear la base por primera vez.
-│   │   ├── 01-esquema.sql             [IMPLEMENTADO]    Esquemas compartido, dashboard y movil con sus tablas, restricciones e índices.
+│   │   ├── 01-esquema.sql             [IMPLEMENTADO]    Esquemas compartido, dashboard y movil con sus tablas, la vista compartido.viajes_ciudadanos, restricciones e índices.
 │   │   ├── 02-datos.sql               [IMPLEMENTADO]    Localidades, anuario de siniestralidad 2025 (lugares, siniestros y actores viales) y usuarios del dashboard; lo demás queda vacío.
 │   │   ├── 03-ciclovias.sql           [IMPLEMENTADO]    Crea compartido.ciclovias_fuente y compartido.ciclovias y carga el JSON; se puede volver a correr.
 │   │   └── datos/
@@ -53,7 +53,8 @@ Toda carpeta vacía lleva un `.gitkeep` para que Git la conserve.
     ├── shared/                        [IMPLEMENTADO]    Código común en TypeScript simple.
     │   ├── domain-error.ts            [IMPLEMENTADO]    Error base del negocio (codigo + mensaje).
     │   ├── coordenadas.ts             [IMPLEMENTADO]    Valida latitud y longitud (lo usan reports y sos).
-    │   └── tipos-vehiculo.ts          [IMPLEMENTADO]    Tipos de vehículo que piden reports y sos (los mismos del filtro del dashboard).
+    │   ├── tipos-vehiculo.ts          [IMPLEMENTADO]    Tipos de vehículo que piden reports, sos y trips (los mismos del filtro del dashboard).
+    │   └── reglas-contrasena.ts       [IMPLEMENTADO]    Reglas de contraseña del dashboard: 8 a 72 caracteres, mayúscula, minúscula y número.
     ├── platform/                      [IMPLEMENTADO]    Herramientas técnicas reutilizables (solo database tiene código).
     │   ├── auth/                      [IMPLEMENTADO]    JWT: jwt.ts (firma y verifica HS256 con JWT_SECRET y valida que el secreto sea seguro), contrasenas.ts (scrypt y tokens de un solo uso), jwt-auth.guard.ts y usuario-actual.decorator.ts de la app móvil, y dashboard-auth.guard.ts con @SoloRoles para el dashboard (401 y 403) (+ jwt.spec.ts y README.md).
     │   ├── tenancy/                   [VACÍO - FUTURO]  Multi-tenant, una BD por entidad (+ README.md).
@@ -80,7 +81,8 @@ Toda carpeta vacía lleva un `.gitkeep` para que Git la conserve.
     │   ├── bff/                       [IMPLEMENTADO]    Única puerta HTTP: /api/dashboard/v1 (snake_case).
     │   │   ├── dashboard-bff.module.ts [IMPLEMENTADO]   Registra el prefijo, los módulos y los controladores.
     │   │   ├── snake-case.ts          [IMPLEMENTADO]    Convierte las claves de las respuestas a snake_case.
-    │   │   ├── domain-error.filter.ts [IMPLEMENTADO]    Errores del negocio a 404 (_NO_ENCONTRADO), 409 (_DUPLICADO) o 400.
+    │   │   ├── domain-error.filter.ts [IMPLEMENTADO]    Errores del negocio a 401 (CREDENCIALES_INVALIDAS), 404 (_NO_ENCONTRADO), 409 (_DUPLICADO) o 400.
+    │   │   ├── validacion.ts          [IMPLEMENTADO]    ValidationPipe y validación del id que responden 400 en español con {codigo: DATOS_INVALIDOS, mensaje}.
     │   │   ├── controllers/
     │   │   │   ├── auth.controller.ts [IMPLEMENTADO]    POST auth/login: valida, llama al caso de uso, responde.
     │   │   │   ├── tablero.controller.ts [IMPLEMENTADO] GET tablero/...: un endpoint por tarjeta y gráfica.
@@ -96,7 +98,7 @@ Toda carpeta vacía lleva un `.gitkeep` para que Git la conserve.
     │   │       ├── listar-usuarios.query.ts [IMPLEMENTADO] rol opcional.
     │   │       └── usuario.response.ts [IMPLEMENTADO]   Forma del usuario (solo para Swagger).
     │   └── modules/                   [IMPLEMENTADO]    Negocio del dashboard, sin controladores.
-    │       ├── auth/                  [IMPLEMENTADO]    Login contra dashboard.usuarios y restablecer la contraseña.
+    │       ├── auth/                  [IMPLEMENTADO]    Login contra dashboard.usuarios (guarda el último ingreso), cambiar mi contraseña y restablecerla.
     │       │   ├── index.ts           [IMPLEMENTADO]    Lo único que el BFF puede importar del módulo.
     │       │   ├── auth.module.ts     [IMPLEMENTADO]    Conecta los puertos con PostgreSQL, scrypt, el emisor JWT y el notificador.
     │       │   ├── domain/
@@ -106,13 +108,16 @@ Toda carpeta vacía lleva un `.gitkeep` para que Git la conserve.
     │       │   ├── application/
     │       │   │   ├── login.use-case.ts       [IMPLEMENTADO] LoginUseCase.execute().
     │       │   │   ├── solicitar-restablecimiento.use-case.ts / confirmar-restablecimiento.use-case.ts [IMPLEMENTADO] Enlace de un solo uso que vence en una hora.
+    │       │   │   ├── cambiar-contrasena.use-case.ts [IMPLEMENTADO] PATCH auth/me/contrasena con la contraseña actual.
     │       │   │   ├── login.use-case.spec.ts  [IMPLEMENTADO] Pruebas del login y del restablecimiento con puertos falsos.
     │       │   │   └── *.port.ts               [IMPLEMENTADO] Puertos de usuarios, restablecimientos, cifrador, emisor de tokens y notificador.
     │       │   └── infrastructure/
     │       │       ├── postgres-usuario.repository.ts [IMPLEMENTADO] Lee la cuenta de dashboard.usuarios y cambia su contraseña.
     │       │       ├── postgres-restablecimientos.repository.ts [IMPLEMENTADO] Guarda el hash del token en dashboard.restablecimientos_contrasena.
     │       │       ├── scrypt-contrasena.cifrador.ts [IMPLEMENTADO] Cifra y compara con platform/auth.
-    │       │       ├── registro-notificador-restablecimiento.ts [IMPLEMENTADO] Escribe el enlace en el registro de la API (no hay servidor de correo todavía).
+    │       │       ├── correo-notificador-restablecimiento.ts [IMPLEMENTADO] Envía el enlace por correo con el servidor SMTP del .env (nodemailer).
+    │       │       ├── registro-notificador-restablecimiento.ts [IMPLEMENTADO] Sin SMTP_HOST escribe el enlace en el registro de la API.
+    │       │       ├── enlace-restablecimiento.ts [IMPLEMENTADO] Arma el enlace <DASHBOARD_URL>/restablecer-contrasena?token=....
     │       │       └── jwt-token.emisor.ts     [IMPLEMENTADO] Firma el JWT del dashboard con su audiencia y el rol.
     │       ├── users/                 [IMPLEMENTADO]    Usuarios del dashboard con rol admin o lector (tabla dashboard.usuarios).
     │       │   ├── index.ts / users.module.ts [IMPLEMENTADO] Puerta del módulo y conexión puerto-adaptador.
@@ -134,7 +139,7 @@ Toda carpeta vacía lleva un `.gitkeep` para que Git la conserve.
     │           │   └── calculos.ts    [IMPLEMENTADO]    Porcentajes, variación, franjas horarias y rangos de edad.
     │           ├── application/
     │           │   ├── tablero.repository.port.ts [IMPLEMENTADO] Puerto y token TABLERO_REPOSITORY.
-    │           │   ├── obtener-*.use-case.ts      [IMPLEMENTADO] 11 casos de uso, uno por tarjeta o gráfica, obtener-ultimo-mes-con-datos (mes final cuando no llegan meses) obtener-siniestros-detallados / obtener-reportes-detallados (registros con su localidad para el Excel) y obtener-creditos (GET tablero/creditos).
+    │           │   ├── obtener-*.use-case.ts      [IMPLEMENTADO] 11 casos de uso, uno por tarjeta o gráfica, obtener-ultimo-mes-con-datos (mes final cuando no llegan meses) obtener-siniestros-detallados / obtener-reportes-detallados (registros con su localidad para el Excel), obtener-creditos (GET tablero/creditos) y obtener-top-alertas (GET tablero/top-alertas).
     │           │   ├── exportar-kpis.use-case.ts  [IMPLEMENTADO] Arma el libro de Excel reutilizando esos casos de uso.
     │           │   ├── hojas-excel-kpis.ts        [IMPLEMENTADO] Cómo se convierte cada KPI en una hoja, las columnas de los filtros (separa por cada valor cuando un filtro trae varios) y la hoja de filtros.
     │           │   ├── generador-excel.port.ts    [IMPLEMENTADO] Puerto GENERADOR_EXCEL y la forma neutra del libro.

@@ -110,7 +110,7 @@ curl.exe -X POST http://localhost:3001/api/dashboard/v1/auth/login -H "Content-T
 Respuesta esperada:
 
 ```json
-{"access_token":"eyJhbGciOiJIUzI1NiIs...","user":{"id":"1","full_name":"Admin Demo","email":"admin@demo.local","role":"admin"}}
+{"access_token":"eyJhbGciOiJIUzI1NiIs...","user":{"id":"1","full_name":"Admin Demo","email":"admin@demo.local","role":"admin","entidad":"Secretaría Distrital de Movilidad"}}
 ```
 
 Con una contraseña errónea:
@@ -154,7 +154,9 @@ El login usa la tabla real `dashboard.usuarios` (contraseñas cifradas con scryp
 | Usuario (`lector`) | `lector@demo.local` | Solo ver el tablero, las ciclovías y su propio perfil |
 | Usuario (`lector`) | `carlos.perez@demo.local` | Igual que el anterior |
 
-Un usuario creado desde el tablero (`POST /usuarios`) puede entrar si se le da una `contrasena` al crearlo o editarlo, o si la restablece con el enlace (ver *Perfil y contraseña*).
+Un usuario creado desde el tablero (`POST /usuarios`) entra con la `contrasena` que se le puso al crearlo (es obligatoria). Las contraseñas que se crean o cambian deben tener de 8 a 72 caracteres con al menos una mayúscula, una minúscula y un número (las letras con tilde y la ñ cuentan); si no, `400` con `La contraseña debe tener entre 8 y 72 caracteres, una mayúscula, una minúscula y un número`. Los usuarios de prueba conservan `demo1234`, que es anterior a esa regla.
+
+**Errores de datos en español.** Todos los `400` del dashboard tienen la forma `{"codigo","mensaje"}`. Los de formato (campo que falta o sobra, correo mal escrito, mes inválido…) usan `codigo: DATOS_INVALIDOS`, por ejemplo `{"codigo":"DATOS_INVALIDOS","mensaje":"El campo telefono no existe"}`.
 
 **Permisos del dashboard.** El login devuelve un `access_token` (JWT firmado con `JWT_SECRET`, dura 7 días) que lleva el rol. Todos los endpoints del dashboard, menos el login, lo piden en la cabecera `Authorization: Bearer <access_token>`:
 
@@ -170,12 +172,23 @@ Cuelgan de `http://localhost:3001/api/dashboard/v1/auth` y usan los mismos nombr
 |---|---|---|---|
 | `GET /auth/me` | Sí (cualquier rol) | Ver el propio perfil | Responde `id`, `full_name`, `email`, `role`, `entidad` |
 | `PATCH /auth/me` | Sí (cualquier rol) | Editar el propio perfil (solo los campos que se envíen) | Cuerpo: cualquiera de `full_name`, `email`, `entidad` (texto vacío la borra). El rol no se puede cambiar aquí (`400`); un correo de otro usuario da `409` |
+| `PATCH /auth/me/contrasena` | Sí (cualquier rol) | Cambiar mi contraseña | Cuerpo: `contrasena_actual`, `contrasena_nueva`. `204` si quedó; `401` `CREDENCIALES_INVALIDAS` si la actual no coincide; `400` `CONTRASENA_INVALIDA` si la nueva no cumple las reglas |
 | `POST /auth/restablecer-contrasena/solicitar` | No | Pedir el enlace para restablecer la contraseña | Cuerpo: `email`. Siempre responde `202` con el mismo mensaje, exista o no el correo |
-| `POST /auth/restablecer-contrasena/confirmar` | No | Poner la contraseña nueva con el token del enlace | Cuerpo: `token`, `password` (8 a 72 caracteres). `204` si quedó; `400` `RESTABLECIMIENTO_INVALIDO` si el token no existe, ya se usó o venció |
+| `POST /auth/restablecer-contrasena/confirmar` | No | Poner la contraseña nueva con el token del enlace | Cuerpo: `token`, `password` (con las reglas de contraseña). `204` si quedó; `400` `RESTABLECIMIENTO_INVALIDO` si el token no existe, ya se usó o venció |
 
 El enlace dura **1 hora**, sirve **una sola vez** (y al usarlo se anulan los demás que haya pedido ese usuario), y en la base solo se guarda el hash del token. Tiene la forma `<DASHBOARD_URL>/restablecer-contrasena?token=...`: el frontend lee el `token` de la URL y lo manda a `/confirmar`.
 
-**Todavía no hay servidor de correo**: por ahora el enlace se escribe en el registro de la API (`docker compose logs api`, línea `Enlace para <correo> ...`). Para enviarlo por correo hay que crear otro adaptador del puerto `NotificadorRestablecimientoPort` (`src/dashboard/modules/auth/`) con los datos del servidor SMTP de la entidad y cambiarlo en `auth.module.ts`.
+**Envío del correo.** El enlace llega por correo cuando en `.env` se configura el servidor SMTP de la entidad:
+
+| Variable | Ejemplo | Qué es |
+|---|---|---|
+| `SMTP_HOST` | `smtp.office365.com` | Servidor de correo. **Sin él no se envía nada** y el enlace queda en el registro de la API (`docker compose logs api`, línea `Enlace para <correo> ...`), útil para trabajar en local |
+| `SMTP_PORT` | `587` | Puerto (587 con STARTTLS, 465 con SSL) |
+| `SMTP_SECURE` | `false` | `true` solo con el puerto 465 |
+| `SMTP_USER`, `SMTP_PASSWORD` | | Cuenta que envía (la contraseña va solo en `.env`) |
+| `SMTP_FROM` | `SafePath Twin <no-responder@entidad.gov.co>` | Remitente que ve el usuario |
+
+Si el servidor de correo falla, la API lo escribe en su registro pero igual responde `202`, para no revelar si el correo existe. Se probó de punta a punta con un servidor SMTP de prueba (Mailpit): el correo llegó y con su enlace se cambió la contraseña.
 
 ### Correr las pruebas
 
@@ -218,11 +231,11 @@ Es **una sola base** (`safepath`) dividida en **tres esquemas** según quién us
 
 ```
             APP MÓVIL                                   DASHBOARD
-  escribe reportes, activaciones y conteos     lee esas mismas tablas para sus gráficas
+  escribe reportes, activaciones y viajes      lee esas mismas tablas para sus gráficas
                │                                            │
                ▼                                            ▼
    ┌──────────────────────── compartido ────────────────────────┐
-   │ reportes  activaciones_panico  conteos_usuarios              │
+   │ reportes  activaciones_panico  viajes_ciudadanos (vista)     │
    │ subcategorias_reporte  localidades  lugares  ciclovias       │
    └─────────────────────────────────────────────────────────────┘
         movil (solo la app)                 dashboard (solo el tablero)
@@ -235,7 +248,7 @@ Es **una sola base** (`safepath`) dividida en **tres esquemas** según quién us
 |---|---|
 | `compartido.reportes` | **Tabla maestra** de reportes ciudadanos: la app los crea y el dashboard los lee. Autor (`usuario_id` → `movil.usuarios`), lugar, `categoria` principal y `subcategoria` (la base no acepta una subcategoría de otra categoría), descripción, coordenadas, `estado` (`recibido`, `en_revision`, `resuelto`, `descartado`) y fecha. Un reporte `descartado` es un **falso positivo** y siempre lleva su `motivo_falso_positivo`: la base no acepta uno sin el otro. |
 | `compartido.activaciones_panico` | **Tabla maestra** del botón de pánico: la app las crea y el dashboard las lee. Autor, lugar, coordenadas, `estado` (`activa`, `atendida`, `cancelada`) y fecha. |
-| `compartido.conteos_usuarios` | Usuarios de micromovilidad por día, localidad y tipo de vehículo: la app los cuenta y el dashboard los lee. **Vacía** hasta que la app empiece a contarlos. |
+| `compartido.viajes_ciudadanos` | **Vista** (no guarda datos) de los viajes reales de la app (`movil.viajes`) para el dashboard: ciudadano, `tipo_vehiculo`, fecha de inicio y la localidad del lugar más cercano al punto de salida. De aquí salen la tarjeta *Usuarios* y *Usuarios por tipo*. |
 | `compartido.subcategorias_reporte` | Catálogo de las categorías y subcategorías de reporte que muestra la app (tabla siguiente). |
 | `compartido.localidades` | Las 20 localidades de Bogotá del filtro *Localidad*. El `id` es el código oficial (1 Usaquén … 8 Kennedy … 20 Sumapaz). |
 | `compartido.lugares` | Las 8.608 direcciones del anuario, con su localidad y el punto medio de sus siniestros. Sirven para ubicar siniestros, reportes y activaciones. |
@@ -266,7 +279,7 @@ Cada producto lee y escribe con sus propios adaptadores (`infrastructure/`); nin
 Los scripts están en `infra/postgres/` y solo se ejecutan cuando el volumen está vacío:
 
 - **`01-esquema.sql`** crea los tres esquemas, sus tablas, restricciones e índices.
-- **`02-datos.sql`** carga las 20 localidades y el **Anuario de Siniestralidad Vial 2025** desde `datos/anuario-siniestros.csv` y `datos/anuario-actores-viales.csv`, y crea los 3 usuarios del dashboard (los únicos datos de prueba, para el login). No hay datos inventados: **reportes, botón de pánico, falsos positivos, conteos de usuarios y ciudadanos de la app quedan en cero** hasta que existan datos reales.
+- **`02-datos.sql`** carga las 20 localidades y el **Anuario de Siniestralidad Vial 2025** desde `datos/anuario-siniestros.csv` y `datos/anuario-actores-viales.csv`, y crea los 3 usuarios del dashboard (los únicos datos de prueba, para el login). No hay datos inventados: **reportes, botón de pánico, falsos positivos, viajes (usuarios de micromovilidad) y ciudadanos de la app quedan en cero** hasta que existan datos reales.
 
 **Datos del anuario.** Los dos CSV son las columnas que usa la base, copiadas tal cual del Excel del anuario (hojas *Siniestros* y *Actor vial*); `02-datos.sql` hace la conversión:
 
@@ -320,7 +333,7 @@ Un filtro mal escrito responde `400` con el motivo, y basta con que **uno** de l
 
 | Parte del mockup | Endpoint | Qué devuelve |
 |---|---|---|
-| Selectores de filtros | `/filtros` | `localidades` (`id`, `nombre`), `tipos_vehiculo`, `fuentes` y `primer_mes` / `ultimo_mes` (`AAAA-MM`, el rango con datos de todas las fuentes; `null` si no hay datos) |
+| Selectores de filtros | `/filtros` | `localidades` (`id`, `nombre`), `tipos_vehiculo`, `fuentes`, `primer_mes` / `ultimo_mes` (`AAAA-MM`, el rango con datos de todas las fuentes) y `periodos` con ese mismo rango por fuente: `{"anuario":{"primer_mes","ultimo_mes"},"app":{...}}` (`null` si una fuente no tiene datos) |
 | Tarjeta Siniestros | `/tarjetas/siniestros` | `valor`, `valor_periodo_anterior`, `variacion_porcentual`, `serie_semanal` (para la minigráfica) |
 | Tarjeta Usuarios de micromovilidad | `/tarjetas/usuarios` | igual que la anterior |
 | Tarjeta Reportes | `/tarjetas/reportes` | igual que la anterior |
@@ -329,9 +342,10 @@ Un filtro mal escrito responde `400` con el motivo, y basta con que **uno** de l
 | Mapa de siniestros | `/mapa-siniestros` | `siniestros` (puntos con `gravedad`, `clase`, `tipo_vehiculo`, `ocurrido_en`). Las ciclovías del mapa salen de `/api/dashboard/v1/ciclovias` (ver sección 5). |
 | Lugares con más siniestros | `/lugares-con-mas-siniestros` | Top 5: `posicion`, `lugar`, `localidad`, `franja_pico`, `total` |
 | Siniestros por hora del día | `/siniestros-por-hora` | 24 barras: `hora`, `franja`, `total` |
-| Tendencia mensual | `/tendencia-mensual` | `anio_actual`, `anio_anterior`, `meses_filtrados` y 12 `meses` con `total_anio_actual` y `total_anio_anterior` (`null` si el mes aún no tiene datos) |
+| Tendencia mensual | `/tendencia-mensual` | `anio_actual`, `anio_anterior`, `meses_filtrados` y 12 `meses` y `serie` con un `{mes, total}` por **cada mes del rango pedido** aunque abarque varios años (en `0` los meses sin datos), además de los 12 `meses` con `total_anio_actual` y `total_anio_anterior` (`null` si el mes aún no tiene datos) |
 | Siniestros por sexo y edad | `/siniestros-por-sexo-y-edad` | `total_mujer`, `total_hombre` y `rangos` (`0-17` … `60+`) con `mujer` y `hombre` |
-| Usuarios por tipo | `/usuarios-por-tipo` | `total` y `tipos` (`tipo_vehiculo`, `total`) |
+| Usuarios por tipo | `/usuarios-por-tipo` | `total` y `tipos` (`tipo_vehiculo`, `total`). Cuenta los **ciudadanos distintos que hicieron al menos un viaje en la app** con ese vehículo en el periodo (si alguien usó dos vehículos cuenta en cada uno). La tarjeta *Usuarios* (`/tarjetas/usuarios`) usa el mismo conteo, así que su `valor` es igual a este `total`. |
+| Top 5 alertas | `/top-alertas` | `total_alertas` (todas las del periodo y filtros) y `top`: hasta 5 `{subcategoria, categoria, total, porcentaje}` de mayor a menor (`porcentaje` sobre `total_alertas`, 1 decimal). Sin alertas: `total_alertas: 0` y `top: []` |
 | Botón de pánico | `/boton-panico` | `total`, `lugares` (círculos del mapa con coordenadas y `total`) y `top_ubicaciones` (las 5 primeras) |
 | Reportes | `/reportes` | `total`, `puntos` (mapa) y `por_categoria` |
 | Falsos positivos | `/falsos-positivos` | `total`, `porcentaje_de_reportes`, `por_motivo` (`motivo`, `total`, `porcentaje`) y `evolucion_mensual` (12 meses) |
@@ -359,6 +373,7 @@ El parámetro `kpis` es obligatorio y se puede mandar repetido (`?kpis=a&kpis=b`
 | `tendencia_mensual` | Tendencia mensual | Los 12 meses del año actual contra el anterior |
 | `siniestros_por_sexo_y_edad` | Siniestros por sexo y edad | Totales y por rango de edad |
 | `usuarios_por_tipo` | Usuarios por tipo | Total y por tipo de vehículo |
+| `top_alertas` | Top 5 alertas | Total de alertas y las 5 subcategorías más reportadas (posición, subcategoría, categoría, total y porcentaje) |
 | `boton_panico` | Botón de pánico | Total y activaciones por lugar |
 | `reportes` | Reportes | Total, por categoría y cada reporte del mapa |
 | `falsos_positivos` | Falsos positivos | Total, por motivo y evolución mensual |
@@ -385,9 +400,9 @@ Cuelgan de `http://localhost:3001/api/dashboard/v1/usuarios` y responden en `sna
 
 | Método y ruta | Para qué | Datos que recibe |
 |---|---|---|
-| `GET /usuarios` | Listar usuarios | Opcional: `?rol=admin` o `?rol=lector` |
+| `GET /usuarios` | Listar usuarios (cada uno con `entidad` y `ultimo_ingreso`, la fecha de su último inicio de sesión o `null`) | Opcional: `?rol=admin` o `?rol=lector` |
 | `GET /usuarios/:id` | Ver un usuario | — |
-| `POST /usuarios` | Crear un usuario (`201`) | Cuerpo: `nombre_completo`, `correo`, `rol` y opcionales `entidad` y `contrasena` (8 a 72; sin ella el usuario no puede entrar todavía) |
+| `POST /usuarios` | Crear un usuario (`201`) | Cuerpo: `nombre_completo`, `correo`, `rol`, `contrasena` (obligatoria, con las reglas de contraseña) y opcional `entidad` |
 | `PATCH /usuarios/:id` | Editar nombre, correo, rol, entidad o asignar una contraseña (solo los campos que se envíen) | Cuerpo: cualquiera de `nombre_completo`, `correo`, `rol`, `entidad`, `contrasena` |
 | `DELETE /usuarios/:id` | Eliminar un usuario (`204`, sin cuerpo) | — |
 
@@ -560,7 +575,7 @@ Por eso el dashboard responde en `snake_case` y el móvil en `camelCase`, sin af
 
 | Pendiente | Dónde va |
 |---|---|
-| Enviar por correo el enlace de restablecer la contraseña (hoy se escribe en el registro de la API) | Adaptador nuevo de `NotificadorRestablecimientoPort` en `src/dashboard/modules/auth/infrastructure/` |
+| Configurar el servidor SMTP real de la entidad (el envío ya está hecho; falta poner sus datos en `.env`) | `.env` (`SMTP_*`) |
 | Multi-tenant (una base de datos por entidad) | `src/platform/tenancy/` |
 | MongoDB y PostgreSQL para el resto de módulos (el tablero ya usa PostgreSQL) | `src/platform/database/` + `infrastructure/` de cada módulo |
 | Eventos con RabbitMQ (por ejemplo, reportes del móvil hacia el dashboard) | `src/platform/messaging/` |

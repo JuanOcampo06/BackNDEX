@@ -138,16 +138,21 @@ CREATE TABLE compartido.activaciones_panico (
   activado_en timestamptz NOT NULL DEFAULT now()
 );
 
--- Conteo diario de usuarios de micromovilidad por localidad y tipo de vehiculo
--- la app movil lo llena y el dashboard lo lee por eso vive en compartido
--- queda vacia hasta que la app movil empiece a contar usuarios
-CREATE TABLE compartido.conteos_usuarios (
-  id serial PRIMARY KEY,
-  fecha date NOT NULL,
-  localidad_id int NOT NULL REFERENCES compartido.localidades (id),
-  tipo_vehiculo text NOT NULL CHECK (tipo_vehiculo IN ('bicicleta', 'bicicleta_electrica', 'patineta_electrica', 'patineta', 'otro')),
-  cantidad int NOT NULL CHECK (cantidad >= 0)
-);
+-- Viajes reales de la app vistos desde el dashboard para contar los usuarios de micromovilidad
+-- es una vista y no una tabla porque los datos ya estan en movil.viajes y asi nunca se desincronizan
+-- la localidad es la del lugar conocido mas cercano al punto de salida del viaje igual que en los reportes
+CREATE VIEW compartido.viajes_ciudadanos AS
+SELECT
+  v.id AS viaje_id,
+  v.usuario_id,
+  v.tipo_vehiculo,
+  v.iniciado_en,
+  l.localidad_id
+FROM movil.viajes v
+LEFT JOIN LATERAL (
+  SELECT p.latitud, p.longitud FROM movil.puntos_viaje p WHERE p.viaje_id = v.id ORDER BY p.registrado_en, p.id LIMIT 1
+) salida ON true
+LEFT JOIN compartido.lugares l ON l.id = compartido.lugar_mas_cercano(salida.latitud, salida.longitud);
 
 -- ============================== dashboard ==============================
 
@@ -188,6 +193,8 @@ CREATE TABLE dashboard.usuarios (
   rol text NOT NULL DEFAULT 'lector' CHECK (rol IN ('admin', 'lector')),
   entidad text CHECK (char_length(entidad) BETWEEN 1 AND 120),
   contrasena_cifrada text,
+  -- Se actualiza en cada inicio de sesion y es null si nunca ha entrado
+  ultimo_ingreso timestamptz,
   creado_en timestamptz NOT NULL DEFAULT now(),
   actualizado_en timestamptz NOT NULL DEFAULT now()
 );
@@ -209,7 +216,7 @@ CREATE TABLE dashboard.restablecimientos_contrasena (
 CREATE INDEX reportes_creado_en_idx ON compartido.reportes (creado_en);
 CREATE INDEX activaciones_panico_activado_en_idx ON compartido.activaciones_panico (activado_en);
 CREATE INDEX siniestros_ocurrido_en_idx ON dashboard.siniestros (ocurrido_en);
-CREATE INDEX conteos_usuarios_fecha_idx ON compartido.conteos_usuarios (fecha);
+CREATE INDEX viajes_iniciado_en_idx ON movil.viajes (iniciado_en);
 
 -- Por siniestro porque la grafica de sexo y edad une cada siniestro con sus personas
 CREATE INDEX actores_viales_siniestro_id_idx ON dashboard.actores_viales (siniestro_id);

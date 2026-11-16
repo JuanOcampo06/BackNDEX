@@ -24,19 +24,26 @@ export function crearTableroFalso(): TableroRepositoryPort {
     listarReportes: async () => [],
     contarFalsosPositivosPorMotivo: async () => [],
     contarFalsosPositivosPorMes: async () => [],
+    contarReportesPorSubcategoria: async () => [],
   };
 }
 
 type Fila = Usuario & { contrasenaCifrada: string | null };
 
-// Una sola tabla de usuarios en memoria que sirve a la vez al modulo users y al login
+export interface TablaDeUsuariosFalsa {
+  usuarios: UsuariosRepositoryPort;
+  cuentas: UsuarioRepositoryPort;
+}
+
+// Una sola tabla de usuarios en memoria que comparten el modulo users y el login
 // asi se prueba que un usuario creado desde el tablero puede iniciar sesion
-export async function crearTablaDeUsuariosFalsa(): Promise<UsuariosRepositoryPort & UsuarioRepositoryPort> {
+export async function crearTablaDeUsuariosFalsa(): Promise<TablaDeUsuariosFalsa> {
   const FECHA = '2026-11-01T00:00:00.000Z';
   const clave = await cifrarContrasena('demo1234');
+  const base = { ultimoIngreso: null, creadoEn: FECHA, actualizadoEn: FECHA, contrasenaCifrada: clave };
   const filas: Fila[] = [
-    { id: 1, nombreCompleto: 'Admin Demo', correo: 'admin@demo.local', rol: 'admin', entidad: 'Secretaría Distrital de Movilidad', creadoEn: FECHA, actualizadoEn: FECHA, contrasenaCifrada: clave },
-    { id: 2, nombreCompleto: 'Lector Demo', correo: 'lector@demo.local', rol: 'lector', entidad: null, creadoEn: FECHA, actualizadoEn: FECHA, contrasenaCifrada: clave },
+    { ...base, id: 1, nombreCompleto: 'Admin Demo', correo: 'admin@demo.local', rol: 'admin', entidad: 'Secretaría Distrital de Movilidad' },
+    { ...base, id: 2, nombreCompleto: 'Lector Demo', correo: 'lector@demo.local', rol: 'lector', entidad: null },
   ];
   const sinClave = (fila: Fila): Usuario => ({
     id: fila.id,
@@ -44,18 +51,21 @@ export async function crearTablaDeUsuariosFalsa(): Promise<UsuariosRepositoryPor
     correo: fila.correo,
     rol: fila.rol,
     entidad: fila.entidad,
+    ultimoIngreso: fila.ultimoIngreso,
     creadoEn: fila.creadoEn,
     actualizadoEn: fila.actualizadoEn,
   });
-  return {
+  const aCuenta = (fila: Fila | undefined): CuentaUsuario | null =>
+    fila ? { id: fila.id, nombreCompleto: fila.nombreCompleto, correo: fila.correo, rol: fila.rol, entidad: fila.entidad, contrasenaCifrada: fila.contrasenaCifrada } : null;
+  const usuarios: UsuariosRepositoryPort = {
     listar: async () => filas.map(sinClave),
     buscarPorId: async (id) => {
       const fila = filas.find((f) => f.id === id);
       return fila ? sinClave(fila) : null;
     },
     existeCorreo: async (correo, idExcluido) => filas.some((f) => f.correo === correo && f.id !== idExcluido),
-    crear: async ({ contrasenaCifrada, ...nuevo }: UsuarioParaGuardar) => {
-      const fila: Fila = { ...nuevo, id: filas.length + 1, creadoEn: FECHA, actualizadoEn: FECHA, contrasenaCifrada: contrasenaCifrada ?? null };
+    crear: async (nuevo: UsuarioParaGuardar) => {
+      const fila: Fila = { ...nuevo, id: filas.length + 1, ultimoIngreso: null, creadoEn: FECHA, actualizadoEn: FECHA };
       filas.push(fila);
       return sinClave(fila);
     },
@@ -70,14 +80,18 @@ export async function crearTablaDeUsuariosFalsa(): Promise<UsuariosRepositoryPor
       filas.splice(posicion, 1);
       return true;
     },
-    buscarPorCorreo: async (correo): Promise<CuentaUsuario | null> => {
-      const fila = filas.find((f) => f.correo === correo);
-      return fila ? { id: fila.id, nombreCompleto: fila.nombreCompleto, correo: fila.correo, rol: fila.rol, contrasenaCifrada: fila.contrasenaCifrada } : null;
-    },
+  };
+  const cuentas: UsuarioRepositoryPort = {
+    buscarPorCorreo: async (correo) => aCuenta(filas.find((f) => f.correo === correo)),
+    buscarPorId: async (id) => aCuenta(filas.find((f) => f.id === id)),
     cambiarContrasena: async (id, contrasenaCifrada) => {
       (filas.find((f) => f.id === id) as Fila).contrasenaCifrada = contrasenaCifrada;
     },
+    registrarIngreso: async (id) => {
+      (filas.find((f) => f.id === id) as Fila).ultimoIngreso = new Date().toISOString();
+    },
   };
+  return { usuarios, cuentas };
 }
 
 // Enlaces de restablecimiento en memoria que vencen y sirven una vez
