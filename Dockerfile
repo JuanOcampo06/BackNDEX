@@ -1,17 +1,17 @@
 # Una sola imagen para todo el backend (dashboard y mobile viajan juntos).
 
 # Etapa 1: compila TypeScript a dist/.
-FROM node:22-alpine AS build
+FROM node:26-alpine AS build
 WORKDIR /app
 COPY package.json package-lock.json ./
-# npm 11, igual que en local: el npm 10 de la imagen rechaza los lockfiles generados con npm 11.
-RUN npm install -g npm@11 && npm ci
+# Node 26 LTS ya trae npm 11 que acepta el lockfile asi que no hace falta instalar otro npm
+RUN npm ci
 COPY tsconfig.json tsconfig.build.json nest-cli.json ./
 COPY src ./src
 RUN npm run build && npm prune --omit=dev
 
 # Etapa 2: solo dist/ y dependencias de producción, sin herramientas de compilación.
-FROM node:22-alpine AS runtime
+FROM node:26-alpine AS runtime
 ENV NODE_ENV=production
 WORKDIR /app
 COPY --from=build /app/package.json ./

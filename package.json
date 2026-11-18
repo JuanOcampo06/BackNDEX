@@ -5,7 +5,7 @@
   "description": "Backend Safe Path Twin: dashboard institucional y app movil (hexagonal + BFF)",
   "license": "MIT",
   "engines": {
-    "node": ">=22"
+    "node": ">=26"
   },
   "scripts": {
     "build": "nest build",

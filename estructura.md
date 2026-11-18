@@ -16,7 +16,7 @@ Toda carpeta vacía lleva un `.gitkeep` para que Git la conserve.
 ├── tsconfig.build.json                [CONFIG]          Compilación de src/ a dist/ (sin pruebas).
 ├── nest-cli.json                      [CONFIG]          Configuración del CLI de NestJS.
 ├── eslint.config.mjs                  [CONFIG]          Lint + eslint-plugin-boundaries con las reglas de dependencia.
-├── Dockerfile                         [CONFIG]          Imagen única multietapa, USER node y HEALTHCHECK.
+├── Dockerfile                         [CONFIG]          Imagen única multietapa con Node 26 LTS (node:26-alpine), USER node y HEALTHCHECK.
 ├── docker-compose.yml                 [CONFIG]          Servicios api, postgres (con el anuario 2025) y adminer (puerto 8081); mongo, redis y rabbitmq comentados.
 ├── .dockerignore                      [CONFIG]          Lo que no entra a la imagen (node_modules, dist, .env...).
 ├── .env.example                       [CONFIG]          Plantilla de variables (puertos, PostgreSQL, DATABASE_URL, CORS_ORIGIN, JWT_SECRET obligatorio, DASHBOARD_URL y SMTP_* para el correo); se copia a .env.

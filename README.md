@@ -21,7 +21,7 @@ Ambos viajan en la misma aplicación y en la misma imagen Docker, pero no se imp
 |---|---|---|---|
 | Git | Clonar el repositorio | `git --version` | https://git-scm.com/downloads |
 | Docker con Docker Compose | Opción A (no necesitas Node) | `docker --version` y `docker compose version` | https://www.docker.com/products/docker-desktop/ |
-| Node.js 22 o superior (trae npm) | Opción B y las pruebas | `node -v` (debe decir `v22` o más) y `npm -v` | https://nodejs.org/ |
+| Node.js 26 LTS o superior (trae npm) | Opción B y las pruebas | `node -v` (debe decir `v26` o más) y `npm -v` | https://nodejs.org/ |
 
 Necesitas **Git** y al menos **una** de las otras dos opciones.
 
@@ -204,7 +204,7 @@ npm run test
 |---|---|
 | `EADDRINUSE` o "port is already allocated" (puerto 3001 ocupado) | Cambia `PORT` en `.env` (por ejemplo `PORT=3002`), vuelve a arrancar y usa ese puerto en los `curl`. |
 | `Cannot connect to the Docker daemon` o `failed to connect to the docker API` | Docker no está corriendo: abre Docker Desktop y espera a que inicie. |
-| `npm install` avisa `EBADENGINE` o la app no arranca | Node es muy viejo: `node -v` debe ser `v22` o más. Instala la versión LTS. |
+| `npm install` avisa `EBADENGINE` o la app no arranca | Node es muy viejo: `node -v` debe ser `v26` o más. Instala la versión LTS (26). |
 | Cambiaste `PORT` pero la API sigue en el 3001 | Falta `.env` (o editaste `.env.example`): créalo con `cp .env.example .env` (o `copy` en Windows) y cambia el puerto ahí. |
 | Cambiaste código y en Docker no se ve | Reconstruye la imagen: `docker compose up -d --build`. |
 | "port is already allocated" en el `5432` o el `8081` | Ya tienes otro PostgreSQL o servicio en ese puerto: cambia `POSTGRES_PORT` o `ADMINER_PORT` en `.env` (y el puerto de `DATABASE_URL` si corres la API sin Docker). |

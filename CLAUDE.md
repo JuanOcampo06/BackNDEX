@@ -70,7 +70,7 @@ README.md                      qué es, cómo probarlo, hoja de ruta
 El proyecto corre en Docker, pero **solo la API**: la demo no usa bases de datos.
 
 - Una sola imagen para todo el backend (dashboard y mobile viajan juntos). Nunca una imagen por producto.
-- `Dockerfile` multietapa: compila con `node:22-alpine` y ejecuta solo `dist/` y dependencias de producción, con `USER node`, `HEALTHCHECK` a `/api/health` y sin la etiqueta `latest`.
+- `Dockerfile` multietapa: compila con `node:26-alpine` (Node 26 LTS) y ejecuta solo `dist/` y dependencias de producción, con `USER node`, `HEALTHCHECK` a `/api/health` y sin la etiqueta `latest`.
 - `docker-compose.yml` con un único servicio `api`. Los servicios `postgres`, `mongo`, `redis` y `rabbitmq` quedan **comentados** como referencia para el futuro; no se activan hasta que existan sus adaptadores.
 - Secretos y configuración por variables de entorno (`.env`, nunca versionado; se versiona `.env.example`). Nada de secretos dentro de la imagen.
 - La demo se puede correr de dos formas: local (`npm run start:dev`) o en Docker (`docker compose up -d --build`).
