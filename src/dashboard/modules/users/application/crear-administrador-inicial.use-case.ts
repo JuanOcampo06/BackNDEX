@@ -34,15 +34,17 @@ export class CrearAdministradorInicialUseCase {
     if (correo === undefined || contrasena === undefined) {
       throw new UsuarioInvalidoError('Para crear el administrador inicial se necesitan el correo y la contraseña');
     }
-    if ((await this.usuarios.listar({ rol: ROL_ADMINISTRADOR })).length > 0) {
-      return 'ya-existe';
-    }
+    // Se valida antes de mirar la base para que un correo o una contrasena invalidos en el entorno siempre detengan la api
+    // aunque ya exista un administrador y asi nunca queden datos debiles guardados sin que nadie se entere
     const { contrasena: clave, ...nuevo } = crearNuevoUsuario({
       nombreCompleto: NOMBRE_ADMINISTRADOR_INICIAL,
       correo,
       rol: ROL_ADMINISTRADOR,
       contrasena,
     });
+    if ((await this.usuarios.listar({ rol: ROL_ADMINISTRADOR })).length > 0) {
+      return 'ya-existe';
+    }
     if (await this.usuarios.existeCorreo(nuevo.correo)) {
       throw new CorreoDuplicadoError(nuevo.correo);
     }

@@ -40,7 +40,7 @@ Toda carpeta vacía lleva un `.gitkeep` para que Git la conserve.
 │   ├── cambio-contrasena-obligatorio.e2e-spec.ts [IMPLEMENTADO] Cambio de contraseña obligatorio (403 hasta cambiarla) y administrador inicial desde ADMIN_CORREO y ADMIN_CONTRASENA.
 │   ├── entorno-pruebas.ts             [IMPLEMENTADO]    Pone un JWT_SECRET válido para todas las pruebas.
 │   ├── dashboard-roles.e2e-spec.ts    [IMPLEMENTADO]    Permisos del dashboard: sin token, token inválido o vencido (401), rol Usuario (403) y Administrador (200); usuario eliminado (401) y rol quitado (403) con el token aún vigente.
-│   ├── limite-intentos.e2e-spec.ts    [IMPLEMENTADO]    Límite de intentos por IP en el login del dashboard y en el registro y login del móvil (429).
+│   ├── limite-intentos.e2e-spec.ts    [IMPLEMENTADO]    Límite de intentos por IP en los login, el registro del móvil y los endpoints con códigos del correo (429).
 │   ├── token-dashboard.ts             [IMPLEMENTADO]    Ayuda de las pruebas: arma el token del dashboard con su rol y el id de un usuario de la tabla falsa con ese rol.
 │   ├── mobile.e2e-spec.ts             [IMPLEMENTADO]    Reportes del móvil por HTTP con un repositorio falso y token (201, 400, 401, 404).
 │   ├── auth-viajes-movil.e2e-spec.ts  [IMPLEMENTADO]    Registro, login y viajes del móvil por HTTP con repositorios falsos (201, 400, 401, 404, 409).

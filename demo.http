@@ -242,10 +242,10 @@ Content-Type: application/json
 {
   "nombreCompleto": "Ana Lopez",
   "correo": "ana@demo.local",
-  "telefono": "3001234567",
-  "contrasena": "demo1234",
+  "contrasena": "Contrasena-segura1",
   "fechaNacimiento": "1995-04-23",
-  "genero": "femenino"
+  "genero": "femenino",
+  "aceptaTerminos": true
 }
 
 ### M2. Iniciar sesion (200) y guardar el token
@@ -255,7 +255,7 @@ Content-Type: application/json
 
 {
   "correo": "ana@demo.local",
-  "contrasena": "demo1234"
+  "contrasena": "Contrasena-segura1"
 }
 
 @token = {{loginMovil.response.body.accessToken}}

@@ -55,10 +55,14 @@ services:
       - postgres-data:/var/lib/postgresql/data
       # Los scripts de esta carpeta crean las tablas y cargan los datos solo la primera vez
       - ./infra/postgres:/docker-entrypoint-initdb.d:ro
+    # Se revisa por TCP porque la primera vez postgres carga los scripts con un servidor temporal que solo escucha por socket
+    # y sin el -h la api arrancaba antes de tiempo y no podia crear el administrador inicial
+    # start_period da tiempo a cargar el anuario la primera vez sin contar esos minutos como fallas
     healthcheck:
-      test: ["CMD-SHELL", "pg_isready -U $${POSTGRES_USER} -d $${POSTGRES_DB}"]
+      test: ["CMD-SHELL", "pg_isready -h 127.0.0.1 -U $${POSTGRES_USER} -d $${POSTGRES_DB}"]
       interval: 5s
       timeout: 3s
+      start_period: 120s
       retries: 10
     restart: unless-stopped
 

@@ -154,6 +154,9 @@ export class AuthController {
     });
   }
 
+  // Mismo limite que el login porque este endpoint envia o revisa un codigo y sin limite se podria adivinar o llenar el correo de mensajes
+  @ApiTooManyRequestsResponse({ description: 'Mas de 5 intentos en un minuto desde la misma IP (DEMASIADOS_INTENTOS)' })
+  @LimiteLogin()
   @Post('restablecer-contrasena/solicitar')
   @HttpCode(HttpStatus.ACCEPTED)
   @ApiOperation({ summary: 'Pedir el enlace para restablecer la contrasena (llega al correo y dura una hora)' })
@@ -164,6 +167,9 @@ export class AuthController {
     return { mensaje: MENSAJE_SOLICITUD };
   }
 
+  // Mismo limite que el login porque este endpoint envia o revisa un codigo y sin limite se podria adivinar o llenar el correo de mensajes
+  @ApiTooManyRequestsResponse({ description: 'Mas de 5 intentos en un minuto desde la misma IP (DEMASIADOS_INTENTOS)' })
+  @LimiteLogin()
   @Post('restablecer-contrasena/confirmar')
   @HttpCode(HttpStatus.NO_CONTENT)
   @ApiOperation({ summary: 'Cambiar la contrasena con el token del enlace y el token ya no vuelve a servir' })

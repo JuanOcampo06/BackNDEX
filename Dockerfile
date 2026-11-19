@@ -20,6 +20,8 @@ COPY --from=build /app/dist ./dist
 # Certificado publico de la autoridad de AWS que firma los certificados de RDS
 # la api lo usa para verificar que se conecta a la RDS real (ver DATABASE_SSL_CA en el README)
 # 644 para que el usuario node lo pueda leer y en local no se usa porque el compose pone DATABASE_SSL=false
+# la carpeta se crea antes con 755 porque si la crea el ADD le pone el mismo 644 y sin permiso de entrar el usuario node no puede abrir el archivo
+RUN mkdir -m 755 /app/certs
 ADD --chmod=644 https://truststore.pki.rds.amazonaws.com/global/global-bundle.pem /app/certs/global-bundle.pem
 ENV DATABASE_SSL_CA=/app/certs/global-bundle.pem
 USER node

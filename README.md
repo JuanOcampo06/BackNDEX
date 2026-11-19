@@ -53,7 +53,7 @@ node -e "console.log(require('crypto').randomBytes(48).toString('base64url'))"
 
 Si no tienes Node, en PowerShell sirve `[Convert]::ToBase64String((1..48 | % { Get-Random -Max 256 }))`. Usa un secreto distinto en cada entorno y nunca el de otra persona. Al cambiarlo, los tokens ya emitidos dejan de servir y hay que volver a iniciar sesión.
 
-**Primer administrador del dashboard.** La base no trae usuarios: al arrancar, si no existe ningún administrador, la API crea uno con `ADMIN_CORREO` y `ADMIN_CONTRASENA` (la contraseña con las reglas de siempre: 8 a 72 caracteres, mayúscula, minúscula y número). En su primer ingreso debe cambiarla. Si ya existe un administrador no hace nada, así que reiniciar la API no lo duplica. Si las variables tienen un formato inválido o falta una de las dos, la API no arranca y dice por qué; si faltan las dos, arranca y deja una advertencia. En AWS van en Secrets Manager, igual que `JWT_SECRET`.
+**Primer administrador del dashboard.** La base no trae usuarios: al arrancar, si no existe ningún administrador, la API crea uno con `ADMIN_CORREO` y `ADMIN_CONTRASENA` (la contraseña con las reglas de siempre: 8 a 72 caracteres, mayúscula, minúscula y número). En su primer ingreso debe cambiarla. Si ya existe un administrador no hace nada, así que reiniciar la API no lo duplica. Si las variables tienen un formato inválido (correo mal escrito o contraseña débil) o falta una de las dos, la API no arranca y dice por qué, aunque ya exista un administrador; si faltan las dos, arranca y deja una advertencia. En AWS van en Secrets Manager, igual que `JWT_SECRET`.
 
 `DASHBOARD_URL` es opcional: la dirección del frontend del dashboard (por ejemplo `http://localhost:5173`) para armar el enlace de restablecer la contraseña.
 
@@ -64,7 +64,17 @@ Si no tienes Node, en PowerShell sirve `[Convert]::ToBase64String((1..48 | % { G
 | `DATABASE_SSL` | `false` (ya viene así en `.env.example` y en `docker-compose.yml`) | Sin definir | `false` desactiva TLS. Solo para el PostgreSQL local, que no tiene TLS |
 | `DATABASE_SSL_CA` | Vacía | Ya viene definida en la imagen Docker (`/app/certs/global-bundle.pem`) | Certificado de la autoridad que firmó el de la base. Node no trae el de RDS, así que sin él la conexión a RDS falla con `self-signed certificate in certificate chain` |
 
-El `Dockerfile` descarga el `global-bundle.pem` público de AWS al construir la imagen y define `DATABASE_SSL_CA`, así que en ECS no hay que configurar nada para TLS (construir la imagen necesita internet). No pongas `sslmode` en `DATABASE_URL`: la configuración de TLS sale solo de estas dos variables.
+El `Dockerfile` descarga el `global-bundle.pem` público de AWS al construir la imagen y define `DATABASE_SSL_CA`, así que en ECS no hay que configurar nada para TLS (construir la imagen necesita internet). No pongas `sslmode` en `DATABASE_URL`: la configuración de TLS sale solo de estas dos variables. Si `DATABASE_SSL_CA` apunta a un archivo que no existe, la API no arranca.
+
+**Límite de intentos.** Para frenar la fuerza bruta y la creación masiva de cuentas, estos endpoints cuentan las peticiones por IP con `@nestjs/throttler` y al pasarse responden `429` con `{"codigo":"DEMASIADOS_INTENTOS","mensaje":"Demasiados intentos, espera un momento y vuelve a intentarlo"}`:
+
+| Endpoint | Límite por IP |
+|---|---|
+| `POST /dashboard/v1/auth/login` y `POST /mobile/v1/auth/login` | 5 por minuto |
+| `POST /mobile/v1/auth/register` | 3 por hora |
+| Los que envían o revisan un código o enlace del correo: `POST /dashboard/v1/auth/restablecer-contrasena/solicitar` y `/confirmar`, y en la app `verify-email`, `resend-code`, `forgot-password` y `reset-password` | 5 por minuto |
+
+Los contadores viven en memoria (la API corre en una sola instancia) y se reinician al reiniciarla. La IP sale del último salto de `X-Forwarded-For` (`trust proxy 1`) porque en AWS la API queda detrás del balanceador (ALB); por eso el puerto de la API **solo debe ser accesible desde el ALB** (grupo de seguridad), si no un cliente podría inventar la cabecera y saltarse el límite.
 
 ### Opción A: con Docker (la más fácil)
 
@@ -536,7 +546,7 @@ Errores: datos inválidos responden `400` (por ejemplo, una persona menor de 18 
 
 ```bash
 # 1. Crear la cuenta y guardar el token
-curl -X POST http://localhost:3001/api/mobile/v1/auth/register -H "Content-Type: application/json" -d '{"nombreCompleto":"Ana Lopez","correo":"ana@demo.local","contrasena":"demo1234","fechaNacimiento":"1995-04-23","genero":"femenino"}'
+curl -X POST http://localhost:3001/api/mobile/v1/auth/register -H "Content-Type: application/json" -d '{"nombreCompleto":"Ana Lopez","correo":"ana@demo.local","contrasena":"Contrasena-segura1","fechaNacimiento":"1995-04-23","genero":"femenino","aceptaTerminos":true}'
 
 # 2. Usar el accessToken que devolvió
 curl -X POST http://localhost:3001/api/mobile/v1/reports -H "Content-Type: application/json" -H "Authorization: Bearer <accessToken>" -d '{"categoria":"danos_en_la_via","subcategoria":"hueco","descripcion":"Hueco","latitud":4.6486,"longitud":-74.0818}'

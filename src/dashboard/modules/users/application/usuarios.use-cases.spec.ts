@@ -211,6 +211,13 @@ describe('CrearAdministradorInicialUseCase', () => {
     expect(await repositorio.listar({ rol: 'admin' })).toHaveLength(1);
   });
 
+  it('rechaza datos invalidos aunque ya exista un administrador', async () => {
+    const crear = new CrearAdministradorInicialUseCase(crearRepositorio(), cifrador);
+
+    await expect(crear.execute({ correo: 'jefe@entidad.gov.co', contrasena: 'debil' })).rejects.toMatchObject({ codigo: 'USUARIO_INVALIDO' });
+    await expect(crear.execute({ correo: 'no-es-correo', contrasena: 'Clave-inicial1' })).rejects.toMatchObject({ codigo: 'USUARIO_INVALIDO' });
+  });
+
   it('rechaza que falte una de las dos variables o una contrasena que no cumple las reglas', async () => {
     const crear = async (datos: { correo?: string; contrasena?: string }) =>
       new CrearAdministradorInicialUseCase(await repositorioVacio(), cifrador).execute(datos);
