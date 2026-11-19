@@ -17,6 +17,8 @@ export interface LoginResult {
     correo: string;
     rol: string;
     entidad: string | null;
+    // El frontend lo usa para llevarlo directo a cambiar la contrasena
+    debeCambiarContrasena: boolean;
   };
 }
 
@@ -41,7 +43,10 @@ export class LoginUseCase {
     }
     await this.usuarios.registrarIngreso(cuenta.id);
     const id = String(cuenta.id);
-    const { nombreCompleto, correo, rol, entidad } = cuenta;
-    return { token: this.tokens.emitir(id, rol), usuario: { id, nombreCompleto, correo, rol, entidad } };
+    const { nombreCompleto, correo, rol, entidad, debeCambiarContrasena } = cuenta;
+    return {
+      token: this.tokens.emitir(id, rol),
+      usuario: { id, nombreCompleto, correo, rol, entidad, debeCambiarContrasena },
+    };
   }
 }

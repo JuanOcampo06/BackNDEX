@@ -1,5 +1,6 @@
 import { Module } from '@nestjs/common';
 import { ActualizarUsuarioUseCase } from './application/actualizar-usuario.use-case';
+import { CrearAdministradorInicialUseCase } from './application/crear-administrador-inicial.use-case';
 import { CrearUsuarioUseCase } from './application/crear-usuario.use-case';
 import { EliminarUsuarioUseCase } from './application/eliminar-usuario.use-case';
 import { ListarUsuariosUseCase } from './application/listar-usuarios.use-case';
@@ -13,7 +14,7 @@ import { ScryptContrasenaCifrador } from './infrastructure/scrypt-contrasena.cif
 const CASOS_DE_LECTURA = [ListarUsuariosUseCase, ObtenerUsuarioUseCase, EliminarUsuarioUseCase];
 
 // Crear y actualizar tambien cifran la contrasena
-const CASOS_CON_CONTRASENA = [CrearUsuarioUseCase, ActualizarUsuarioUseCase];
+const CASOS_CON_CONTRASENA = [CrearUsuarioUseCase, ActualizarUsuarioUseCase, CrearAdministradorInicialUseCase];
 
 // Gestion de usuarios del dashboard guardados en PostgreSQL
 @Module({

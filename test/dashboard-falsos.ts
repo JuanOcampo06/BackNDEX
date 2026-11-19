@@ -37,11 +37,12 @@ export interface TablaDeUsuariosFalsa {
 
 // Una sola tabla de usuarios en memoria que comparten el modulo users y el login
 // asi se prueba que un usuario creado desde el tablero puede iniciar sesion
-export async function crearTablaDeUsuariosFalsa(): Promise<TablaDeUsuariosFalsa> {
+// sin los usuarios de prueba empieza vacia como una base recien creada
+export async function crearTablaDeUsuariosFalsa(conUsuariosDePrueba = true): Promise<TablaDeUsuariosFalsa> {
   const FECHA = '2026-11-01T00:00:00.000Z';
   const clave = await cifrarContrasena('demo1234');
-  const base = { ultimoIngreso: null, creadoEn: FECHA, actualizadoEn: FECHA, contrasenaCifrada: clave };
-  const filas: Fila[] = [
+  const base = { ultimoIngreso: null, creadoEn: FECHA, actualizadoEn: FECHA, contrasenaCifrada: clave, debeCambiarContrasena: false };
+  const filas: Fila[] = !conUsuariosDePrueba ? [] : [
     { ...base, id: 1, nombreCompleto: 'Admin Demo', correo: 'admin@demo.local', rol: 'admin', entidad: 'Secretaría Distrital de Movilidad' },
     { ...base, id: 2, nombreCompleto: 'Lector Demo', correo: 'lector@demo.local', rol: 'lector', entidad: null },
   ];
@@ -52,13 +53,14 @@ export async function crearTablaDeUsuariosFalsa(): Promise<TablaDeUsuariosFalsa>
     rol: fila.rol,
     entidad: fila.entidad,
     ultimoIngreso: fila.ultimoIngreso,
+    debeCambiarContrasena: fila.debeCambiarContrasena,
     creadoEn: fila.creadoEn,
     actualizadoEn: fila.actualizadoEn,
   });
   const aCuenta = (fila: Fila | undefined): CuentaUsuario | null =>
-    fila ? { id: fila.id, nombreCompleto: fila.nombreCompleto, correo: fila.correo, rol: fila.rol, entidad: fila.entidad, contrasenaCifrada: fila.contrasenaCifrada } : null;
+    fila ? { id: fila.id, nombreCompleto: fila.nombreCompleto, correo: fila.correo, rol: fila.rol, entidad: fila.entidad, contrasenaCifrada: fila.contrasenaCifrada, debeCambiarContrasena: fila.debeCambiarContrasena } : null;
   const usuarios: UsuariosRepositoryPort = {
-    listar: async () => filas.map(sinClave),
+    listar: async ({ rol }) => filas.filter((f) => rol === undefined || f.rol === rol).map(sinClave),
     buscarPorId: async (id) => {
       const fila = filas.find((f) => f.id === id);
       return fila ? sinClave(fila) : null;
@@ -84,8 +86,9 @@ export async function crearTablaDeUsuariosFalsa(): Promise<TablaDeUsuariosFalsa>
   const cuentas: UsuarioRepositoryPort = {
     buscarPorCorreo: async (correo) => aCuenta(filas.find((f) => f.correo === correo)),
     buscarPorId: async (id) => aCuenta(filas.find((f) => f.id === id)),
+    // Igual que el repositorio real: la contrasena que elige el propio usuario quita la marca
     cambiarContrasena: async (id, contrasenaCifrada) => {
-      (filas.find((f) => f.id === id) as Fila).contrasenaCifrada = contrasenaCifrada;
+      Object.assign(filas.find((f) => f.id === id) as Fila, { contrasenaCifrada, debeCambiarContrasena: false });
     },
     registrarIngreso: async (id) => {
       (filas.find((f) => f.id === id) as Fila).ultimoIngreso = new Date().toISOString();

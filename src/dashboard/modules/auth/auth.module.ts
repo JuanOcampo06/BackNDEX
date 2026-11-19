@@ -3,6 +3,7 @@ import { CambiarContrasenaUseCase } from './application/cambiar-contrasena.use-c
 import { ConfirmarRestablecimientoUseCase } from './application/confirmar-restablecimiento.use-case';
 import { CONTRASENA_CIFRADOR, ContrasenaCifradorPort } from './application/contrasena-cifrador.port';
 import { LoginUseCase } from './application/login.use-case';
+import { ObtenerEstadoDeAccesoUseCase } from './application/obtener-estado-de-acceso.use-case';
 import { NOTIFICADOR_RESTABLECIMIENTO, NotificadorRestablecimientoPort } from './application/notificador-restablecimiento.port';
 import { RESTABLECIMIENTOS_REPOSITORY, RestablecimientosRepositoryPort } from './application/restablecimientos.repository.port';
 import { SolicitarRestablecimientoUseCase } from './application/solicitar-restablecimiento.use-case';
@@ -57,7 +58,18 @@ import { ScryptContrasenaCifrador } from './infrastructure/scrypt-contrasena.cif
       useFactory: (usuarios: UsuarioRepositoryPort, cifrador: ContrasenaCifradorPort) => new CambiarContrasenaUseCase(usuarios, cifrador),
       inject: [USUARIO_REPOSITORY, CONTRASENA_CIFRADOR],
     },
+    {
+      provide: ObtenerEstadoDeAccesoUseCase,
+      useFactory: (usuarios: UsuarioRepositoryPort) => new ObtenerEstadoDeAccesoUseCase(usuarios),
+      inject: [USUARIO_REPOSITORY],
+    },
   ],
-  exports: [LoginUseCase, SolicitarRestablecimientoUseCase, ConfirmarRestablecimientoUseCase, CambiarContrasenaUseCase],
+  exports: [
+    LoginUseCase,
+    SolicitarRestablecimientoUseCase,
+    ConfirmarRestablecimientoUseCase,
+    CambiarContrasenaUseCase,
+    ObtenerEstadoDeAccesoUseCase,
+  ],
 })
 export class AuthModule {}

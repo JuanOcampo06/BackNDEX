@@ -9,7 +9,7 @@ const RUTA_SWAGGER = 'api/docs';
 const ETIQUETAS = [
   { nombre: 'Compartido - Estado de la api', descripcion: 'Comprobar que todo el backend esta vivo' },
   { nombre: 'Compartido - Ciclovias', descripcion: 'Ciclovias por zona del mapa con una puerta en cada producto' },
-  { nombre: 'Dashboard - Login', descripcion: 'Inicio de sesion de demostracion del dashboard' },
+  { nombre: 'Dashboard - Login', descripcion: 'Inicio de sesion del dashboard' },
   { nombre: 'Dashboard - Tablero', descripcion: 'Tarjetas y graficas del tablero en snake_case' },
   { nombre: 'Dashboard - Usuarios', descripcion: 'Crear editar y eliminar usuarios del dashboard en snake_case' },
   { nombre: 'App movil - Autenticacion', descripcion: 'Registro e inicio de sesion del ciudadano que entregan el token JWT' },

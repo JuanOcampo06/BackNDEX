@@ -7,6 +7,7 @@ import { RESTABLECIMIENTOS_REPOSITORY } from '../src/dashboard/modules/auth/appl
 import { USUARIO_REPOSITORY } from '../src/dashboard/modules/auth/application/usuario.repository.port';
 import { TABLERO_REPOSITORY } from '../src/dashboard/modules/kpis/application/tablero.repository.port';
 import { USUARIOS_REPOSITORY } from '../src/dashboard/modules/users/application/usuarios.repository.port';
+import { LimiteIntentosGuard } from '../src/platform/auth';
 import { crearNotificadorFalso, crearRestablecimientosFalsos, crearTablaDeUsuariosFalsa, crearTableroFalso } from './dashboard-falsos';
 
 describe('Login perfil y contrasena del dashboard (e2e)', () => {
@@ -27,6 +28,9 @@ describe('Login perfil y contrasena del dashboard (e2e)', () => {
       .useValue(notificador)
       .overrideProvider(TABLERO_REPOSITORY)
       .useValue(crearTableroFalso())
+      // Esta suite inicia sesion muchas veces seguidas y el limite de intentos se prueba en limite-intentos.e2e-spec.ts
+      .overrideGuard(LimiteIntentosGuard)
+      .useValue({ canActivate: () => true })
       .compile();
     app = modulo.createNestApplication();
     app.setGlobalPrefix('api');
@@ -46,7 +50,7 @@ describe('Login perfil y contrasena del dashboard (e2e)', () => {
     expect(respuesta.status).toBe(200);
     expect(respuesta.body).toEqual({
       access_token: expect.stringMatching(/^eyJ[\w-]+\.[\w-]+\.[\w-]+$/),
-      user: { id: '1', full_name: 'Admin Demo', email: 'admin@demo.local', role: 'admin', entidad: 'Secretaría Distrital de Movilidad' },
+      user: { id: '1', full_name: 'Admin Demo', email: 'admin@demo.local', role: 'admin', entidad: 'Secretaría Distrital de Movilidad', debe_cambiar_contrasena: false },
     });
   });
 
@@ -93,7 +97,7 @@ describe('Login perfil y contrasena del dashboard (e2e)', () => {
     ]);
 
     expect(perfil.status).toBe(200);
-    expect(perfil.body).toEqual({ id: '2', full_name: 'Lector Demo', email: 'lector@demo.local', role: 'lector', entidad: null });
+    expect(perfil.body).toEqual({ id: '2', full_name: 'Lector Demo', email: 'lector@demo.local', role: 'lector', entidad: null, debe_cambiar_contrasena: false });
     expect(sinToken.status).toBe(401);
   });
 
@@ -112,6 +116,7 @@ describe('Login perfil y contrasena del dashboard (e2e)', () => {
       email: 'lector@demo.local',
       role: 'lector',
       entidad: 'Secretaría Distrital de Movilidad',
+      debe_cambiar_contrasena: false,
     });
     expect(conRol.status).toBe(400);
     expect(correoAjeno.status).toBe(409);

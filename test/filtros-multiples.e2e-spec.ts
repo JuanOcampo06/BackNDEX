@@ -5,6 +5,8 @@ import request from 'supertest';
 import { AppModule } from '../src/app.module';
 import { FiltrosTablero } from '../src/dashboard/modules/kpis';
 import { TABLERO_REPOSITORY, TableroRepositoryPort } from '../src/dashboard/modules/kpis/application/tablero.repository.port';
+import { USUARIO_REPOSITORY } from '../src/dashboard/modules/auth/application/usuario.repository.port';
+import { crearTablaDeUsuariosFalsa } from './dashboard-falsos';
 import { tokenDashboard } from './token-dashboard';
 
 // Repositorio falso que guarda los filtros que le llegan para ver como los entrego la puerta HTTP
@@ -43,6 +45,9 @@ describe('Filtros con varios valores del tablero (e2e)', () => {
     const modulo = await Test.createTestingModule({ imports: [AppModule] })
       .overrideProvider(TABLERO_REPOSITORY)
       .useValue(crearRepositorioFalso((filtros) => (recibido = filtros)))
+      // El guard del dashboard lee el rol del usuario del token en la tabla de usuarios
+      .overrideProvider(USUARIO_REPOSITORY)
+      .useValue((await crearTablaDeUsuariosFalsa()).cuentas)
       .compile();
     app = modulo.createNestApplication();
     app.setGlobalPrefix('api');

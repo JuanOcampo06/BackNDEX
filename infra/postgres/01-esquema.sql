@@ -235,6 +235,9 @@ CREATE TABLE dashboard.usuarios (
   rol text NOT NULL DEFAULT 'lector' CHECK (rol IN ('admin', 'lector')),
   entidad text CHECK (char_length(entidad) BETWEEN 1 AND 120),
   contrasena_cifrada text,
+  -- true cuando la contrasena la puso otra persona (el admin inicial o un admin al crear o editar al usuario)
+  -- mientras sea true el usuario solo puede ver su perfil y cambiar su contrasena
+  debe_cambiar_contrasena boolean NOT NULL DEFAULT false,
   -- Se actualiza en cada inicio de sesion y es null si nunca ha entrado
   ultimo_ingreso timestamptz,
   creado_en timestamptz NOT NULL DEFAULT now(),

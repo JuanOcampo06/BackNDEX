@@ -7,7 +7,7 @@ export class IniciarSesionRequest {
   @IsEmail()
   correo!: string;
 
-  @ApiProperty({ example: 'demo1234' })
+  @ApiProperty({ example: 'Contrasena-segura1' })
   @IsString()
   @IsNotEmpty()
   contrasena!: string;

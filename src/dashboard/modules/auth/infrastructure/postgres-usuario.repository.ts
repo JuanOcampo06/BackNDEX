@@ -28,17 +28,18 @@ export class PostgresUsuarioRepository implements UsuarioRepositoryPort, OnModul
 
   private async buscarUna(condicion: string, valor: string | number): Promise<CuentaUsuario | null> {
     const resultado = await this.pool.query<CuentaUsuario>(
-      `SELECT id, nombre_completo AS "nombreCompleto", correo, rol, entidad, contrasena_cifrada AS "contrasenaCifrada"
+      `SELECT id, nombre_completo AS "nombreCompleto", correo, rol, entidad, contrasena_cifrada AS "contrasenaCifrada",
+         debe_cambiar_contrasena AS "debeCambiarContrasena"
        FROM dashboard.usuarios WHERE ${condicion}`,
       [valor],
     );
     return resultado.rows[0] ?? null;
   }
 
+  // La eligio el propio usuario asi que ya no tiene que cambiarla
   async cambiarContrasena(usuarioId: number, contrasenaCifrada: string): Promise<void> {
-    await this.pool.query('UPDATE dashboard.usuarios SET contrasena_cifrada = $2, actualizado_en = now() WHERE id = $1', [
-      usuarioId,
-      contrasenaCifrada,
-    ]);
+    const consulta = `UPDATE dashboard.usuarios
+       SET contrasena_cifrada = $2, debe_cambiar_contrasena = false, actualizado_en = now() WHERE id = $1`;
+    await this.pool.query(consulta, [usuarioId, contrasenaCifrada]);
   }
 }

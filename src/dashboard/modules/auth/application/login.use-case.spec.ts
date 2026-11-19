@@ -23,8 +23,8 @@ const tokens: TokenEmisorPort = { emitir: (id, rol) => `token-${id}-${rol}` };
 function crearUsuarios(): UsuarioRepositoryPort & { cuentas: CuentaUsuario[]; ingresos: number[] } {
   const ingresos: number[] = [];
   const cuentas: CuentaUsuario[] = [
-    { id: 7, nombreCompleto: 'Ana Prueba', correo: 'ana@prueba.local', rol: 'admin', entidad: 'Movilidad', contrasenaCifrada: 'cifrada:secreta1' },
-    { id: 8, nombreCompleto: 'Sin Clave', correo: 'sin@prueba.local', rol: 'lector', entidad: null, contrasenaCifrada: null },
+    { id: 7, nombreCompleto: 'Ana Prueba', correo: 'ana@prueba.local', rol: 'admin', entidad: 'Movilidad', contrasenaCifrada: 'cifrada:secreta1', debeCambiarContrasena: false },
+    { id: 8, nombreCompleto: 'Sin Clave', correo: 'sin@prueba.local', rol: 'lector', entidad: null, contrasenaCifrada: null, debeCambiarContrasena: false },
   ];
   return {
     cuentas,
@@ -32,8 +32,9 @@ function crearUsuarios(): UsuarioRepositoryPort & { cuentas: CuentaUsuario[]; in
     buscarPorCorreo: async (correo) => cuentas.find((c) => c.correo === correo) ?? null,
     buscarPorId: async (id) => cuentas.find((c) => c.id === id) ?? null,
     registrarIngreso: async (id) => void ingresos.push(id),
+    // Igual que el repositorio real: la contrasena que elige el propio usuario quita la marca
     cambiarContrasena: async (id, cifrada) => {
-      (cuentas.find((c) => c.id === id) as CuentaUsuario).contrasenaCifrada = cifrada;
+      Object.assign(cuentas.find((c) => c.id === id) as CuentaUsuario, { contrasenaCifrada: cifrada, debeCambiarContrasena: false });
     },
   };
 }
@@ -65,7 +66,7 @@ describe('LoginUseCase', () => {
 
     expect(resultado).toEqual({
       token: 'token-7-admin',
-      usuario: { id: '7', nombreCompleto: 'Ana Prueba', correo: 'ana@prueba.local', rol: 'admin', entidad: 'Movilidad' },
+      usuario: { id: '7', nombreCompleto: 'Ana Prueba', correo: 'ana@prueba.local', rol: 'admin', entidad: 'Movilidad', debeCambiarContrasena: false },
     });
     expect(usuarios.ingresos).toEqual([7]);
   });

@@ -25,7 +25,7 @@ import {
   ApiTags,
   ApiUnauthorizedResponse,
 } from '@nestjs/swagger';
-import { DashboardAuthGuard, SoloRoles } from '../../../platform/auth';
+import { DashboardAuthGuard, SoloRoles, UsuarioActual } from '../../../platform/auth';
 import {
   ActualizarUsuarioUseCase,
   CrearUsuarioUseCase,
@@ -81,7 +81,10 @@ export class UsuariosController {
 
   @Post()
   @HttpCode(HttpStatus.CREATED)
-  @ApiOperation({ summary: 'Crear un usuario del dashboard y con contrasena ya puede iniciar sesion' })
+  @ApiOperation({
+    summary: 'Crear un usuario del dashboard y con contrasena ya puede iniciar sesion',
+    description: 'Como la contrasena la eligio el Administrador el usuario debe cambiarla en su primer ingreso',
+  })
   @ApiCreatedResponse({ type: UsuarioResponse })
   @ApiBadRequestResponse({ description: 'Faltan datos o tienen formato invalido' })
   @ApiConflictResponse({ description: 'Ya existe un usuario con ese correo' })
@@ -97,7 +100,10 @@ export class UsuariosController {
   }
 
   @Patch(':id')
-  @ApiOperation({ summary: 'Editar el nombre el correo el rol la entidad o la contrasena de un usuario' })
+  @ApiOperation({
+    summary: 'Editar el nombre el correo el rol la entidad o la contrasena de un usuario',
+    description: 'Si se cambia la contrasena de otro usuario ese usuario debe cambiarla en su proximo ingreso',
+  })
   @ApiOkResponse({ type: UsuarioResponse })
   @ApiBadRequestResponse({ description: 'No llego ningun campo o alguno tiene formato invalido' })
   @ApiNotFoundResponse({ description: 'No existe un usuario con ese id' })
@@ -105,14 +111,16 @@ export class UsuariosController {
   async actualizar(
     @Param('id', validarId) id: number,
     @Body(validar) cuerpo: ActualizarUsuarioRequest,
+    @UsuarioActual() editadoPor: number,
   ): Promise<unknown> {
-    const usuario = await this.actualizarUsuario.execute(id, {
+    const datos = {
       nombreCompleto: cuerpo.nombre_completo,
       correo: cuerpo.correo,
       rol: cuerpo.rol,
       entidad: cuerpo.entidad,
       contrasena: cuerpo.contrasena,
-    });
+    };
+    const usuario = await this.actualizarUsuario.execute(id, datos, editadoPor);
     return aSnakeCase(usuario);
   }
 

@@ -1,7 +1,7 @@
 -- Datos reales del Anuario de Siniestralidad Vial 2025 de la secretaria de movilidad
 -- el dashboard solo muestra datos del anuario y lo que el anuario no trae queda en cero
 -- reportes activaciones del boton de panico conteos de usuarios y ciudadanos de la app quedan vacios
--- los unicos datos de prueba son los usuarios del dashboard para el login
+-- no trae usuarios del dashboard: el primer administrador lo crea la api al arrancar
 -- los csv de la carpeta datos tienen las columnas del Excel del anuario sin transformar
 
 -- Carpeta donde esta este script dentro del contenedor y fuera de docker se cambia con psql -v carpeta=infra/postgres
@@ -111,13 +111,5 @@ SELECT
   a.edad
 FROM anuario_actores_viales a;
 
--- ============================== dashboard: usuarios para el login ==============================
-
--- Los tres tienen la contrasena demo1234 ya cifrada con scrypt
-INSERT INTO dashboard.usuarios (nombre_completo, correo, rol, entidad, contrasena_cifrada) VALUES
-  ('Admin Demo', 'admin@demo.local', 'admin', 'Secretaría Distrital de Movilidad',
-   'scrypt$9dd952fb840d33221374de1d62632e18$413df45ae31cdbdb86ae4a410e89f509281725d5382ae42b05a4c6d1c0f396aac30d584ae60670fd5984e9725f3e2015d556dae5c3323924e64b3b34ac793c7d'),
-  ('Lector Demo', 'lector@demo.local', 'lector', 'Secretaría Distrital de Movilidad',
-   'scrypt$214bf28f4c48321935c10aa1012a45ba$37ecc8f837dd475919b92069c972f0146a4d2a388e0225a0540931b04ac5a4588ab2d7bfde5aa74a1dbf37f932baa53556f1f3952191fad0c5e4b31f3753e311'),
-  ('Carlos Perez', 'carlos.perez@demo.local', 'lector', 'Secretaría Distrital de Movilidad',
-   'scrypt$0888a04b31aa510f04718c3ba6203556$ba100eb8db310b78c9c2e1bbd60cfc0aa0e1d2595dbf55e4a24e7478bc4a6749d20e0c4f6f4ccf1258cff5d1e7766a7b1dd3ebb2898a6f2eeb1b2a6f41c6e033');
+-- Sin usuarios del dashboard: el primer administrador lo crea la api al arrancar con ADMIN_CORREO y ADMIN_CONTRASENA
+-- y los demas usuarios se crean desde el tablero

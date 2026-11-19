@@ -8,10 +8,15 @@ services:
       PORT: ${PORT:-3001}
       # Dentro de docker la api encuentra a la base por el nombre del servicio postgres
       DATABASE_URL: postgres://${POSTGRES_USER:-safepath}:${POSTGRES_PASSWORD:-safepath}@postgres:5432/${POSTGRES_DB:-safepath}
+      # El postgres local de este compose no tiene TLS; en RDS la conexion va cifrada (ver README)
+      DATABASE_SSL: "false"
       # Vacio deja entrar a cualquier frontend y con una direccion solo deja entrar a esa
       CORS_ORIGIN: ${CORS_ORIGIN:-}
       # Secreto de los tokens JWT y es obligatorio en el .env porque sin el cualquiera podria firmar tokens
       JWT_SECRET: ${JWT_SECRET:?Falta JWT_SECRET en el archivo .env y se genera como dice el README}
+      # Primer administrador del dashboard que la api crea si la base no tiene ninguno (ver README)
+      ADMIN_CORREO: ${ADMIN_CORREO:-}
+      ADMIN_CONTRASENA: ${ADMIN_CONTRASENA:-}
       # Direccion del frontend del dashboard para el enlace de restablecer la contrasena
       DASHBOARD_URL: ${DASHBOARD_URL:-}
       # Servidor de correo para el enlace de restablecer la contrasena y vacio lo deja en el registro de la api

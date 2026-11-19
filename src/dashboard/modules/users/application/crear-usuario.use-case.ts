@@ -5,6 +5,7 @@ import { UsuariosRepositoryPort } from './usuarios.repository.port';
 
 // Crea un usuario del dashboard si sus datos son validos y su correo no esta en uso
 // la contrasena se guarda cifrada y con ella el usuario ya puede iniciar sesion
+// como la eligio el administrador el usuario debe cambiarla en su primer ingreso
 export class CrearUsuarioUseCase {
   constructor(
     private readonly usuarios: UsuariosRepositoryPort,
@@ -16,6 +17,6 @@ export class CrearUsuarioUseCase {
     if (await this.usuarios.existeCorreo(nuevo.correo)) {
       throw new CorreoDuplicadoError(nuevo.correo);
     }
-    return this.usuarios.crear({ ...nuevo, contrasenaCifrada: await this.cifrador.cifrar(contrasena) });
+    return this.usuarios.crear({ ...nuevo, contrasenaCifrada: await this.cifrador.cifrar(contrasena), debeCambiarContrasena: true });
   }
 }

@@ -3,11 +3,11 @@ import { IsEmail, IsNotEmpty, IsString } from 'class-validator';
 
 export class LoginRequest {
   // Los ejemplos de Swagger son las credenciales de la demo
-  @ApiProperty({ example: 'admin@demo.local' })
+  @ApiProperty({ example: 'usuario@entidad.gov.co' })
   @IsEmail()
   email!: string;
 
-  @ApiProperty({ example: 'demo1234' })
+  @ApiProperty({ example: 'Contrasena-segura1' })
   @IsString()
   @IsNotEmpty()
   password!: string;

@@ -11,7 +11,7 @@ export class PerfilResponse {
   @ApiProperty({ example: 'Admin Demo' })
   full_name!: string;
 
-  @ApiProperty({ example: 'admin@demo.local' })
+  @ApiProperty({ example: 'usuario@entidad.gov.co' })
   email!: string;
 
   @ApiProperty({ example: 'admin', description: 'admin es el Administrador y lector el Usuario' })
@@ -19,6 +19,9 @@ export class PerfilResponse {
 
   @ApiProperty({ example: 'Secretaría Distrital de Movilidad', nullable: true, type: String })
   entidad!: string | null;
+
+  @ApiProperty({ example: false, description: 'true si la contrasena la puso otra persona: debe cambiarla con PATCH /auth/me/contrasena antes de usar el resto del dashboard' })
+  debe_cambiar_contrasena!: boolean;
 }
 
 // Cuerpo de PATCH /auth/me y solo se envian los campos que cambian
@@ -44,7 +47,7 @@ export class ActualizarPerfilRequest {
 
 // Cuerpo de POST /auth/restablecer-contrasena/solicitar
 export class SolicitarRestablecimientoRequest {
-  @ApiProperty({ example: 'admin@demo.local' })
+  @ApiProperty({ example: 'usuario@entidad.gov.co' })
   @IsEmail()
   email!: string;
 }
@@ -63,7 +66,7 @@ export class ConfirmarRestablecimientoRequest {
 
 // Cuerpo de PATCH /auth/me/contrasena
 export class CambiarContrasenaRequest {
-  @ApiProperty({ example: 'demo1234' })
+  @ApiProperty({ example: 'Contrasena-segura1' })
   @IsString()
   @IsNotEmpty()
   contrasena_actual!: string;

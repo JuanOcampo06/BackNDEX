@@ -7,6 +7,8 @@ export interface CuentaUsuario {
   rol: string;
   entidad: string | null;
   contrasenaCifrada: string | null;
+  // true si la contrasena la puso otra persona y el usuario debe cambiarla antes de usar el dashboard
+  debeCambiarContrasena: boolean;
 }
 
 // Los correos se guardan en minusculas y asi se buscan

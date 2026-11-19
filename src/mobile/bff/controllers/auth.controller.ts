@@ -7,8 +7,10 @@ import {
   ApiOkResponse,
   ApiOperation,
   ApiTags,
+  ApiTooManyRequestsResponse,
   ApiUnauthorizedResponse,
 } from '@nestjs/swagger';
+import { LimiteLogin, LimiteRegistro } from '../../../platform/auth';
 import {
   ConfirmarRestablecimientoUseCase,
   IniciarSesionUseCase,
@@ -53,6 +55,8 @@ export class AuthController {
   @ApiCreatedResponse({ type: SesionResponse })
   @ApiBadRequestResponse({ description: 'Datos invalidos' })
   @ApiConflictResponse({ description: 'Ya existe un ciudadano con ese correo' })
+  @ApiTooManyRequestsResponse({ description: 'Mas de 3 registros en una hora desde la misma IP (DEMASIADOS_INTENTOS)' })
+  @LimiteRegistro()
   registrar(@Body(validar) cuerpo: RegistroRequest): Promise<Sesion> {
     return this.registrarCiudadano.execute(cuerpo);
   }
@@ -63,6 +67,8 @@ export class AuthController {
   @ApiOkResponse({ type: SesionResponse })
   @ApiBadRequestResponse({ description: 'Correo con formato invalido o contrasena vacia' })
   @ApiUnauthorizedResponse({ description: 'Correo o contrasena incorrectos' })
+  @ApiTooManyRequestsResponse({ description: 'Mas de 5 intentos en un minuto desde la misma IP (DEMASIADOS_INTENTOS)' })
+  @LimiteLogin()
   login(@Body(validar) cuerpo: IniciarSesionRequest): Promise<Sesion> {
     return this.iniciarSesion.execute(cuerpo);
   }

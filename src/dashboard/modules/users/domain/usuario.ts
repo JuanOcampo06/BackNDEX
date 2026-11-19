@@ -16,6 +16,8 @@ export interface Usuario {
   entidad: string | null;
   // Ultima vez que inicio sesion y null si nunca ha entrado
   ultimoIngreso: string | null;
+  // true si su contrasena la puso otra persona y aun no la ha cambiado
+  debeCambiarContrasena: boolean;
   creadoEn: string;
   actualizadoEn: string;
 }
@@ -34,8 +36,9 @@ export interface NuevoUsuario {
 export type CambiosUsuario = Partial<NuevoUsuario>;
 
 // Lo que recibe la base de datos con la contrasena ya cifrada
-export type UsuarioParaGuardar = Omit<NuevoUsuario, 'contrasena'> & { contrasenaCifrada: string };
-export type CambiosParaGuardar = Omit<CambiosUsuario, 'contrasena'> & { contrasenaCifrada?: string };
+// y la marca de si el usuario debe cambiarla porque la puso otra persona
+export type UsuarioParaGuardar = Omit<NuevoUsuario, 'contrasena'> & { contrasenaCifrada: string; debeCambiarContrasena: boolean };
+export type CambiosParaGuardar = Omit<CambiosUsuario, 'contrasena'> & { contrasenaCifrada?: string; debeCambiarContrasena?: boolean };
 
 // Datos tal como llegan desde afuera todavia sin revisar
 export interface DatosUsuario {
