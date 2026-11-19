@@ -9,3 +9,5 @@ export { ObtenerUsuarioUseCase } from './application/obtener-usuario.use-case';
 export { CrearUsuarioUseCase } from './application/crear-usuario.use-case';
 export { ActualizarUsuarioUseCase } from './application/actualizar-usuario.use-case';
 export { EliminarUsuarioUseCase } from './application/eliminar-usuario.use-case';
+export { CrearAdministradorInicialUseCase } from './application/crear-administrador-inicial.use-case';
+export type { ResultadoAdministradorInicial } from './application/crear-administrador-inicial.use-case';

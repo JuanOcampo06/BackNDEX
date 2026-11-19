@@ -90,6 +90,57 @@ describe('Permisos del dashboard (e2e)', () => {
     expect((await pedir(exportar, `Bearer ${lector.body.access_token}`)).status).toBe(403);
   });
 
+  describe('el rol y la existencia del usuario se leen de la base en cada peticion', () => {
+    const admin = tokenDashboard('admin');
+    // Crea el usuario como Administrador y el usuario cambia la contrasena que le pusieron
+    // asi queda listo para usar el dashboard y devuelve su token
+    const crearUsuarioActivo = async (correo: string, rol: string): Promise<{ id: number; suToken: string }> => {
+      const respuesta = await request(app.getHttpServer())
+        .post(usuarios)
+        .set('Authorization', admin)
+        .send({ nombre_completo: 'Usuario Temporal', correo, rol, contrasena: 'Clave-segura1' });
+      expect(respuesta.status).toBe(201);
+      const id: number = respuesta.body.id;
+      const suToken = tokenDashboard(rol, Date.now(), id);
+      const cambio = await request(app.getHttpServer())
+        .patch(`${base}/auth/me/contrasena`)
+        .set('Authorization', suToken)
+        .send({ contrasena_actual: 'Clave-segura1', contrasena_nueva: 'Clave-propia1' });
+      expect(cambio.status).toBe(204);
+      return { id, suToken };
+    };
+
+    it('un usuario eliminado pierde el acceso aunque su token no haya vencido', async () => {
+      const { id, suToken } = await crearUsuarioActivo('eliminado@demo.local', 'lector');
+      expect((await pedir(tarjeta, suToken)).status).toBe(200);
+
+      const borrado = await request(app.getHttpServer()).delete(`${usuarios}/${id}`).set('Authorization', admin);
+      expect(borrado.status).toBe(204);
+
+      const despues = await pedir(tarjeta, suToken);
+      expect(despues.status).toBe(401);
+      expect(despues.body).toEqual({ codigo: 'TOKEN_INVALIDO', mensaje: 'Falta el token o no es valido' });
+    });
+
+    it('a un administrador que pasa a lector se le quitan los permisos de inmediato', async () => {
+      const { id, suToken } = await crearUsuarioActivo('degradado@demo.local', 'admin');
+      expect((await pedir(exportar, suToken)).status).toBe(200);
+
+      const cambio = await request(app.getHttpServer()).patch(`${usuarios}/${id}`).set('Authorization', admin).send({ rol: 'lector' });
+      expect(cambio.status).toBe(200);
+
+      expect((await pedir(exportar, suToken)).status).toBe(403);
+      expect((await pedir(usuarios, suToken)).status).toBe(403);
+      await request(app.getHttpServer()).delete(`${usuarios}/${id}`).set('Authorization', admin);
+    });
+
+    it('un token que dice admin no sirve si el usuario es lector en la base', async () => {
+      const tokenConRolFalso = tokenDashboard('admin', Date.now(), 2);
+
+      expect((await pedir(exportar, tokenConRolFalso)).status).toBe(403);
+    });
+  });
+
   it('un token del dashboard no sirve en la app movil', async () => {
     const respuesta = await request(app.getHttpServer()).get('/api/mobile/v1/reports').set('Authorization', tokenDashboard());
 

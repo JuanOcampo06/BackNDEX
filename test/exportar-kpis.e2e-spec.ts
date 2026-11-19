@@ -4,6 +4,8 @@ import { Workbook } from 'exceljs';
 import request from 'supertest';
 import { AppModule } from '../src/app.module';
 import { TABLERO_REPOSITORY, TableroRepositoryPort } from '../src/dashboard/modules/kpis/application/tablero.repository.port';
+import { USUARIO_REPOSITORY } from '../src/dashboard/modules/auth/application/usuario.repository.port';
+import { crearTablaDeUsuariosFalsa } from './dashboard-falsos';
 import { tokenDashboard } from './token-dashboard';
 
 // Repositorio falso para probar la puerta HTTP sin necesitar PostgreSQL
@@ -35,6 +37,9 @@ describe('GET /api/dashboard/v1/tablero/exportar (e2e)', () => {
     const modulo = await Test.createTestingModule({ imports: [AppModule] })
       .overrideProvider(TABLERO_REPOSITORY)
       .useValue(crearRepositorioFalso())
+      // El guard del dashboard lee el rol del usuario del token en la tabla de usuarios
+      .overrideProvider(USUARIO_REPOSITORY)
+      .useValue((await crearTablaDeUsuariosFalsa()).cuentas)
       .compile();
     app = modulo.createNestApplication();
     app.setGlobalPrefix('api');

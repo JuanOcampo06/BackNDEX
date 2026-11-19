@@ -10,7 +10,7 @@ export class UsuarioResponse {
   @ApiProperty({ example: 'Admin Demo' })
   nombre_completo!: string;
 
-  @ApiProperty({ example: 'admin@demo.local' })
+  @ApiProperty({ example: 'usuario@entidad.gov.co' })
   correo!: string;
 
   @ApiProperty({ enum: ROLES, example: 'admin' })
@@ -21,6 +21,9 @@ export class UsuarioResponse {
 
   @ApiProperty({ example: '2026-11-16T19:05:00.000Z', nullable: true, type: String, description: 'Ultimo inicio de sesion y null si nunca ha entrado' })
   ultimo_ingreso!: string | null;
+
+  @ApiProperty({ example: true, description: 'true mientras el usuario no cambie la contrasena que le puso el Administrador' })
+  debe_cambiar_contrasena!: boolean;
 
   @ApiProperty({ example: '2026-10-27T15:00:00.000Z' })
   creado_en!: string;

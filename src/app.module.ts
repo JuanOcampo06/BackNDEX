@@ -1,5 +1,6 @@
 import { Controller, Get, Module } from '@nestjs/common';
 import { ApiOkResponse, ApiOperation, ApiTags } from '@nestjs/swagger';
+import { minutes, ThrottlerModule } from '@nestjs/throttler';
 import { DashboardBffModule } from './dashboard/bff/dashboard-bff.module';
 import { MobileBffModule } from './mobile/bff/mobile-bff.module';
 
@@ -16,7 +17,13 @@ export class HealthController {
 }
 
 @Module({
-  imports: [DashboardBffModule, MobileBffModule],
+  imports: [
+    // Contadores del limite de intentos en memoria para toda la api
+    // solo cuentan los endpoints marcados con LimiteLogin o LimiteRegistro y cada uno pone su propio limite
+    ThrottlerModule.forRoot([{ ttl: minutes(1), limit: 5 }]),
+    DashboardBffModule,
+    MobileBffModule,
+  ],
   controllers: [HealthController],
 })
 export class AppModule {}

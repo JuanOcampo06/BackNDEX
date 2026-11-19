@@ -11,6 +11,7 @@ import type { AvisoCodigo, NotificadorCodigosPort } from '../src/mobile/modules/
 import { VIAJES_REPOSITORY } from '../src/mobile/modules/trips/application/viajes.repository.port';
 import type { ViajesRepositoryPort } from '../src/mobile/modules/trips/application/viajes.repository.port';
 import type { Viaje, ViajeConPuntos } from '../src/mobile/modules/trips/domain/viaje';
+import { LimiteIntentosGuard } from '../src/platform/auth';
 
 const FECHA = '2026-10-22T18:00:00.000Z';
 
@@ -141,6 +142,9 @@ describe('Registro, login y viajes de la app movil (e2e)', () => {
       .useValue(notificadorFalso)
       .overrideProvider(VIAJES_REPOSITORY)
       .useValue(crearViajesFalso())
+      // Esta suite registra muchos ciudadanos seguidos y el limite de intentos se prueba en limite-intentos.e2e-spec.ts
+      .overrideGuard(LimiteIntentosGuard)
+      .useValue({ canActivate: () => true })
       .compile();
     app = modulo.createNestApplication();
     app.setGlobalPrefix('api');

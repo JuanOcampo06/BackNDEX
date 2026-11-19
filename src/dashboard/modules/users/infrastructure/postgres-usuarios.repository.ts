@@ -5,7 +5,7 @@ import { CambiosParaGuardar, Usuario, UsuarioParaGuardar } from '../domain/usuar
 
 // Columnas que se leen de la tabla con los nombres que usa el dominio y la contrasena nunca se lee
 const COLUMNAS = `id, nombre_completo AS "nombreCompleto", correo, rol, entidad, ultimo_ingreso AS "ultimoIngreso",
-  creado_en AS "creadoEn", actualizado_en AS "actualizadoEn"`;
+  debe_cambiar_contrasena AS "debeCambiarContrasena", creado_en AS "creadoEn", actualizado_en AS "actualizadoEn"`;
 
 // Columna de la tabla que corresponde a cada campo que se puede cambiar
 const COLUMNA_POR_CAMPO: Record<keyof CambiosParaGuardar, string> = {
@@ -14,6 +14,7 @@ const COLUMNA_POR_CAMPO: Record<keyof CambiosParaGuardar, string> = {
   rol: 'rol',
   entidad: 'entidad',
   contrasenaCifrada: 'contrasena_cifrada',
+  debeCambiarContrasena: 'debe_cambiar_contrasena',
 };
 
 interface FilaUsuario extends Omit<Usuario, 'ultimoIngreso' | 'creadoEn' | 'actualizadoEn'> {
@@ -65,9 +66,9 @@ export class PostgresUsuariosRepository implements UsuariosRepositoryPort, OnMod
 
   async crear(usuario: UsuarioParaGuardar): Promise<Usuario> {
     const resultado = await this.pool.query<FilaUsuario>(
-      `INSERT INTO dashboard.usuarios (nombre_completo, correo, rol, entidad, contrasena_cifrada)
-       VALUES ($1, $2, $3, $4, $5) RETURNING ${COLUMNAS}`,
-      [usuario.nombreCompleto, usuario.correo, usuario.rol, usuario.entidad, usuario.contrasenaCifrada],
+      `INSERT INTO dashboard.usuarios (nombre_completo, correo, rol, entidad, contrasena_cifrada, debe_cambiar_contrasena)
+       VALUES ($1, $2, $3, $4, $5, $6) RETURNING ${COLUMNAS}`,
+      [usuario.nombreCompleto, usuario.correo, usuario.rol, usuario.entidad, usuario.contrasenaCifrada, usuario.debeCambiarContrasena],
     );
     return aUsuario(resultado.rows[0]);
   }

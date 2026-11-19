@@ -98,7 +98,7 @@ Una sola base PostgreSQL (`safepath`) con tres esquemas, según quién usa cada 
 - `dashboard`: solo del tablero (`usuarios` con su contraseña cifrada, `restablecimientos_contrasena`, `siniestros`, `actores_viales`). El login del dashboard usa `dashboard.usuarios`.
 - `movil`: solo de la app (`usuarios`, los ciudadanos autores de reportes y activaciones).
 
-Los datos del tablero salen **solo del Anuario de Siniestralidad Vial** (`infra/postgres/datos/`). No hay datos inventados: lo que el anuario no trae (reportes, botón de pánico, viajes, ciudadanos) queda vacío. Los únicos datos de prueba son los usuarios del dashboard para el login.
+Los datos del tablero salen **solo del Anuario de Siniestralidad Vial** (`infra/postgres/datos/`). No hay datos inventados: lo que el anuario no trae (reportes, botón de pánico, viajes, ciudadanos) queda vacío. No hay usuarios de prueba: el primer administrador del dashboard lo crea la API al arrancar con `ADMIN_CORREO` y `ADMIN_CONTRASENA`.
 
 Cada producto accede a las tablas compartidas con su **propio adaptador** en `infrastructure/`, sin importar código del otro. Nunca se duplica una tabla en dos esquemas. Toda consulta escribe el esquema delante de la tabla (`compartido.reportes`). Las reglas que se puedan expresar en la base (claves foráneas, `CHECK`) van también en la base.
 

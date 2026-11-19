@@ -1,6 +1,7 @@
 import { CambiosParaGuardar, Usuario, UsuarioParaGuardar } from '../domain/usuario';
 import { ActualizarUsuarioUseCase } from './actualizar-usuario.use-case';
 import { ContrasenaCifradorPort } from './contrasena-cifrador.port';
+import { CrearAdministradorInicialUseCase } from './crear-administrador-inicial.use-case';
 import { CrearUsuarioUseCase } from './crear-usuario.use-case';
 import { EliminarUsuarioUseCase } from './eliminar-usuario.use-case';
 import { UsuariosRepositoryPort } from './usuarios.repository.port';
@@ -17,10 +18,10 @@ let contrasenasGuardadas: Map<number, string>;
 function crearRepositorio(): UsuariosRepositoryPort {
   contrasenasGuardadas = new Map();
   const guardados: Usuario[] = [
-    { id: 1, nombreCompleto: 'Admin Demo', correo: 'admin@demo.local', rol: 'admin', entidad: null, ultimoIngreso: null, creadoEn: FECHA, actualizadoEn: FECHA },
+    { id: 1, nombreCompleto: 'Admin Demo', correo: 'admin@demo.local', rol: 'admin', entidad: null, ultimoIngreso: null, debeCambiarContrasena: false, creadoEn: FECHA, actualizadoEn: FECHA },
   ];
   return {
-    listar: async () => guardados,
+    listar: async ({ rol }) => guardados.filter((u) => rol === undefined || u.rol === rol),
     buscarPorId: async (id) => guardados.find((u) => u.id === id) ?? null,
     existeCorreo: async (correo, idExcluido) => guardados.some((u) => u.correo === correo && u.id !== idExcluido),
     crear: async ({ contrasenaCifrada, ...nuevo }: UsuarioParaGuardar) => {
@@ -136,6 +137,95 @@ describe('Contrasena y entidad de los usuarios', () => {
 
     expect(contrasenasGuardadas.get(1)).toBe('cifrada:Nueva-clave1');
     expect(usuario.entidad).toBeNull();
+  });
+});
+
+describe('Marca de cambiar la contrasena', () => {
+  it('un usuario creado por el administrador debe cambiar su contrasena', async () => {
+    const usuario = await new CrearUsuarioUseCase(crearRepositorio(), cifrador).execute({
+      nombreCompleto: 'Ana Lopez',
+      correo: 'ana@demo.local',
+      rol: 'lector',
+      contrasena: 'Clave-segura1',
+    });
+
+    expect(usuario.debeCambiarContrasena).toBe(true);
+  });
+
+  it('poner la contrasena de otro usuario lo obliga a cambiarla y la propia no', async () => {
+    const repositorio = crearRepositorio();
+    const actualizar = new ActualizarUsuarioUseCase(repositorio, cifrador);
+    const otro = await new CrearUsuarioUseCase(repositorio, cifrador).execute({
+      nombreCompleto: 'Ana Lopez',
+      correo: 'ana@demo.local',
+      rol: 'lector',
+      contrasena: 'Clave-segura1',
+    });
+    await actualizar.execute(otro.id, { contrasena: 'Clave-propia1' }, otro.id);
+    expect((await repositorio.buscarPorId(otro.id))?.debeCambiarContrasena).toBe(false);
+
+    expect((await actualizar.execute(otro.id, { contrasena: 'Clave-temporal1' }, 1)).debeCambiarContrasena).toBe(true);
+    expect((await actualizar.execute(1, { contrasena: 'Clave-del-admin1' }, 1)).debeCambiarContrasena).toBe(false);
+  });
+
+  it('cambiar otros datos sin contrasena no toca la marca', async () => {
+    const usuario = await new ActualizarUsuarioUseCase(crearRepositorio(), cifrador).execute(1, { entidad: 'Alcaldía' }, 2);
+
+    expect(usuario.debeCambiarContrasena).toBe(false);
+  });
+});
+
+describe('CrearAdministradorInicialUseCase', () => {
+  // Repositorio sin el administrador que trae crearRepositorio
+  const repositorioVacio = async (): Promise<UsuariosRepositoryPort> => {
+    const repositorio = crearRepositorio();
+    await repositorio.eliminar(1);
+    return repositorio;
+  };
+
+  it('sin correo ni contrasena no hace nada y no consulta la base', async () => {
+    const repositorio = await repositorioVacio();
+    const listar = jest.spyOn(repositorio, 'listar');
+
+    expect(await new CrearAdministradorInicialUseCase(repositorio, cifrador).execute({})).toBe('sin-datos');
+    expect(listar).not.toHaveBeenCalled();
+  });
+
+  it('con la base sin administradores lo crea con el correo en minusculas la contrasena cifrada y la marca', async () => {
+    const repositorio = await repositorioVacio();
+
+    const resultado = await new CrearAdministradorInicialUseCase(repositorio, cifrador).execute({ correo: 'Jefe@Entidad.gov.co', contrasena: 'Clave-inicial1' });
+
+    const [admin] = await repositorio.listar({ rol: 'admin' });
+    expect(resultado).toBe('creado');
+    expect(admin).toMatchObject({ correo: 'jefe@entidad.gov.co', rol: 'admin', debeCambiarContrasena: true });
+    expect(contrasenasGuardadas.get(admin.id)).toBe('cifrada:Clave-inicial1');
+  });
+
+  it('si ya existe un administrador no crea otro', async () => {
+    const repositorio = crearRepositorio();
+
+    const resultado = await new CrearAdministradorInicialUseCase(repositorio, cifrador).execute({ correo: 'otro@entidad.gov.co', contrasena: 'Clave-inicial1' });
+
+    expect(resultado).toBe('ya-existe');
+    expect(await repositorio.listar({ rol: 'admin' })).toHaveLength(1);
+  });
+
+  it('rechaza datos invalidos aunque ya exista un administrador', async () => {
+    const crear = new CrearAdministradorInicialUseCase(crearRepositorio(), cifrador);
+
+    await expect(crear.execute({ correo: 'jefe@entidad.gov.co', contrasena: 'debil' })).rejects.toMatchObject({ codigo: 'USUARIO_INVALIDO' });
+    await expect(crear.execute({ correo: 'no-es-correo', contrasena: 'Clave-inicial1' })).rejects.toMatchObject({ codigo: 'USUARIO_INVALIDO' });
+  });
+
+  it('rechaza que falte una de las dos variables o una contrasena que no cumple las reglas', async () => {
+    const crear = async (datos: { correo?: string; contrasena?: string }) =>
+      new CrearAdministradorInicialUseCase(await repositorioVacio(), cifrador).execute(datos);
+
+    await expect(crear({ correo: 'jefe@entidad.gov.co' })).rejects.toMatchObject({ codigo: 'USUARIO_INVALIDO' });
+    await expect(crear({ contrasena: 'Clave-inicial1' })).rejects.toMatchObject({ codigo: 'USUARIO_INVALIDO' });
+    await expect(crear({ correo: 'jefe@entidad.gov.co', contrasena: 'debil' })).rejects.toMatchObject({ codigo: 'USUARIO_INVALIDO' });
+    await expect(crear({ correo: 'no-es-correo', contrasena: 'Clave-inicial1' })).rejects.toMatchObject({ codigo: 'USUARIO_INVALIDO' });
   });
 });
 

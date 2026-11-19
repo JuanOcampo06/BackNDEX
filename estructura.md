@@ -22,11 +22,11 @@ Toda carpeta vacía lleva un `.gitkeep` para que Git la conserve.
 ├── .env.example                       [CONFIG]          Plantilla de variables (puertos, PostgreSQL, DATABASE_URL, CORS_ORIGIN, JWT_SECRET obligatorio, DASHBOARD_URL, SMTP_* para el correo y GOOGLE_MAPS_API_KEY para las rutas por calles); se copia a .env.
 ├── .env                               [CONFIG]          Tu configuración local; no se versiona.
 ├── .gitignore                         [CONFIG]          Lo que Git ignora.
-├── demo.http                          [CONFIG]          Peticiones de prueba: health, login y todos los endpoints del tablero.
+├── demo.http                          [CONFIG]          Peticiones de prueba: health, login con el administrador inicial y su cambio de contraseña y todos los endpoints del tablero.
 ├── infra/                             [IMPLEMENTADO]    Despliegue adicional.
 │   ├── postgres/                      [IMPLEMENTADO]    Scripts que PostgreSQL ejecuta al crear la base por primera vez.
 │   │   ├── 01-esquema.sql             [IMPLEMENTADO]    Esquemas compartido, dashboard y movil con sus tablas, la vista compartido.viajes_ciudadanos, restricciones e índices.
-│   │   ├── 02-datos.sql               [IMPLEMENTADO]    Localidades, anuario de siniestralidad 2025 (lugares, siniestros y actores viales) y usuarios del dashboard; lo demás queda vacío.
+│   │   ├── 02-datos.sql               [IMPLEMENTADO]    Localidades y anuario de siniestralidad 2025 (lugares, siniestros y actores viales); sin usuarios del dashboard y lo demás queda vacío.
 │   │   ├── 03-ciclovias.sql           [IMPLEMENTADO]    Crea compartido.ciclovias_fuente y compartido.ciclovias y carga el JSON; se puede volver a correr.
 │   │   └── datos/
 │   │       ├── anuario-siniestros.csv [IMPLEMENTADO]    Hoja Siniestros del anuario 2025 (11.573 filas, solo las columnas que usa la base).
@@ -36,10 +36,12 @@ Toda carpeta vacía lleva un `.gitkeep` para que Git la conserve.
 │   └── nginx/                         [VACÍO - FUTURO]  Proxy inverso (+ README.md de 2 líneas).
 ├── test/                              [IMPLEMENTADO]    Pruebas e2e.
 │   ├── auth.e2e-spec.ts               [IMPLEMENTADO]    Login con la tabla de usuarios, usuario creado desde el tablero, /auth/me, restablecer contraseña, créditos y rango de meses.
-│   ├── dashboard-falsos.ts            [IMPLEMENTADO]    Ayuda de las pruebas: tabla de usuarios, tablero y restablecimientos falsos en memoria.
+│   ├── dashboard-falsos.ts            [IMPLEMENTADO]    Ayuda de las pruebas: tabla de usuarios (con o sin usuarios de prueba), tablero y restablecimientos falsos en memoria.
+│   ├── cambio-contrasena-obligatorio.e2e-spec.ts [IMPLEMENTADO] Cambio de contraseña obligatorio (403 hasta cambiarla) y administrador inicial desde ADMIN_CORREO y ADMIN_CONTRASENA.
 │   ├── entorno-pruebas.ts             [IMPLEMENTADO]    Pone un JWT_SECRET válido para todas las pruebas.
-│   ├── dashboard-roles.e2e-spec.ts    [IMPLEMENTADO]    Permisos del dashboard: sin token, token inválido o vencido (401), rol Usuario (403) y Administrador (200).
-│   ├── token-dashboard.ts             [IMPLEMENTADO]    Ayuda de las pruebas: arma el token del dashboard con su rol.
+│   ├── dashboard-roles.e2e-spec.ts    [IMPLEMENTADO]    Permisos del dashboard: sin token, token inválido o vencido (401), rol Usuario (403) y Administrador (200); usuario eliminado (401) y rol quitado (403) con el token aún vigente.
+│   ├── limite-intentos.e2e-spec.ts    [IMPLEMENTADO]    Límite de intentos por IP en los login, el registro del móvil y los endpoints con códigos del correo (429).
+│   ├── token-dashboard.ts             [IMPLEMENTADO]    Ayuda de las pruebas: arma el token del dashboard con su rol y el id de un usuario de la tabla falsa con ese rol.
 │   ├── mobile.e2e-spec.ts             [IMPLEMENTADO]    Reportes del móvil por HTTP con un repositorio falso y token (201, 400, 401, 404).
 │   ├── auth-viajes-movil.e2e-spec.ts  [IMPLEMENTADO]    Registro, login y viajes del móvil por HTTP con repositorios falsos (201, 400, 401, 404, 409).
 │   ├── rutas-movil.e2e-spec.ts        [IMPLEMENTADO]    Ruta rápida y segura del móvil por HTTP con una red de ciclovías falsa (200, 400, 401).
@@ -56,10 +58,10 @@ Toda carpeta vacía lleva un `.gitkeep` para que Git la conserve.
     │   ├── tipos-vehiculo.ts          [IMPLEMENTADO]    Tipos de vehículo que piden reports, sos y trips (los mismos del filtro del dashboard).
     │   └── reglas-contrasena.ts       [IMPLEMENTADO]    Reglas de contraseña del dashboard: 8 a 72 caracteres, mayúscula, minúscula y número.
     ├── platform/                      [IMPLEMENTADO]    Herramientas técnicas reutilizables (solo database tiene código).
-    │   ├── auth/                      [IMPLEMENTADO]    JWT: jwt.ts (firma y verifica HS256 con JWT_SECRET y valida que el secreto sea seguro), contrasenas.ts (scrypt y tokens de un solo uso), jwt-auth.guard.ts y usuario-actual.decorator.ts de la app móvil, y dashboard-auth.guard.ts con @SoloRoles para el dashboard (401 y 403) (+ jwt.spec.ts y README.md).
+    │   ├── auth/                      [IMPLEMENTADO]    JWT: jwt.ts (firma y verifica HS256 con JWT_SECRET y valida que el secreto sea seguro), contrasenas.ts (scrypt y tokens de un solo uso), jwt-auth.guard.ts y usuario-actual.decorator.ts de la app móvil, dashboard-auth.guard.ts con @SoloRoles y @PermitidoSinCambiarContrasena para el dashboard (401 y 403) que lee el rol y la marca de cambiar contraseña de la base con consulta-acceso-dashboard.ts, y limite-intentos.ts con @LimiteLogin y @LimiteRegistro (429) (+ jwt.spec.ts y README.md).
     │   ├── tenancy/                   [VACÍO - FUTURO]  Multi-tenant, una BD por entidad (+ README.md).
     │   ├── database/                  [IMPLEMENTADO]    PostgreSQL (MongoDB pendiente) (+ README.md).
-    │   │   └── postgres.ts            [IMPLEMENTADO]    Crea la conexión a PostgreSQL con DATABASE_URL.
+    │   │   └── postgres.ts            [IMPLEMENTADO]    Crea la conexión a PostgreSQL con DATABASE_URL y TLS según DATABASE_SSL y DATABASE_SSL_CA (+ postgres.spec.ts).
     │   ├── messaging/                 [VACÍO - FUTURO]  RabbitMQ / eventos (+ README.md).
     │   └── cache/                     [VACÍO - FUTURO]  Redis (+ README.md).
     ├── common/                        [IMPLEMENTADO]    Negocio que leen los dos productos; sin controladores.
@@ -79,7 +81,7 @@ Toda carpeta vacía lleva un `.gitkeep` para que Git la conserve.
     │               └── postgres-ciclovia.repository.ts [IMPLEMENTADO] Consulta por rectángulo en PostgreSQL.
     ├── dashboard/                     [IMPLEMENTADO]    PRODUCTO 1: tablero institucional.
     │   ├── bff/                       [IMPLEMENTADO]    Única puerta HTTP: /api/dashboard/v1 (snake_case).
-    │   │   ├── dashboard-bff.module.ts [IMPLEMENTADO]   Registra el prefijo, los módulos y los controladores.
+    │   │   ├── dashboard-bff.module.ts [IMPLEMENTADO]   Registra el prefijo, los módulos y los controladores; al arrancar crea el administrador inicial con ADMIN_CORREO y ADMIN_CONTRASENA.
     │   │   ├── snake-case.ts          [IMPLEMENTADO]    Convierte las claves de las respuestas a snake_case.
     │   │   ├── domain-error.filter.ts [IMPLEMENTADO]    Errores del negocio a 401 (CREDENCIALES_INVALIDAS), 404 (_NO_ENCONTRADO), 409 (_DUPLICADO) o 400.
     │   │   ├── validacion.ts          [IMPLEMENTADO]    ValidationPipe y validación del id que responden 400 en español con {codigo: DATOS_INVALIDOS, mensaje}.
@@ -109,6 +111,7 @@ Toda carpeta vacía lleva un `.gitkeep` para que Git la conserve.
     │       │   │   ├── login.use-case.ts       [IMPLEMENTADO] LoginUseCase.execute().
     │       │   │   ├── solicitar-restablecimiento.use-case.ts / confirmar-restablecimiento.use-case.ts [IMPLEMENTADO] Enlace de un solo uso que vence en una hora.
     │       │   │   ├── cambiar-contrasena.use-case.ts [IMPLEMENTADO] PATCH auth/me/contrasena con la contraseña actual.
+    │       │   │   ├── obtener-estado-de-acceso.use-case.ts [IMPLEMENTADO] Rol y marca de cambiar contraseña del usuario del token (null si fue eliminado) para el guard del dashboard.
     │       │   │   ├── login.use-case.spec.ts  [IMPLEMENTADO] Pruebas del login y del restablecimiento con puertos falsos.
     │       │   │   └── *.port.ts               [IMPLEMENTADO] Puertos de usuarios, restablecimientos, cifrador, emisor de tokens y notificador.
     │       │   └── infrastructure/
@@ -122,7 +125,7 @@ Toda carpeta vacía lleva un `.gitkeep` para que Git la conserve.
     │       ├── users/                 [IMPLEMENTADO]    Usuarios del dashboard con rol admin o lector (tabla dashboard.usuarios).
     │       │   ├── index.ts / users.module.ts [IMPLEMENTADO] Puerta del módulo y conexión puerto-adaptador.
     │       │   ├── domain/            [IMPLEMENTADO]    Usuario, roles, reglas de nombre, correo, rol, entidad y contraseña, y errores.
-    │       │   ├── application/       [IMPLEMENTADO]    Listar, obtener, crear, actualizar y eliminar + puertos (repositorio y cifrador) + pruebas. Obtener y actualizar también sirven al perfil propio (/auth/me).
+    │       │   ├── application/       [IMPLEMENTADO]    Listar, obtener, crear, actualizar, eliminar y crear el administrador inicial + puertos (repositorio y cifrador) + pruebas. Obtener y actualizar también sirven al perfil propio (/auth/me).
     │       │   └── infrastructure/    [IMPLEMENTADO]    postgres-usuarios.repository.ts y scrypt-contrasena.cifrador.ts.
     │       └── kpis/                  [IMPLEMENTADO]    Cifras, gráficas y mapas del tablero.
     │           ├── index.ts           [IMPLEMENTADO]    Exporta el módulo, los casos de uso, Periodo y los catálogos.

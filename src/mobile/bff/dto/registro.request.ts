@@ -23,7 +23,7 @@ export class RegistroRequest {
   @IsIn(GENEROS)
   genero!: Genero;
 
-  @ApiProperty({ example: 'demo1234', minLength: 8, maxLength: 72 })
+  @ApiProperty({ example: 'Contrasena-segura1', minLength: 8, maxLength: 72 })
   @IsString()
   @MinLength(8)
   @MaxLength(72)

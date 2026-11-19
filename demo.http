@@ -1,39 +1,84 @@
 ### Sirve igual para la ejecución local y para el contenedor (mismo puerto 3001).
 @base = http://localhost:3001/api
 
+### La base no trae usuarios: el primer administrador lo crea la api al arrancar con ADMIN_CORREO y ADMIN_CONTRASENA del .env
+### pon aqui los mismos valores y despues de cambiarla en el paso 2a pon en adminClave la nueva
+@adminCorreo = admin@entidad.gov.co
+@adminClave = la-de-ADMIN_CONTRASENA
+@adminClaveNueva = Clave-propia1
+@lectorCorreo = lector@entidad.gov.co
+
 ### 1. Health
 GET {{base}}/health
 
-### 2. Login correcto del Administrador (200) y guardar el token
+### 2. Login del Administrador (200) y guardar el token
 ### todos los endpoints del dashboard menos el login piden este token
+### la primera vez responde debe_cambiar_contrasena true y el resto del dashboard da 403 hasta el paso 2a
 # @name loginDashboard
 POST {{base}}/dashboard/v1/auth/login
 Content-Type: application/json
 
 {
-  "email": "admin@demo.local",
-  "password": "demo1234"
+  "email": "{{adminCorreo}}",
+  "password": "{{adminClave}}"
 }
 
 @tokenDash = {{loginDashboard.response.body.access_token}}
 
-### 2b. Login del Usuario de solo consulta (rol lector) para probar los permisos
+### 2a. Cambiar la contrasena obligatoria (204) y desde ahi el mismo token ya sirve en todo el dashboard
+PATCH {{base}}/dashboard/v1/auth/me/contrasena
+Authorization: Bearer {{tokenDash}}
+Content-Type: application/json
+
+{
+  "contrasena_actual": "{{adminClave}}",
+  "contrasena_nueva": "{{adminClaveNueva}}"
+}
+
+### 2b. Crear un Usuario de solo consulta (rol lector) para probar los permisos (201)
+### como su contrasena la pone el Administrador tambien debe cambiarla en su primer ingreso
+POST {{base}}/dashboard/v1/usuarios
+Authorization: Bearer {{tokenDash}}
+Content-Type: application/json
+
+{
+  "nombre_completo": "Lector de Prueba",
+  "correo": "{{lectorCorreo}}",
+  "rol": "lector",
+  "contrasena": "Clave-temporal1"
+}
+
+### 2c. Login del Usuario lector
 # @name loginLector
 POST {{base}}/dashboard/v1/auth/login
 Content-Type: application/json
 
 {
-  "email": "lector@demo.local",
-  "password": "demo1234"
+  "email": "{{lectorCorreo}}",
+  "password": "Clave-temporal1"
 }
 
 @tokenLector = {{loginLector.response.body.access_token}}
 
-### 2c. El Usuario lector no puede exportar (403)
+### 2d. Mientras no cambie la contrasena el tablero responde 403 CAMBIO_CONTRASENA_REQUERIDO
+GET {{base}}/dashboard/v1/tablero/filtros
+Authorization: Bearer {{tokenLector}}
+
+### 2e. El Usuario lector cambia su contrasena (204)
+PATCH {{base}}/dashboard/v1/auth/me/contrasena
+Authorization: Bearer {{tokenLector}}
+Content-Type: application/json
+
+{
+  "contrasena_actual": "Clave-temporal1",
+  "contrasena_nueva": "Clave-lector1"
+}
+
+### 2f. El Usuario lector no puede exportar (403 ACCESO_DENEGADO)
 GET {{base}}/dashboard/v1/tablero/exportar?kpis=tarjeta_siniestros
 Authorization: Bearer {{tokenLector}}
 
-### 2d. Sin token el tablero responde 401
+### 2g. Sin token el tablero responde 401
 GET {{base}}/dashboard/v1/tablero/filtros
 
 ### 3. Login con contraseña errónea (401)
@@ -41,7 +86,7 @@ POST {{base}}/dashboard/v1/auth/login
 Content-Type: application/json
 
 {
-  "email": "admin@demo.local",
+  "email": "{{adminCorreo}}",
   "password": "incorrecta"
 }
 
@@ -64,7 +109,7 @@ Authorization: Bearer {{tokenDash}}
 Content-Type: application/json
 
 {
-  "full_name": "Admin Demo",
+  "full_name": "Administrador",
   "entidad": "Secretaría Distrital de Movilidad"
 }
 
@@ -74,7 +119,7 @@ Authorization: Bearer {{tokenDash}}
 Content-Type: application/json
 
 {
-  "contrasena_actual": "demo1234",
+  "contrasena_actual": "{{adminClaveNueva}}",
   "contrasena_nueva": "Nueva-clave1"
 }
 
@@ -84,7 +129,7 @@ POST {{base}}/dashboard/v1/auth/restablecer-contrasena/solicitar
 Content-Type: application/json
 
 {
-  "email": "lector@demo.local"
+  "email": "{{lectorCorreo}}"
 }
 
 ### P4. Poner la contrasena nueva con el token del enlace (204) y cambia el token por el del registro
@@ -197,10 +242,10 @@ Content-Type: application/json
 {
   "nombreCompleto": "Ana Lopez",
   "correo": "ana@demo.local",
-  "telefono": "3001234567",
-  "contrasena": "demo1234",
+  "contrasena": "Contrasena-segura1",
   "fechaNacimiento": "1995-04-23",
-  "genero": "femenino"
+  "genero": "femenino",
+  "aceptaTerminos": true
 }
 
 ### M2. Iniciar sesion (200) y guardar el token
@@ -210,7 +255,7 @@ Content-Type: application/json
 
 {
   "correo": "ana@demo.local",
-  "contrasena": "demo1234"
+  "contrasena": "Contrasena-segura1"
 }
 
 @token = {{loginMovil.response.body.accessToken}}
@@ -328,7 +373,7 @@ Authorization: Bearer {{tokenDash}}
 GET {{usuarios}}?rol=lector
 Authorization: Bearer {{tokenDash}}
 
-### 33. Crear un usuario (201) con contrasena para que pueda iniciar sesion
+### 33. Crear un usuario (201) con contrasena para que pueda iniciar sesion y cambiarla en su primer ingreso
 POST {{usuarios}}
 Authorization: Bearer {{tokenDash}}
 Content-Type: application/json
@@ -361,8 +406,9 @@ Content-Type: application/json
 
 {
   "nombre_completo": "Otro",
-  "correo": "admin@demo.local",
-  "rol": "lector"
+  "correo": "{{adminCorreo}}",
+  "rol": "lector",
+  "contrasena": "Clave-inicial1"
 }
 
 ### 37. Eliminar un usuario (204)

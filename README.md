@@ -53,7 +53,28 @@ node -e "console.log(require('crypto').randomBytes(48).toString('base64url'))"
 
 Si no tienes Node, en PowerShell sirve `[Convert]::ToBase64String((1..48 | % { Get-Random -Max 256 }))`. Usa un secreto distinto en cada entorno y nunca el de otra persona. Al cambiarlo, los tokens ya emitidos dejan de servir y hay que volver a iniciar sesión.
 
+**Primer administrador del dashboard.** La base no trae usuarios: al arrancar, si no existe ningún administrador, la API crea uno con `ADMIN_CORREO` y `ADMIN_CONTRASENA` (la contraseña con las reglas de siempre: 8 a 72 caracteres, mayúscula, minúscula y número). En su primer ingreso debe cambiarla. Si ya existe un administrador no hace nada, así que reiniciar la API no lo duplica. Si las variables tienen un formato inválido (correo mal escrito o contraseña débil) o falta una de las dos, la API no arranca y dice por qué, aunque ya exista un administrador; si faltan las dos, arranca y deja una advertencia. En AWS van en Secrets Manager, igual que `JWT_SECRET`.
+
 `DASHBOARD_URL` es opcional: la dirección del frontend del dashboard (por ejemplo `http://localhost:5173`) para armar el enlace de restablecer la contraseña.
+
+**Conexión cifrada a la base (TLS).** La API se conecta a PostgreSQL con TLS y verificando el certificado del servidor, salvo que `DATABASE_SSL=false`:
+
+| Variable | Local (Docker) | RDS | Para qué |
+|---|---|---|---|
+| `DATABASE_SSL` | `false` (ya viene así en `.env.example` y en `docker-compose.yml`) | Sin definir | `false` desactiva TLS. Solo para el PostgreSQL local, que no tiene TLS |
+| `DATABASE_SSL_CA` | Vacía | Ya viene definida en la imagen Docker (`/app/certs/global-bundle.pem`) | Certificado de la autoridad que firmó el de la base. Node no trae el de RDS, así que sin él la conexión a RDS falla con `self-signed certificate in certificate chain` |
+
+El `Dockerfile` descarga el `global-bundle.pem` público de AWS al construir la imagen y define `DATABASE_SSL_CA`, así que en ECS no hay que configurar nada para TLS (construir la imagen necesita internet). No pongas `sslmode` en `DATABASE_URL`: la configuración de TLS sale solo de estas dos variables. Si `DATABASE_SSL_CA` apunta a un archivo que no existe, la API no arranca.
+
+**Límite de intentos.** Para frenar la fuerza bruta y la creación masiva de cuentas, estos endpoints cuentan las peticiones por IP con `@nestjs/throttler` y al pasarse responden `429` con `{"codigo":"DEMASIADOS_INTENTOS","mensaje":"Demasiados intentos, espera un momento y vuelve a intentarlo"}`:
+
+| Endpoint | Límite por IP |
+|---|---|
+| `POST /dashboard/v1/auth/login` y `POST /mobile/v1/auth/login` | 5 por minuto |
+| `POST /mobile/v1/auth/register` | 3 por hora |
+| Los que envían o revisan un código o enlace del correo: `POST /dashboard/v1/auth/restablecer-contrasena/solicitar` y `/confirmar`, y en la app `verify-email`, `resend-code`, `forgot-password` y `reset-password` | 5 por minuto |
+
+Los contadores viven en memoria (la API corre en una sola instancia) y se reinician al reiniciarla. La IP sale del último salto de `X-Forwarded-For` (`trust proxy 1`) porque en AWS la API queda detrás del balanceador (ALB); por eso el puerto de la API **solo debe ser accesible desde el ALB** (grupo de seguridad), si no un cliente podría inventar la cabecera y saltarse el límite.
 
 ### Opción A: con Docker (la más fácil)
 
@@ -66,7 +87,7 @@ docker compose logs -f api       # ver los logs (Ctrl + C para salir)
 docker compose down              # apagarlo cuando termines (los datos se conservan)
 ```
 
-La primera vez, PostgreSQL crea las tablas y carga solo los datos del **Anuario de Siniestralidad Vial 2025** y los usuarios del dashboard (scripts de `infra/postgres/`).
+La primera vez, PostgreSQL crea las tablas y carga solo los datos del **Anuario de Siniestralidad Vial 2025** (scripts de `infra/postgres/`). El primer administrador lo crea la API con `ADMIN_CORREO` y `ADMIN_CONTRASENA`.
 
 ### Opción B: sin Docker para la API
 
@@ -104,19 +125,19 @@ curl http://localhost:3001/api/health
 Respuesta esperada: `{"status":"ok"}`
 
 ```bash
-curl.exe -X POST http://localhost:3001/api/dashboard/v1/auth/login -H "Content-Type: application/json" -d "{\`"email\`":\`"admin@demo.local\`",\`"password\`":\`"demo1234\`"}"
+curl.exe -X POST http://localhost:3001/api/dashboard/v1/auth/login -H "Content-Type: application/json" -d "{\`"email\`":\`"<ADMIN_CORREO>\`",\`"password\`":\`"<ADMIN_CONTRASENA>\`"}"
 ```
 
-Respuesta esperada:
+Respuesta esperada (la primera vez `debe_cambiar_contrasena` es `true`: cambia la contraseña con `PATCH /auth/me/contrasena` antes de usar el resto del dashboard):
 
 ```json
-{"access_token":"eyJhbGciOiJIUzI1NiIs...","user":{"id":"1","full_name":"Admin Demo","email":"admin@demo.local","role":"admin","entidad":"Secretaría Distrital de Movilidad"}}
+{"access_token":"eyJhbGciOiJIUzI1NiIs...","user":{"id":"1","full_name":"Administrador","email":"<ADMIN_CORREO>","role":"admin","entidad":null,"debe_cambiar_contrasena":true}}
 ```
 
 Con una contraseña errónea:
 
 ```bash
-curl.exe -X POST http://localhost:3001/api/dashboard/v1/auth/login -H "Content-Type: application/json" -d "{\`"email\`":\`"admin@demo.local\`",\`"password\`":\`"incorrecta\`"}"
+curl.exe -X POST http://localhost:3001/api/dashboard/v1/auth/login -H "Content-Type: application/json" -d "{\`"email\`":\`"<ADMIN_CORREO>\`",\`"password\`":\`"incorrecta\`"}"
 ```
 
 Respuesta esperada (código `401`): `{"codigo":"CREDENCIALES_INVALIDAS","mensaje":"Correo o contraseña incorrectos"}`
@@ -125,7 +146,7 @@ Respuesta esperada (código `401`): `{"codigo":"CREDENCIALES_INVALIDAS","mensaje
 
 ```powershell
 Invoke-RestMethod http://localhost:3001/api/health
-Invoke-RestMethod -Method Post -Uri http://localhost:3001/api/dashboard/v1/auth/login -ContentType "application/json" -Body '{"email":"admin@demo.local","password":"demo1234"}'
+Invoke-RestMethod -Method Post -Uri http://localhost:3001/api/dashboard/v1/auth/login -ContentType "application/json" -Body '{"email":"<ADMIN_CORREO>","password":"<ADMIN_CONTRASENA>"}'
 ```
 
 Un endpoint del tablero (pide el `access_token` del login en la cabecera `Authorization`):
@@ -144,17 +165,26 @@ Respuesta esperada (siniestros del último trimestre del anuario 2025 comparados
 
 **Con `demo.http`**: ábrelo en VS Code con la extensión *REST Client* y pulsa *Send Request* sobre cada petición. Incluye todas las del tablero.
 
-### Credenciales de la demo
+### Usuarios del dashboard
 
-El login usa la tabla real `dashboard.usuarios` (contraseñas cifradas con scrypt). La base trae estos usuarios de prueba, todos con contraseña `demo1234`:
+El login usa la tabla real `dashboard.usuarios` (contraseñas cifradas con scrypt). La base **no trae usuarios de prueba**: el primer administrador sale de `ADMIN_CORREO` y `ADMIN_CONTRASENA` (ver *Configurar*) y los demás los crea un administrador desde el tablero.
 
-| Rol | Correo | Puede |
-|---|---|---|
-| Administrador (`admin`) | `admin@demo.local` | Todo: ver el tablero, exportar a Excel y gestionar usuarios |
-| Usuario (`lector`) | `lector@demo.local` | Solo ver el tablero, las ciclovías y su propio perfil |
-| Usuario (`lector`) | `carlos.perez@demo.local` | Igual que el anterior |
+| Rol | Puede |
+|---|---|
+| Administrador (`admin`) | Todo: ver el tablero, exportar a Excel y gestionar usuarios |
+| Usuario (`lector`) | Solo ver el tablero, las ciclovías y su propio perfil |
 
-Un usuario creado desde el tablero (`POST /usuarios`) entra con la `contrasena` que se le puso al crearlo (es obligatoria). Las contraseñas que se crean o cambian deben tener de 8 a 72 caracteres con al menos una mayúscula, una minúscula y un número (las letras con tilde y la ñ cuentan); si no, `400` con `La contraseña debe tener entre 8 y 72 caracteres, una mayúscula, una minúscula y un número`. Los usuarios de prueba conservan `demo1234`, que es anterior a esa regla.
+Un usuario creado desde el tablero (`POST /usuarios`) entra con la `contrasena` que se le puso al crearlo (es obligatoria). Las contraseñas que se crean o cambian deben tener de 8 a 72 caracteres con al menos una mayúscula, una minúscula y un número (las letras con tilde y la ñ cuentan); si no, `400` con `La contraseña debe tener entre 8 y 72 caracteres, una mayúscula, una minúscula y un número`.
+
+**Cambio de contraseña obligatorio.** Cuando la contraseña la puso otra persona, el usuario debe cambiarla antes de usar el dashboard:
+
+| Se activa (`debe_cambiar_contrasena: true`) | Se quita |
+|---|---|
+| El administrador inicial que crea la API | El usuario cambia su contraseña (`PATCH /auth/me/contrasena`) |
+| Un administrador crea un usuario (`POST /usuarios`) | El usuario la restablece con el enlace del correo |
+| Un administrador le pone contraseña a **otro** usuario (`PATCH /usuarios/:id`); a sí mismo no | |
+
+El login y `GET /auth/me` traen el campo `debe_cambiar_contrasena`. Mientras sea `true`, todos los endpoints del dashboard responden `403` con `{"codigo":"CAMBIO_CONTRASENA_REQUERIDO","mensaje":"Debes cambiar tu contraseña antes de continuar"}`, menos `GET /auth/me` y `PATCH /auth/me/contrasena`. Al cambiarla, el mismo token sirve sin volver a iniciar sesión.
 
 **Errores de datos en español.** Todos los `400` del dashboard tienen la forma `{"codigo","mensaje"}`. Los de formato (campo que falta o sobra, correo mal escrito, mes inválido…) usan `codigo: DATOS_INVALIDOS`, por ejemplo `{"codigo":"DATOS_INVALIDOS","mensaje":"El campo telefono no existe"}`.
 
@@ -209,6 +239,8 @@ npm run test
 | Cambiaste `PORT` pero la API sigue en el 3001 | Falta `.env` (o editaste `.env.example`): créalo con `cp .env.example .env` (o `copy` en Windows) y cambia el puerto ahí. |
 | Cambiaste código y en Docker no se ve | Reconstruye la imagen: `docker compose up -d --build`. |
 | "port is already allocated" en el `5432` o el `8081` | Ya tienes otro PostgreSQL o servicio en ese puerto: cambia `POSTGRES_PORT` o `ADMINER_PORT` en `.env` (y el puerto de `DATABASE_URL` si corres la API sin Docker). |
+| El login responde `401` con los usuarios `@demo.local` | La base ya no trae usuarios de prueba. Define `ADMIN_CORREO` y `ADMIN_CONTRASENA` en `.env` y vuelve a crear la base con `docker compose down -v` y `docker compose up -d` (el esquema también cambió). |
+| La API no conecta a la base con `The server does not support SSL connections` | Tu `.env` es anterior a `DATABASE_SSL`: agrega `DATABASE_SSL=false` para el PostgreSQL local (ver *Conexión cifrada a la base*). |
 | Los endpoints del tablero responden `500` | La API no llega a la base: revisa que `postgres` esté `(healthy)` en `docker compose ps` y, sin Docker, que `DATABASE_URL` en `.env` sea correcta. |
 | El tablero sale vacío o con meses sin datos | Los datos se generan hasta el día en que se creó la base. Vuelve a crearla con `docker compose down -v` y `docker compose up -d`. |
 
@@ -260,7 +292,7 @@ Es **una sola base** (`safepath`) dividida en **tres esquemas** según quién us
 
 | Tabla | Qué guarda |
 |---|---|
-| `dashboard.usuarios` | Usuarios del dashboard y los que inician sesión: nombre, correo (único, en minúsculas), `rol` (`admin` administra usuarios, `lector` solo consulta), `entidad` (opcional) y `contrasena_cifrada` (scrypt; vacía = no puede entrar todavía). |
+| `dashboard.usuarios` | Usuarios del dashboard y los que inician sesión: nombre, correo (único, en minúsculas), `rol` (`admin` administra usuarios, `lector` solo consulta), `entidad` (opcional) `contrasena_cifrada` (scrypt; vacía = no puede entrar todavía) y `debe_cambiar_contrasena` (`true` si la contraseña la puso otra persona). Empieza vacía: el primer administrador lo crea la API. |
 | `dashboard.restablecimientos_contrasena` | Enlaces para restablecer la contraseña: usuario, hash del token, vencimiento y cuándo se usó. |
 | `dashboard.siniestros` | Los 11.573 siniestros del anuario 2025: código del anuario como `id`, fecha y hora, lugar (dirección), localidad, coordenadas, gravedad, clase y tipo de vehículo. |
 | `dashboard.actores_viales` | Las 28.029 personas de esos siniestros: condición (`conductor`, `motociclista`, `ciclista`, `pasajero`, `peaton`), gravedad (`ileso`, `herido`, `muerto`), sexo y edad. |
@@ -514,7 +546,7 @@ Errores: datos inválidos responden `400` (por ejemplo, una persona menor de 18 
 
 ```bash
 # 1. Crear la cuenta y guardar el token
-curl -X POST http://localhost:3001/api/mobile/v1/auth/register -H "Content-Type: application/json" -d '{"nombreCompleto":"Ana Lopez","correo":"ana@demo.local","contrasena":"demo1234","fechaNacimiento":"1995-04-23","genero":"femenino"}'
+curl -X POST http://localhost:3001/api/mobile/v1/auth/register -H "Content-Type: application/json" -d '{"nombreCompleto":"Ana Lopez","correo":"ana@demo.local","contrasena":"Contrasena-segura1","fechaNacimiento":"1995-04-23","genero":"femenino","aceptaTerminos":true}'
 
 # 2. Usar el accessToken que devolvió
 curl -X POST http://localhost:3001/api/mobile/v1/reports -H "Content-Type: application/json" -H "Authorization: Bearer <accessToken>" -d '{"categoria":"danos_en_la_via","subcategoria":"hueco","descripcion":"Hueco","latitud":4.6486,"longitud":-74.0818}'

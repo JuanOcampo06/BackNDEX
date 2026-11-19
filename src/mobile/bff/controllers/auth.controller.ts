@@ -7,8 +7,10 @@ import {
   ApiOkResponse,
   ApiOperation,
   ApiTags,
+  ApiTooManyRequestsResponse,
   ApiUnauthorizedResponse,
 } from '@nestjs/swagger';
+import { LimiteLogin, LimiteRegistro } from '../../../platform/auth';
 import {
   ConfirmarRestablecimientoUseCase,
   IniciarSesionUseCase,
@@ -53,6 +55,8 @@ export class AuthController {
   @ApiCreatedResponse({ type: SesionResponse })
   @ApiBadRequestResponse({ description: 'Datos invalidos' })
   @ApiConflictResponse({ description: 'Ya existe un ciudadano con ese correo' })
+  @ApiTooManyRequestsResponse({ description: 'Mas de 3 registros en una hora desde la misma IP (DEMASIADOS_INTENTOS)' })
+  @LimiteRegistro()
   registrar(@Body(validar) cuerpo: RegistroRequest): Promise<Sesion> {
     return this.registrarCiudadano.execute(cuerpo);
   }
@@ -63,10 +67,15 @@ export class AuthController {
   @ApiOkResponse({ type: SesionResponse })
   @ApiBadRequestResponse({ description: 'Correo con formato invalido o contrasena vacia' })
   @ApiUnauthorizedResponse({ description: 'Correo o contrasena incorrectos' })
+  @ApiTooManyRequestsResponse({ description: 'Mas de 5 intentos en un minuto desde la misma IP (DEMASIADOS_INTENTOS)' })
+  @LimiteLogin()
   login(@Body(validar) cuerpo: IniciarSesionRequest): Promise<Sesion> {
     return this.iniciarSesion.execute(cuerpo);
   }
 
+  // Mismo limite que el login porque este endpoint envia o revisa un codigo y sin limite se podria adivinar o llenar el correo de mensajes
+  @ApiTooManyRequestsResponse({ description: 'Mas de 5 intentos en un minuto desde la misma IP (DEMASIADOS_INTENTOS)' })
+  @LimiteLogin()
   @Post('verify-email')
   @HttpCode(HttpStatus.OK)
   @ApiOperation({ summary: 'Verificar el correo con el codigo que llego al registrarse y recibir la sesion' })
@@ -76,6 +85,9 @@ export class AuthController {
     return this.verificarCorreo.execute({ ...cuerpo, ahora: new Date() });
   }
 
+  // Mismo limite que el login porque este endpoint envia o revisa un codigo y sin limite se podria adivinar o llenar el correo de mensajes
+  @ApiTooManyRequestsResponse({ description: 'Mas de 5 intentos en un minuto desde la misma IP (DEMASIADOS_INTENTOS)' })
+  @LimiteLogin()
   @Post('resend-code')
   @HttpCode(HttpStatus.ACCEPTED)
   @ApiOperation({ summary: 'Reenviar el codigo para verificar el correo (llega al correo y dura 15 minutos; no se envia otro antes de un minuto)' })
@@ -86,6 +98,9 @@ export class AuthController {
     return { mensaje: MENSAJE_REENVIO };
   }
 
+  // Mismo limite que el login porque este endpoint envia o revisa un codigo y sin limite se podria adivinar o llenar el correo de mensajes
+  @ApiTooManyRequestsResponse({ description: 'Mas de 5 intentos en un minuto desde la misma IP (DEMASIADOS_INTENTOS)' })
+  @LimiteLogin()
   @Post('forgot-password')
   @HttpCode(HttpStatus.ACCEPTED)
   @ApiOperation({ summary: 'Pedir el codigo para restablecer la contrasena (llega al correo y dura 15 minutos)' })
@@ -96,6 +111,9 @@ export class AuthController {
     return { mensaje: MENSAJE_SOLICITUD };
   }
 
+  // Mismo limite que el login porque este endpoint envia o revisa un codigo y sin limite se podria adivinar o llenar el correo de mensajes
+  @ApiTooManyRequestsResponse({ description: 'Mas de 5 intentos en un minuto desde la misma IP (DEMASIADOS_INTENTOS)' })
+  @LimiteLogin()
   @Post('reset-password')
   @HttpCode(HttpStatus.OK)
   @ApiOperation({ summary: 'Cambiar la contrasena con el codigo que llego al correo y el codigo ya no vuelve a servir' })
