@@ -16,6 +16,8 @@ const ETIQUETAS = [
   { nombre: 'App movil - Reportes', descripcion: 'Reportes ciudadanos en camelCase y piden token' },
   { nombre: 'App movil - Boton de panico', descripcion: 'Activaciones del boton de panico en camelCase y piden token' },
   { nombre: 'App movil - Rutas', descripcion: 'Ruta segura, equilibrada y rapida entre dos puntos en camelCase y piden token' },
+  { nombre: 'App movil - Mapa de calor', descripcion: 'Manchas del mapa de calor con los siniestros del anuario y los reportes recientes en camelCase y piden token' },
+  { nombre: 'App movil - Semaforos', descripcion: 'Semaforos de las ciclorrutas por zona del mapa en camelCase y piden token' },
   { nombre: 'App movil - Viajes', descripcion: 'Viajes en bicicleta con su recorrido GPS en camelCase y piden token' },
 ];
 

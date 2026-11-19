@@ -75,9 +75,25 @@ describe('costoDe', () => {
     const elige = (criterio: 'rapida' | 'equilibrada' | 'segura', largoDelDesvio: number): 'calle' | 'desvio' =>
       costoDe(criterio, porCalle) <= costoDe(criterio, { distanciaM: largoDelDesvio, tipo: 'ciclovia', riesgo: null }) ? 'calle' : 'desvio';
 
-    // Con un desvio de 1.350 m solo la rapida sigue por la calle
-    expect([elige('segura', 1350), elige('equilibrada', 1350), elige('rapida', 1350)]).toEqual(['desvio', 'desvio', 'calle']);
-    // Con uno de 1.500 m tambien la equilibrada y solo la segura rodea
-    expect([elige('segura', 1500), elige('equilibrada', 1500), elige('rapida', 1500)]).toEqual(['desvio', 'calle', 'calle']);
+    // Contra 1.000 m por calle a 14 km/h, la rapida deja de rodear pasados 1.071 m, la equilibrada pasados 1.335 m y la segura pasados 1.600 m
+    // con un desvio de 1.200 m solo la rapida sigue por la calle
+    expect([elige('segura', 1200), elige('equilibrada', 1200), elige('rapida', 1200)]).toEqual(['desvio', 'desvio', 'calle']);
+    // con uno de 1.450 m tambien la equilibrada y solo la segura rodea
+    expect([elige('segura', 1450), elige('equilibrada', 1450), elige('rapida', 1450)]).toEqual(['desvio', 'calle', 'calle']);
+  });
+});
+
+describe('costoDe con siniestros junto al tramo', () => {
+  const tramo = { distanciaM: 1000, tipo: 'ciclovia' as const, riesgo: null };
+
+  it('la segura encarece el tramo por cada siniestro que hubo a su lado y con tope', () => {
+    expect(costoDe('segura', { ...tramo, siniestrosCerca: 0 })).toBe(1000);
+    expect(costoDe('segura', { ...tramo, siniestrosCerca: 1 })).toBe(2000);
+    expect(costoDe('segura', { ...tramo, siniestrosCerca: 50 })).toBe(6000);
+  });
+
+  it('la rapida no mira los siniestros y la equilibrada si', () => {
+    expect(costoDe('rapida', { ...tramo, siniestrosCerca: 3 })).toBe(costoDe('rapida', tramo));
+    expect(costoDe('equilibrada', { ...tramo, siniestrosCerca: 3 })).toBeGreaterThan(costoDe('equilibrada', tramo));
   });
 });

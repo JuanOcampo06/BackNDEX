@@ -19,6 +19,9 @@ export class UsuarioResponse {
   @ApiProperty({ example: 'Secretaría Distrital de Movilidad', nullable: true, type: String })
   entidad!: string | null;
 
+  @ApiProperty({ example: '2026-11-16T19:05:00.000Z', nullable: true, type: String, description: 'Ultimo inicio de sesion y null si nunca ha entrado' })
+  ultimo_ingreso!: string | null;
+
   @ApiProperty({ example: '2026-10-27T15:00:00.000Z' })
   creado_en!: string;
 

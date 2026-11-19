@@ -9,7 +9,6 @@ import {
   UnauthorizedException,
   UseFilters,
   UseGuards,
-  ValidationPipe,
 } from '@nestjs/common';
 import {
   ApiAcceptedResponse,
@@ -25,6 +24,7 @@ import {
 } from '@nestjs/swagger';
 import { DashboardAuthGuard, UsuarioActual } from '../../../platform/auth';
 import {
+  CambiarContrasenaUseCase,
   ConfirmarRestablecimientoUseCase,
   DomainError,
   LoginResult,
@@ -36,16 +36,19 @@ import { DomainErrorFilter } from '../domain-error.filter';
 import { LoginRequest } from '../dto/login.request';
 import {
   ActualizarPerfilRequest,
+  CambiarContrasenaRequest,
   ConfirmarRestablecimientoRequest,
   PerfilResponse,
   SolicitarRestablecimientoRequest,
 } from '../dto/perfil.dto';
+import { crearValidador } from '../validacion';
 
 interface UsuarioDeSesion {
   id: string;
   full_name: string;
   email: string;
   role: string;
+  entidad: string | null;
 }
 
 interface LoginResponse {
@@ -53,10 +56,10 @@ interface LoginResponse {
   user: UsuarioDeSesion;
 }
 
-type Perfil = UsuarioDeSesion & { entidad: string | null };
+type Perfil = UsuarioDeSesion;
 
 // Rechaza los campos que no existen asi nadie puede cambiar su propio rol desde el perfil
-const validar = new ValidationPipe({ transform: true, whitelist: true, forbidNonWhitelisted: true });
+const validar = crearValidador();
 
 // Mensaje igual exista o no el correo para no revelar quien esta registrado
 const MENSAJE_SOLICITUD = 'Si el correo esta registrado se envio un enlace para restablecer la contrasena';
@@ -71,15 +74,16 @@ export class AuthController {
     private readonly actualizarUsuario: ActualizarUsuarioUseCase,
     private readonly solicitarRestablecimiento: SolicitarRestablecimientoUseCase,
     private readonly confirmarRestablecimiento: ConfirmarRestablecimientoUseCase,
+    private readonly cambiarContrasena: CambiarContrasenaUseCase,
   ) {}
 
   @Post('login')
   @HttpCode(HttpStatus.OK)
   @ApiOperation({ summary: 'Iniciar sesion con un usuario de la tabla dashboard.usuarios' })
-  @ApiOkResponse({ description: 'Token JWT del dashboard con el rol del usuario y sus datos en snake_case' })
+  @ApiOkResponse({ description: 'Token JWT del dashboard con el rol y el user con id full_name email role y entidad' })
   @ApiBadRequestResponse({ description: 'Correo con formato invalido o contrasena vacia' })
   @ApiUnauthorizedResponse({ description: 'Correo o contrasena incorrectos o el usuario no tiene contrasena' })
-  async login(@Body(new ValidationPipe()) body: LoginRequest): Promise<LoginResponse> {
+  async login(@Body(crearValidador({ transform: false, whitelist: false, forbidNonWhitelisted: false })) body: LoginRequest): Promise<LoginResponse> {
     try {
       const resultado = await this.loginUseCase.execute({
         correo: body.email,
@@ -122,6 +126,22 @@ export class AuthController {
     return aPerfil(usuario);
   }
 
+  @Patch('me/contrasena')
+  @HttpCode(HttpStatus.NO_CONTENT)
+  @UseGuards(DashboardAuthGuard)
+  @ApiBearerAuth()
+  @ApiOperation({ summary: 'Cambiar mi contrasena escribiendo la actual' })
+  @ApiNoContentResponse({ description: 'Contrasena cambiada y desde ahora solo sirve la nueva' })
+  @ApiBadRequestResponse({ description: 'La nueva no cumple las reglas (CONTRASENA_INVALIDA)' })
+  @ApiUnauthorizedResponse({ description: 'Falta el token o la contrasena actual no coincide (CREDENCIALES_INVALIDAS)' })
+  async cambiarMiContrasena(@UsuarioActual() usuarioId: number, @Body(validar) cuerpo: CambiarContrasenaRequest): Promise<void> {
+    await this.cambiarContrasena.execute({
+      usuarioId,
+      contrasenaActual: cuerpo.contrasena_actual,
+      contrasenaNueva: cuerpo.contrasena_nueva,
+    });
+  }
+
   @Post('restablecer-contrasena/solicitar')
   @HttpCode(HttpStatus.ACCEPTED)
   @ApiOperation({ summary: 'Pedir el enlace para restablecer la contrasena (llega al correo y dura una hora)' })
@@ -149,6 +169,7 @@ export class AuthController {
         full_name: usuario.nombreCompleto,
         email: usuario.correo,
         role: usuario.rol,
+        entidad: usuario.entidad,
       },
     };
   }

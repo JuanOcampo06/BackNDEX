@@ -16,16 +16,16 @@ Toda carpeta vacía lleva un `.gitkeep` para que Git la conserve.
 ├── tsconfig.build.json                [CONFIG]          Compilación de src/ a dist/ (sin pruebas).
 ├── nest-cli.json                      [CONFIG]          Configuración del CLI de NestJS.
 ├── eslint.config.mjs                  [CONFIG]          Lint + eslint-plugin-boundaries con las reglas de dependencia.
-├── Dockerfile                         [CONFIG]          Imagen única multietapa, USER node y HEALTHCHECK.
+├── Dockerfile                         [CONFIG]          Imagen única multietapa con Node 26 LTS (node:26-alpine), USER node y HEALTHCHECK.
 ├── docker-compose.yml                 [CONFIG]          Servicios api, postgres (con el anuario 2025) y adminer (puerto 8081); mongo, redis y rabbitmq comentados.
 ├── .dockerignore                      [CONFIG]          Lo que no entra a la imagen (node_modules, dist, .env...).
-├── .env.example                       [CONFIG]          Plantilla de variables (puertos, PostgreSQL, DATABASE_URL, CORS_ORIGIN, JWT_SECRET obligatorio y DASHBOARD_URL); se copia a .env.
+├── .env.example                       [CONFIG]          Plantilla de variables (puertos, PostgreSQL, DATABASE_URL, CORS_ORIGIN, JWT_SECRET obligatorio, DASHBOARD_URL, SMTP_* para el correo y GOOGLE_MAPS_API_KEY para las rutas por calles); se copia a .env.
 ├── .env                               [CONFIG]          Tu configuración local; no se versiona.
 ├── .gitignore                         [CONFIG]          Lo que Git ignora.
 ├── demo.http                          [CONFIG]          Peticiones de prueba: health, login y todos los endpoints del tablero.
 ├── infra/                             [IMPLEMENTADO]    Despliegue adicional.
 │   ├── postgres/                      [IMPLEMENTADO]    Scripts que PostgreSQL ejecuta al crear la base por primera vez.
-│   │   ├── 01-esquema.sql             [IMPLEMENTADO]    Esquemas compartido, dashboard y movil con sus tablas, restricciones e índices.
+│   │   ├── 01-esquema.sql             [IMPLEMENTADO]    Esquemas compartido, dashboard y movil con sus tablas, la vista compartido.viajes_ciudadanos, restricciones e índices.
 │   │   ├── 02-datos.sql               [IMPLEMENTADO]    Localidades, anuario de siniestralidad 2025 (lugares, siniestros y actores viales) y usuarios del dashboard; lo demás queda vacío.
 │   │   ├── 03-ciclovias.sql           [IMPLEMENTADO]    Crea compartido.ciclovias_fuente y compartido.ciclovias y carga el JSON; se puede volver a correr.
 │   │   └── datos/
@@ -53,7 +53,8 @@ Toda carpeta vacía lleva un `.gitkeep` para que Git la conserve.
     ├── shared/                        [IMPLEMENTADO]    Código común en TypeScript simple.
     │   ├── domain-error.ts            [IMPLEMENTADO]    Error base del negocio (codigo + mensaje).
     │   ├── coordenadas.ts             [IMPLEMENTADO]    Valida latitud y longitud (lo usan reports y sos).
-    │   └── tipos-vehiculo.ts          [IMPLEMENTADO]    Tipos de vehículo que piden reports y sos (los mismos del filtro del dashboard).
+    │   ├── tipos-vehiculo.ts          [IMPLEMENTADO]    Tipos de vehículo que piden reports, sos y trips (los mismos del filtro del dashboard).
+    │   └── reglas-contrasena.ts       [IMPLEMENTADO]    Reglas de contraseña del dashboard: 8 a 72 caracteres, mayúscula, minúscula y número.
     ├── platform/                      [IMPLEMENTADO]    Herramientas técnicas reutilizables (solo database tiene código).
     │   ├── auth/                      [IMPLEMENTADO]    JWT: jwt.ts (firma y verifica HS256 con JWT_SECRET y valida que el secreto sea seguro), contrasenas.ts (scrypt y tokens de un solo uso), jwt-auth.guard.ts y usuario-actual.decorator.ts de la app móvil, y dashboard-auth.guard.ts con @SoloRoles para el dashboard (401 y 403) (+ jwt.spec.ts y README.md).
     │   ├── tenancy/                   [VACÍO - FUTURO]  Multi-tenant, una BD por entidad (+ README.md).
@@ -80,7 +81,8 @@ Toda carpeta vacía lleva un `.gitkeep` para que Git la conserve.
     │   ├── bff/                       [IMPLEMENTADO]    Única puerta HTTP: /api/dashboard/v1 (snake_case).
     │   │   ├── dashboard-bff.module.ts [IMPLEMENTADO]   Registra el prefijo, los módulos y los controladores.
     │   │   ├── snake-case.ts          [IMPLEMENTADO]    Convierte las claves de las respuestas a snake_case.
-    │   │   ├── domain-error.filter.ts [IMPLEMENTADO]    Errores del negocio a 404 (_NO_ENCONTRADO), 409 (_DUPLICADO) o 400.
+    │   │   ├── domain-error.filter.ts [IMPLEMENTADO]    Errores del negocio a 401 (CREDENCIALES_INVALIDAS), 404 (_NO_ENCONTRADO), 409 (_DUPLICADO) o 400.
+    │   │   ├── validacion.ts          [IMPLEMENTADO]    ValidationPipe y validación del id que responden 400 en español con {codigo: DATOS_INVALIDOS, mensaje}.
     │   │   ├── controllers/
     │   │   │   ├── auth.controller.ts [IMPLEMENTADO]    POST auth/login: valida, llama al caso de uso, responde.
     │   │   │   ├── tablero.controller.ts [IMPLEMENTADO] GET tablero/...: un endpoint por tarjeta y gráfica.
@@ -96,7 +98,7 @@ Toda carpeta vacía lleva un `.gitkeep` para que Git la conserve.
     │   │       ├── listar-usuarios.query.ts [IMPLEMENTADO] rol opcional.
     │   │       └── usuario.response.ts [IMPLEMENTADO]   Forma del usuario (solo para Swagger).
     │   └── modules/                   [IMPLEMENTADO]    Negocio del dashboard, sin controladores.
-    │       ├── auth/                  [IMPLEMENTADO]    Login contra dashboard.usuarios y restablecer la contraseña.
+    │       ├── auth/                  [IMPLEMENTADO]    Login contra dashboard.usuarios (guarda el último ingreso), cambiar mi contraseña y restablecerla.
     │       │   ├── index.ts           [IMPLEMENTADO]    Lo único que el BFF puede importar del módulo.
     │       │   ├── auth.module.ts     [IMPLEMENTADO]    Conecta los puertos con PostgreSQL, scrypt, el emisor JWT y el notificador.
     │       │   ├── domain/
@@ -106,13 +108,16 @@ Toda carpeta vacía lleva un `.gitkeep` para que Git la conserve.
     │       │   ├── application/
     │       │   │   ├── login.use-case.ts       [IMPLEMENTADO] LoginUseCase.execute().
     │       │   │   ├── solicitar-restablecimiento.use-case.ts / confirmar-restablecimiento.use-case.ts [IMPLEMENTADO] Enlace de un solo uso que vence en una hora.
+    │       │   │   ├── cambiar-contrasena.use-case.ts [IMPLEMENTADO] PATCH auth/me/contrasena con la contraseña actual.
     │       │   │   ├── login.use-case.spec.ts  [IMPLEMENTADO] Pruebas del login y del restablecimiento con puertos falsos.
     │       │   │   └── *.port.ts               [IMPLEMENTADO] Puertos de usuarios, restablecimientos, cifrador, emisor de tokens y notificador.
     │       │   └── infrastructure/
     │       │       ├── postgres-usuario.repository.ts [IMPLEMENTADO] Lee la cuenta de dashboard.usuarios y cambia su contraseña.
     │       │       ├── postgres-restablecimientos.repository.ts [IMPLEMENTADO] Guarda el hash del token en dashboard.restablecimientos_contrasena.
     │       │       ├── scrypt-contrasena.cifrador.ts [IMPLEMENTADO] Cifra y compara con platform/auth.
-    │       │       ├── registro-notificador-restablecimiento.ts [IMPLEMENTADO] Escribe el enlace en el registro de la API (no hay servidor de correo todavía).
+    │       │       ├── correo-notificador-restablecimiento.ts [IMPLEMENTADO] Envía el enlace por correo con el servidor SMTP del .env (nodemailer).
+    │       │       ├── registro-notificador-restablecimiento.ts [IMPLEMENTADO] Sin SMTP_HOST escribe el enlace en el registro de la API.
+    │       │       ├── enlace-restablecimiento.ts [IMPLEMENTADO] Arma el enlace <DASHBOARD_URL>/restablecer-contrasena?token=....
     │       │       └── jwt-token.emisor.ts     [IMPLEMENTADO] Firma el JWT del dashboard con su audiencia y el rol.
     │       ├── users/                 [IMPLEMENTADO]    Usuarios del dashboard con rol admin o lector (tabla dashboard.usuarios).
     │       │   ├── index.ts / users.module.ts [IMPLEMENTADO] Puerta del módulo y conexión puerto-adaptador.
@@ -134,7 +139,7 @@ Toda carpeta vacía lleva un `.gitkeep` para que Git la conserve.
     │           │   └── calculos.ts    [IMPLEMENTADO]    Porcentajes, variación, franjas horarias y rangos de edad.
     │           ├── application/
     │           │   ├── tablero.repository.port.ts [IMPLEMENTADO] Puerto y token TABLERO_REPOSITORY.
-    │           │   ├── obtener-*.use-case.ts      [IMPLEMENTADO] 11 casos de uso, uno por tarjeta o gráfica, obtener-ultimo-mes-con-datos (mes final cuando no llegan meses) obtener-siniestros-detallados / obtener-reportes-detallados (registros con su localidad para el Excel) y obtener-creditos (GET tablero/creditos).
+    │           │   ├── obtener-*.use-case.ts      [IMPLEMENTADO] 11 casos de uso, uno por tarjeta o gráfica, obtener-ultimo-mes-con-datos (mes final cuando no llegan meses) obtener-siniestros-detallados / obtener-reportes-detallados (registros con su localidad para el Excel), obtener-creditos (GET tablero/creditos) y obtener-top-alertas (GET tablero/top-alertas).
     │           │   ├── exportar-kpis.use-case.ts  [IMPLEMENTADO] Arma el libro de Excel reutilizando esos casos de uso.
     │           │   ├── hojas-excel-kpis.ts        [IMPLEMENTADO] Cómo se convierte cada KPI en una hoja, las columnas de los filtros (separa por cada valor cuando un filtro trae varios) y la hoja de filtros.
     │           │   ├── generador-excel.port.ts    [IMPLEMENTADO] Puerto GENERADOR_EXCEL y la forma neutra del libro.
@@ -152,6 +157,8 @@ Toda carpeta vacía lleva un `.gitkeep` para que Git la conserve.
         │   │   ├── ciclovias.controller.ts [IMPLEMENTADO] GET ciclovias: ciclovías de la zona del mapa.
         │   │   ├── reports.controller.ts   [IMPLEMENTADO] POST, GET y GET :id de reports (piden token).
         │   │   ├── routes.controller.ts    [IMPLEMENTADO] GET routes: ruta segura, equilibrada y rápida entre dos puntos (pide token).
+        │   │   ├── mapa-calor.controller.ts [IMPLEMENTADO] GET mapa-calor: manchas del mapa de calor de toda la ciudad (pide token).
+        │   │   ├── semaforos.controller.ts [IMPLEMENTADO] GET semaforos: semáforos de las ciclorrutas de la zona del mapa (pide token). Ciclovías ya no devuelve el riesgo.
         │   │   ├── sos.controller.ts       [IMPLEMENTADO] POST, GET y PATCH :id/cancelar de sos (piden token).
         │   │   └── trips.controller.ts     [IMPLEMENTADO] POST, GET, GET :id, POST :id/puntos y PATCH :id/finalizar de trips (piden token).
         │   └── dto/
@@ -166,19 +173,22 @@ Toda carpeta vacía lleva un `.gitkeep` para que Git la conserve.
         │       ├── listar-reportes.query.ts [IMPLEMENTADO] categoria y subcategoria opcionales.
         │       ├── activar-sos.request.ts  [IMPLEMENTADO] Cuerpo del POST /sos (latitud y longitud).
         │       ├── reporte.response.ts     [IMPLEMENTADO] Forma del reporte (solo para Swagger).
+        │       ├── mapa-calor.response.ts [IMPLEMENTADO] Forma del mapa de calor (solo para Swagger).
         │       ├── activacion-sos.response.ts [IMPLEMENTADO] Forma de la activación (solo para Swagger).
         │       └── listar-sos.query.ts     [IMPLEMENTADO] estado opcional.
         └── modules/
-            ├── auth/                  [IMPLEMENTADO]    Registro e inicio de sesión del ciudadano (tabla movil.usuarios) con contraseña cifrada con scrypt.
+            ├── auth/                  [IMPLEMENTADO]    Registro e inicio de sesión del ciudadano (tabla movil.usuarios, sin teléfono) con contraseña cifrada con scrypt, aceptación obligatoria de los términos y condiciones (movil.usuarios.acepto_terminos y constancia en movil.aceptaciones_terminos, versión en domain/terminos.ts) y restablecer contraseña por código al correo.
             │   ├── index.ts / auth.module.ts [IMPLEMENTADO] Puerta del módulo y conexión de los tres puertos con sus adaptadores.
             │   ├── domain/            [IMPLEMENTADO]    Ciudadano, géneros, reglas de nombre, correo, teléfono, contraseña y fecha de nacimiento (mayor de 18 años), y errores.
             │   ├── application/       [IMPLEMENTADO]    Registrar e iniciar sesión + puertos (repositorio, cifrador, emisor de token) + pruebas.
-            │   └── infrastructure/    [IMPLEMENTADO]    postgres-ciudadanos.repository.ts, scrypt-contrasena.cifrador.ts y jwt-token.emisor.ts.
+            │   └── infrastructure/    [IMPLEMENTADO]    postgres-ciudadanos.repository.ts, scrypt-contrasena.cifrador.ts y jwt-token.emisor.ts, más los códigos de un solo uso al correo (verificar el correo al registrarse y restablecer contraseña): postgres-codigos.repository.ts (una tabla por tipo: movil.verificaciones_correo y movil.restablecimientos_contrasena), correo-notificador-codigos.ts (SMTP) y registro-notificador-codigos.ts (sin SMTP_HOST, avisa al arrancar y deja el código en el registro).
+            ├── mapa-calor/            [IMPLEMENTADO]    Mapa de calor con siniestros del anuario y reportes de los últimos 90 días: domain (cuadros, pesos y escala de 0 a 1 + prueba), application (ObtenerMapaCalorUseCase + puerto de fuentes + prueba) e infrastructure (postgres-fuentes-de-calor.ts lee compartido.siniestros_viales con 10 minutos en memoria y compartido.reportes en cada consulta).
+            ├── semaforos/             [IMPLEMENTADO]    Semáforos de las ciclorrutas por zona del mapa (tabla movil.semaforos, solo lectura): domain (semáforo y zona), application (ObtenerSemaforosUseCase + puerto + prueba) e infrastructure (postgres-semaforos.repository.ts).
             ├── routes/                [IMPLEMENTADO]    Ruta segura, equilibrada y rápida sobre la red de ciclovías de compartido.ciclovias (solo lectura).
             │   ├── index.ts / routes.module.ts [IMPLEMENTADO] Puerta del módulo y conexión puerto-adaptador.
-            │   ├── domain/            [IMPLEMENTADO]    Red vial y su construcción, costos de la rápida, la equilibrada y la segura, camino mínimo (Dijkstra), maniobras de giro, ruta y errores + pruebas.
-            │   ├── application/       [IMPLEMENTADO]    CalcularRutasUseCase + puerto de lectura de las ciclovías + pruebas.
-            │   └── infrastructure/    [IMPLEMENTADO]    postgres-red-ciclovias.repository.ts (lee todas las vías y las guarda 10 minutos en memoria).
+            │   ├── domain/            [IMPLEMENTADO]    Red vial y su construcción, índice de tramos de ciclovía, índice de siniestros del anuario, medición de una ruta por calles (cuánto va por ciclovía y cuántos siniestros tiene al lado), anclajes (ciclovías y calles paralelas con menos siniestros por donde desviar una ruta) y comparación de caminos (parecido.ts), costos de la rápida, la equilibrada y la segura, camino mínimo (Dijkstra), maniobras de giro, ruta y errores + pruebas.
+            │   ├── application/       [IMPLEMENTADO]    CalcularRutasUseCase + puertos (lectura de ciclovías y rutas por calles) + pruebas.
+            │   └── infrastructure/    [IMPLEMENTADO]    postgres-red-ciclovias.repository.ts (lee todas las vías y las guarda 10 minutos en memoria). google-rutas-por-calles.adapter.ts (pide a Routes API de Google caminos por calles, con alternativas o por puntos intermedios, si hay GOOGLE_MAPS_API_KEY) y postgres-siniestros.repository.ts (lee la vista compartido.siniestros_viales y la guarda 10 minutos en memoria).
             ├── reports/               [IMPLEMENTADO]    Reportes ciudadanos: escribe en la tabla maestra compartido.reportes (autores en movil.usuarios).
             │   ├── index.ts / reports.module.ts [IMPLEMENTADO] Puerta del módulo y conexión puerto-adaptador.
             │   ├── domain/            [IMPLEMENTADO]    Reporte, categorías principales con sus subcategorías, estados y errores.

@@ -1,4 +1,4 @@
-import { BadRequestException, Controller, Get, Query, UseGuards, ValidationPipe } from '@nestjs/common';
+import { BadRequestException, Controller, Get, Query, UseGuards } from '@nestjs/common';
 import {
   ApiBadRequestResponse,
   ApiBearerAuth,
@@ -11,6 +11,7 @@ import { DashboardAuthGuard } from '../../../platform/auth';
 import { AreaMapa, DomainError, ObtenerCicloviasUseCase } from '../../../common/modules/ciclovias';
 import { CicloviasQuery } from '../dto/ciclovias.query';
 import { aSnakeCase } from '../snake-case';
+import { crearValidador } from '../validacion';
 
 // Ciclovias de la zona del mapa del dashboard en /api/dashboard/v1/ciclovias
 // usa el mismo caso de uso que la app movil pero responde en snake_case
@@ -28,7 +29,7 @@ export class CicloviasController {
   @ApiOkResponse({ description: 'Responde total y ciclovias con id tipo nombre riesgo nodos y coordenadas' })
   @ApiBadRequestResponse({ description: 'Faltan esquinas o min_lat min_lon max_lat max_lon no tienen sentido' })
   async listar(
-    @Query(new ValidationPipe({ transform: true, whitelist: true, forbidNonWhitelisted: true }))
+    @Query(crearValidador())
     consulta: CicloviasQuery,
   ): Promise<unknown> {
     const area = aArea(consulta);

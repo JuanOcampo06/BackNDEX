@@ -15,12 +15,12 @@ describe('Login perfil y contrasena del dashboard (e2e)', () => {
   let app: INestApplication;
 
   beforeAll(async () => {
-    const usuarios = await crearTablaDeUsuariosFalsa();
+    const tabla = await crearTablaDeUsuariosFalsa();
     const modulo = await Test.createTestingModule({ imports: [AppModule] })
       .overrideProvider(USUARIOS_REPOSITORY)
-      .useValue(usuarios)
+      .useValue(tabla.usuarios)
       .overrideProvider(USUARIO_REPOSITORY)
-      .useValue(usuarios)
+      .useValue(tabla.cuentas)
       .overrideProvider(RESTABLECIMIENTOS_REPOSITORY)
       .useValue(crearRestablecimientosFalsos())
       .overrideProvider(NOTIFICADOR_RESTABLECIMIENTO)
@@ -46,7 +46,7 @@ describe('Login perfil y contrasena del dashboard (e2e)', () => {
     expect(respuesta.status).toBe(200);
     expect(respuesta.body).toEqual({
       access_token: expect.stringMatching(/^eyJ[\w-]+\.[\w-]+\.[\w-]+$/),
-      user: { id: '1', full_name: 'Admin Demo', email: 'admin@demo.local', role: 'admin' },
+      user: { id: '1', full_name: 'Admin Demo', email: 'admin@demo.local', role: 'admin', entidad: 'Secretaría Distrital de Movilidad' },
     });
   });
 
@@ -58,7 +58,7 @@ describe('Login perfil y contrasena del dashboard (e2e)', () => {
     expect(inexistente.status).toBe(401);
   });
 
-  it('un usuario creado desde el tablero con contrasena puede iniciar sesion y sin contrasena no', async () => {
+  it('un usuario creado desde el tablero puede iniciar sesion y la contrasena es obligatoria y con reglas', async () => {
     const admin = await tokenDe('admin@demo.local');
     const crear = (correo: string, extra: object) =>
       request(app.getHttpServer())
@@ -66,16 +66,23 @@ describe('Login perfil y contrasena del dashboard (e2e)', () => {
         .set('Authorization', admin)
         .send({ nombre_completo: 'Nuevo', correo, rol: 'lector', ...extra });
 
-    const conClave = await crear('nuevo@demo.local', { contrasena: 'clave-nueva-1', entidad: 'Alcaldía' });
+    const conClave = await crear('nuevo@demo.local', { contrasena: 'Clave-nueva1', entidad: 'Alcaldía' });
     const sinClave = await crear('sin.clave@demo.local', {});
+    const debil = await crear('debil@demo.local', { contrasena: 'abcdefgh' });
+    const corta = await crear('corta@demo.local', { contrasena: 'Abc1' });
+    const campoDeMas = await crear('extra@demo.local', { contrasena: 'Clave-nueva1', telefono: '123' });
 
     expect(conClave.status).toBe(201);
     expect(conClave.body).toMatchObject({ correo: 'nuevo@demo.local', entidad: 'Alcaldía' });
     expect(conClave.body).not.toHaveProperty('contrasena');
     expect(conClave.body).not.toHaveProperty('contrasena_cifrada');
-    expect((await entrar('nuevo@demo.local', 'clave-nueva-1')).body.user).toMatchObject({ email: 'nuevo@demo.local', role: 'lector' });
-    expect(sinClave.status).toBe(201);
-    expect((await entrar('sin.clave@demo.local', 'cualquiera')).status).toBe(401);
+    expect((await entrar('nuevo@demo.local', 'Clave-nueva1')).body.user).toMatchObject({ email: 'nuevo@demo.local', role: 'lector', entidad: 'Alcaldía' });
+    const reglas = 'La contraseña debe tener entre 8 y 72 caracteres, una mayúscula, una minúscula y un número';
+    expect(sinClave.status).toBe(400);
+    expect(sinClave.body).toMatchObject({ codigo: 'DATOS_INVALIDOS', mensaje: expect.stringContaining('contrasena') });
+    expect(debil.body).toEqual({ codigo: 'USUARIO_INVALIDO', mensaje: reglas });
+    expect(corta.body).toEqual({ codigo: 'USUARIO_INVALIDO', mensaje: reglas });
+    expect(campoDeMas.body).toEqual({ codigo: 'DATOS_INVALIDOS', mensaje: 'El campo telefono no existe' });
   });
 
   it('GET /auth/me devuelve el perfil del dueno del token y sin token responde 401', async () => {
@@ -112,6 +119,44 @@ describe('Login perfil y contrasena del dashboard (e2e)', () => {
     expect(releido.body.full_name).toBe('Lectora Editada');
   });
 
+  it('PATCH /auth/me/contrasena cambia la contrasena con la actual y deja el ultimo ingreso en la lista', async () => {
+    const admin = await tokenDe('admin@demo.local');
+    await request(app.getHttpServer())
+      .post(`${base}/usuarios`)
+      .set('Authorization', admin)
+      .send({ nombre_completo: 'Cambia Clave', correo: 'cambia@demo.local', rol: 'lector', contrasena: 'Inicial-clave1' });
+    const propio = await tokenDe('cambia@demo.local', 'Inicial-clave1');
+    const cambiar = (cuerpo: object) =>
+      request(app.getHttpServer()).patch(`${base}/auth/me/contrasena`).set('Authorization', propio).send(cuerpo);
+
+    expect((await cambiar({ contrasena_actual: 'mala', contrasena_nueva: 'Nueva-clave1' })).status).toBe(401);
+    expect((await cambiar({ contrasena_actual: 'Inicial-clave1', contrasena_nueva: 'debil' })).body).toMatchObject({ codigo: 'CONTRASENA_INVALIDA' });
+    expect((await cambiar({ contrasena_actual: 'Inicial-clave1', contrasena_nueva: 'Nueva-clave1' })).status).toBe(204);
+    expect((await entrar('cambia@demo.local', 'Inicial-clave1')).status).toBe(401);
+    expect((await entrar('cambia@demo.local', 'Nueva-clave1')).status).toBe(200);
+
+    const lista = await request(app.getHttpServer()).get(`${base}/usuarios`).set('Authorization', admin);
+    expect(lista.body.find((u: { correo: string }) => u.correo === 'cambia@demo.local').ultimo_ingreso).toEqual(expect.any(String));
+  });
+
+  it('GET /tablero/top-alertas responde la forma acordada pide token y valida los filtros', async () => {
+    const lector = await tokenDe('lector@demo.local');
+    const admin = await tokenDe('admin@demo.local');
+    const ruta = `${base}/tablero/top-alertas`;
+    const [conToken, sinToken, filtroMalo, excel] = await Promise.all([
+      request(app.getHttpServer()).get(`${ruta}?mes_desde=2025-10&mes_hasta=2025-12`).set('Authorization', lector),
+      request(app.getHttpServer()).get(ruta),
+      request(app.getHttpServer()).get(`${ruta}?localidad_id=abc`).set('Authorization', lector),
+      request(app.getHttpServer()).get(`${base}/tablero/exportar?kpis=top_alertas`).set('Authorization', admin),
+    ]);
+
+    expect(conToken.status).toBe(200);
+    expect(conToken.body).toEqual({ total_alertas: 0, top: [] });
+    expect(sinToken.status).toBe(401);
+    expect(filtroMalo.status).toBe(400);
+    expect(excel.status).toBe(200);
+  });
+
   it('restablece la contrasena con el enlace y el enlace no sirve dos veces', async () => {
     const solicitar = (email: string) => request(app.getHttpServer()).post(`${base}/auth/restablecer-contrasena/solicitar`).send({ email });
     const confirmar = (token: string, password: string) =>
@@ -126,9 +171,10 @@ describe('Login perfil y contrasena del dashboard (e2e)', () => {
 
     const token = notificador.avisos[0].token;
     expect((await confirmar(token, 'corta')).status).toBe(400);
-    expect((await confirmar(token, 'clave-restablecida')).status).toBe(204);
-    expect((await confirmar(token, 'otra-clave-mas')).body).toMatchObject({ codigo: 'RESTABLECIMIENTO_INVALIDO' });
-    expect((await entrar('admin@demo.local', 'clave-restablecida')).status).toBe(200);
+    expect((await confirmar(token, 'clave-sin-mayuscula1')).body).toMatchObject({ codigo: 'RESTABLECIMIENTO_INVALIDO', mensaje: expect.stringContaining('mayúscula') });
+    expect((await confirmar(token, 'Clave-restablecida1')).status).toBe(204);
+    expect((await confirmar(token, 'Otra-clave-mas1')).body).toMatchObject({ codigo: 'RESTABLECIMIENTO_INVALIDO' });
+    expect((await entrar('admin@demo.local', 'Clave-restablecida1')).status).toBe(200);
     expect((await entrar('admin@demo.local', 'demo1234')).status).toBe(401);
   });
 
@@ -151,5 +197,9 @@ describe('Login perfil y contrasena del dashboard (e2e)', () => {
     });
     expect(creditos.body.fuentes[1]).toMatchObject({ fuente: 'ciclovias', fecha_corte: '2026-10-22' });
     expect(filtros.body).toMatchObject({ primer_mes: '2025-01', ultimo_mes: '2025-12', fuentes: ['anuario', 'app'] });
+    expect(filtros.body.periodos).toEqual({
+      anuario: { primer_mes: '2025-01', ultimo_mes: '2025-12' },
+      app: { primer_mes: '2025-01', ultimo_mes: '2025-12' },
+    });
   });
 });

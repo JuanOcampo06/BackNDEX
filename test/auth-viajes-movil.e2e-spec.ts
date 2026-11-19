@@ -4,6 +4,10 @@ import request from 'supertest';
 import { AppModule } from '../src/app.module';
 import { CIUDADANOS_REPOSITORY } from '../src/mobile/modules/auth/application/ciudadanos.repository.port';
 import type { CiudadanoConClave, CiudadanosRepositoryPort } from '../src/mobile/modules/auth/application/ciudadanos.repository.port';
+import { VERIFICACIONES_REPOSITORY } from '../src/mobile/modules/auth/application/codigos.repository.port';
+import type { CodigosRepositoryPort } from '../src/mobile/modules/auth/application/codigos.repository.port';
+import { NOTIFICADOR_CODIGOS } from '../src/mobile/modules/auth/application/notificador-codigos.port';
+import type { AvisoCodigo, NotificadorCodigosPort } from '../src/mobile/modules/auth/application/notificador-codigos.port';
 import { VIAJES_REPOSITORY } from '../src/mobile/modules/trips/application/viajes.repository.port';
 import type { ViajesRepositoryPort } from '../src/mobile/modules/trips/application/viajes.repository.port';
 import type { Viaje, ViajeConPuntos } from '../src/mobile/modules/trips/domain/viaje';
@@ -18,12 +22,45 @@ function crearCiudadanosFalso(): CiudadanosRepositoryPort {
     existeCorreo: async (correo) => guardados.some((c) => c.correo === correo),
     crear: async (ciudadano, contrasenaCifrada) => {
       const id = guardados.length + 1;
-      guardados.push({ id, ...ciudadano, contrasenaCifrada });
+      guardados.push({ id, ...ciudadano, contrasenaCifrada, correoVerificado: false });
       return { id, ...ciudadano };
     },
     buscarPorCorreo: async (correo) => guardados.find((c) => c.correo === correo) ?? null,
+    cambiarContrasena: async () => undefined,
+    marcarCorreoVerificado: async (id) => {
+      const ciudadano = guardados.find((c) => c.id === id);
+      if (ciudadano) ciudadano.correoVerificado = true;
+    },
   };
 }
+
+// Codigos de verificacion en memoria: el codigo es siempre el mismo y el limite de intentos y de tiempo son los de la base de datos
+function crearVerificacionesFalso(): CodigosRepositoryPort {
+  const codigos = new Map<number, { creadoEn: Date; venceEn: Date; usado: boolean; intentos: number }>();
+  return {
+    crear: async (usuarioId, creadoEn, venceEn) => {
+      codigos.set(usuarioId, { creadoEn, venceEn, usado: false, intentos: 0 });
+      return '123456';
+    },
+    haySolicitudDesde: async (usuarioId, desde) => (codigos.get(usuarioId)?.creadoEn ?? new Date(0)) > desde,
+    consumir: async (usuarioId, codigo, ahora) => {
+      const actual = codigos.get(usuarioId);
+      if (actual && !actual.usado && actual.venceEn > ahora && actual.intentos < 5 && codigo === '123456') {
+        actual.usado = true;
+        return true;
+      }
+      if (actual) actual.intentos++;
+      return false;
+    },
+  };
+}
+
+// Notificador que no envia nada y guarda los avisos para poder revisarlos
+const avisosDeVerificacion: AvisoCodigo[] = [];
+const notificadorFalso: NotificadorCodigosPort = {
+  enviarRestablecimiento: async () => undefined,
+  enviarVerificacion: async (aviso) => void avisosDeVerificacion.push(aviso),
+};
 
 function crearViajesFalso(): ViajesRepositoryPort {
   const viajes: ViajeConPuntos[] = [];
@@ -83,6 +120,7 @@ describe('Registro, login y viajes de la app movil (e2e)', () => {
     contrasena: 'clave-segura-1',
     fechaNacimiento: '1995-04-23',
     genero: 'femenino',
+    aceptaTerminos: true,
   };
   let app: INestApplication;
 
@@ -97,6 +135,10 @@ describe('Registro, login y viajes de la app movil (e2e)', () => {
     const modulo = await Test.createTestingModule({ imports: [AppModule] })
       .overrideProvider(CIUDADANOS_REPOSITORY)
       .useValue(crearCiudadanosFalso())
+      .overrideProvider(VERIFICACIONES_REPOSITORY)
+      .useValue(crearVerificacionesFalso())
+      .overrideProvider(NOTIFICADOR_CODIGOS)
+      .useValue(notificadorFalso)
       .overrideProvider(VIAJES_REPOSITORY)
       .useValue(crearViajesFalso())
       .compile();
@@ -119,22 +161,56 @@ describe('Registro, login y viajes de la app movil (e2e)', () => {
         id: 1,
         nombreCompleto: 'Ana Lopez',
         correo: 'ana@demo.local',
-        telefono: null,
         fechaNacimiento: '1995-04-23',
         genero: 'femenino',
       });
     });
 
+    it('al registrarse envia el codigo de verificacion y con el se verifica el correo y se recibe la sesion', async () => {
+      avisosDeVerificacion.length = 0;
+      await http().post(`${base}/auth/register`).send({ ...registro, correo: 'verifica@demo.local' });
+
+      expect(avisosDeVerificacion).toHaveLength(1);
+      expect(avisosDeVerificacion[0]).toMatchObject({ correo: 'verifica@demo.local', codigo: '123456' });
+
+      const malo = await http().post(`${base}/auth/verify-email`).send({ correo: 'verifica@demo.local', codigo: '000000' });
+      const formato = await http().post(`${base}/auth/verify-email`).send({ correo: 'verifica@demo.local', codigo: '12' });
+      const bueno = await http().post(`${base}/auth/verify-email`).send({ correo: 'verifica@demo.local', codigo: '123456' });
+      const repetido = await http().post(`${base}/auth/verify-email`).send({ correo: 'verifica@demo.local', codigo: '123456' });
+
+      expect(malo.status).toBe(400);
+      expect(malo.body.codigo).toBe('VERIFICACION_INVALIDA');
+      expect(formato.status).toBe(400);
+      expect(bueno.status).toBe(200);
+      expect(bueno.body.accessToken.split('.')).toHaveLength(3);
+      expect(bueno.body.ciudadano).toMatchObject({ correo: 'verifica@demo.local' });
+      expect(repetido.status).toBe(400);
+    });
+
+    it('resend-code responde 202 igual exista o no el correo y no reenvia a un correo ya verificado', async () => {
+      avisosDeVerificacion.length = 0;
+      const desconocido = await http().post(`${base}/auth/resend-code`).send({ correo: 'nadie@demo.local' });
+      const yaVerificado = await http().post(`${base}/auth/resend-code`).send({ correo: 'verifica@demo.local' });
+
+      expect(desconocido.status).toBe(202);
+      expect(yaVerificado.status).toBe(202);
+      expect(yaVerificado.body).toEqual(desconocido.body);
+      expect(avisosDeVerificacion).toHaveLength(0);
+    });
+
     it('responde 409 si el correo ya esta registrado y 400 si los datos son invalidos', async () => {
       const repetido = await http().post(`${base}/auth/register`).send(registro);
       const claveCorta = await http().post(`${base}/auth/register`).send({ ...registro, correo: 'otra@demo.local', contrasena: 'corta' });
-      const telefonoMalo = await http().post(`${base}/auth/register`).send({ ...registro, correo: 'otra@demo.local', telefono: 'abc' });
+      const sinTerminos = await http().post(`${base}/auth/register`).send({ ...registro, correo: 'otra@demo.local', aceptaTerminos: false });
+      const telefonoDeMas = await http().post(`${base}/auth/register`).send({ ...registro, correo: 'otra@demo.local', telefono: '3001234567' });
 
       expect(repetido.status).toBe(409);
       expect(repetido.body.codigo).toBe('CORREO_DUPLICADO');
       expect(claveCorta.status).toBe(400);
-      expect(telefonoMalo.status).toBe(400);
-      expect(telefonoMalo.body.codigo).toBe('CIUDADANO_INVALIDO');
+      expect(sinTerminos.status).toBe(400);
+      expect(sinTerminos.body.codigo).toBe('CIUDADANO_INVALIDO');
+      // El telefono ya no existe y cualquier campo de mas se rechaza
+      expect(telefonoDeMas.status).toBe(400);
     });
 
     it('exige la fecha de nacimiento y el genero y rechaza a un menor de edad', async () => {

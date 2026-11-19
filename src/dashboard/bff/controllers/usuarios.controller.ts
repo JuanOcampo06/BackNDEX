@@ -6,13 +6,11 @@ import {
   HttpCode,
   HttpStatus,
   Param,
-  ParseIntPipe,
   Patch,
   Post,
   Query,
   UseFilters,
   UseGuards,
-  ValidationPipe,
 } from '@nestjs/common';
 import {
   ApiBadRequestResponse,
@@ -42,9 +40,10 @@ import { CrearUsuarioRequest } from '../dto/crear-usuario.request';
 import { ListarUsuariosQuery } from '../dto/listar-usuarios.query';
 import { UsuarioResponse } from '../dto/usuario.response';
 import { aSnakeCase } from '../snake-case';
+import { crearValidador, validarId } from '../validacion';
 
 // Convierte los datos a su tipo y rechaza los campos que no existen
-const validar = new ValidationPipe({ transform: true, whitelist: true, forbidNonWhitelisted: true });
+const validar = crearValidador();
 
 // Gestion de usuarios del dashboard en /api/dashboard/v1/usuarios y responde en snake_case
 // solo el Administrador puede usarla
@@ -76,7 +75,7 @@ export class UsuariosController {
   @ApiOperation({ summary: 'Ver un usuario por su id' })
   @ApiOkResponse({ type: UsuarioResponse })
   @ApiNotFoundResponse({ description: 'No existe un usuario con ese id' })
-  async obtener(@Param('id', ParseIntPipe) id: number): Promise<unknown> {
+  async obtener(@Param('id', validarId) id: number): Promise<unknown> {
     return aSnakeCase(await this.obtenerUsuario.execute(id));
   }
 
@@ -104,7 +103,7 @@ export class UsuariosController {
   @ApiNotFoundResponse({ description: 'No existe un usuario con ese id' })
   @ApiConflictResponse({ description: 'Otro usuario ya tiene ese correo' })
   async actualizar(
-    @Param('id', ParseIntPipe) id: number,
+    @Param('id', validarId) id: number,
     @Body(validar) cuerpo: ActualizarUsuarioRequest,
   ): Promise<unknown> {
     const usuario = await this.actualizarUsuario.execute(id, {
@@ -122,7 +121,7 @@ export class UsuariosController {
   @ApiOperation({ summary: 'Eliminar un usuario' })
   @ApiNoContentResponse({ description: 'Usuario eliminado y la respuesta no trae cuerpo' })
   @ApiNotFoundResponse({ description: 'No existe un usuario con ese id' })
-  eliminar(@Param('id', ParseIntPipe) id: number): Promise<void> {
+  eliminar(@Param('id', validarId) id: number): Promise<void> {
     return this.eliminarUsuario.execute(id);
   }
 }

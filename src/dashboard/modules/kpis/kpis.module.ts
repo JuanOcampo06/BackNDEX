@@ -14,6 +14,7 @@ import { ObtenerTendenciaMensualUseCase } from './application/obtener-tendencia-
 import { ObtenerCreditosUseCase } from './application/obtener-creditos.use-case';
 import { ObtenerReportesDetalladosUseCase } from './application/obtener-reportes-detallados.use-case';
 import { ObtenerSiniestrosDetalladosUseCase } from './application/obtener-siniestros-detallados.use-case';
+import { ObtenerTopAlertasUseCase } from './application/obtener-top-alertas.use-case';
 import { ObtenerUltimoMesConDatosUseCase } from './application/obtener-ultimo-mes-con-datos.use-case';
 import { ObtenerUsuariosPorTipoUseCase } from './application/obtener-usuarios-por-tipo.use-case';
 import { TABLERO_REPOSITORY, TableroRepositoryPort } from './application/tablero.repository.port';
@@ -35,6 +36,7 @@ const CASOS_DE_USO = [
   ObtenerFalsosPositivosUseCase,
   ObtenerSiniestrosDetalladosUseCase,
   ObtenerReportesDetalladosUseCase,
+  ObtenerTopAlertasUseCase,
 ];
 
 // Cifras graficas y mapas del tablero leidos desde PostgreSQL
@@ -65,6 +67,7 @@ const CASOS_DE_USO = [
         falsosPositivos: ObtenerFalsosPositivosUseCase,
         siniestrosDetallados: ObtenerSiniestrosDetalladosUseCase,
         reportesDetallados: ObtenerReportesDetalladosUseCase,
+        topAlertas: ObtenerTopAlertasUseCase,
         generador: GeneradorExcelPort,
       ) =>
         new ExportarKpisUseCase(
@@ -82,6 +85,7 @@ const CASOS_DE_USO = [
             falsosPositivos,
             siniestrosDetallados,
             reportesDetallados,
+            topAlertas,
           },
           generador,
         ),

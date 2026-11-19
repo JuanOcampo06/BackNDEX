@@ -68,6 +68,16 @@ Content-Type: application/json
   "entidad": "Secretaría Distrital de Movilidad"
 }
 
+### P2b. Cambiar mi contrasena (204) y la nueva necesita mayuscula minuscula y numero
+PATCH {{base}}/dashboard/v1/auth/me/contrasena
+Authorization: Bearer {{tokenDash}}
+Content-Type: application/json
+
+{
+  "contrasena_actual": "demo1234",
+  "contrasena_nueva": "Nueva-clave1"
+}
+
 ### P3. Pedir el enlace para restablecer la contrasena (202 siempre)
 ### el enlace sale en docker compose logs api mientras no haya servidor de correo
 POST {{base}}/dashboard/v1/auth/restablecer-contrasena/solicitar
@@ -83,11 +93,15 @@ Content-Type: application/json
 
 {
   "token": "pega-aqui-el-token-del-enlace",
-  "password": "nueva-clave-123"
+  "password": "Nueva-clave123"
 }
 
 ### 4. Opciones de los filtros y el rango de meses con datos
 GET {{tablero}}/filtros
+Authorization: Bearer {{tokenDash}}
+
+### 4c. Top 5 alertas (las cinco subcategorias mas reportadas)
+GET {{tablero}}/top-alertas?{{meses}}
 Authorization: Bearer {{tokenDash}}
 
 ### 4b. Credito del anuario y de OpenStreetMap con enlace licencia y fecha de corte
@@ -324,7 +338,7 @@ Content-Type: application/json
   "correo": "ana.lopez@demo.local",
   "rol": "lector",
   "entidad": "Secretaría Distrital de Movilidad",
-  "contrasena": "clave-inicial-123"
+  "contrasena": "Clave-inicial1"
 }
 
 ### 34. Ver un usuario

@@ -21,8 +21,10 @@ export class ObtenerTarjetaUseCase {
       this.tablero.contarPorSemana(indicador, filtros),
       this.tablero.contarPorSemana(indicador, filtrosAnteriores),
     ]);
-    const valor = sumarTotales(serieSemanal);
-    const valorPeriodoAnterior = sumarTotales(serieAnterior);
+    const [valor, valorPeriodoAnterior] = await Promise.all([
+      this.valorDelPeriodo(indicador, filtros, serieSemanal),
+      this.valorDelPeriodo(indicador, filtrosAnteriores, serieAnterior),
+    ]);
     const tarjeta = {
       valor,
       valorPeriodoAnterior,
@@ -35,5 +37,11 @@ export class ObtenerTarjetaUseCase {
     // La tarjeta de falsos positivos tambien muestra que parte de los reportes son falsos
     const reportes = sumarTotales(await this.tablero.contarPorSemana('reportes', filtros));
     return { ...tarjeta, porcentajeDeReportes: porcentaje(valor, reportes) };
+  }
+
+  // Los usuarios no se suman semana a semana porque el mismo ciudadano contaria varias veces
+  // su valor es el mismo total de usuarios por tipo para que la tarjeta y la grafica coincidan
+  private async valorDelPeriodo(indicador: Indicador, filtros: FiltrosTablero, serie: ConteoSemanal[]): Promise<number> {
+    return indicador === 'usuarios' ? sumarTotales(await this.tablero.contarUsuariosPorTipo(filtros)) : sumarTotales(serie);
   }
 }

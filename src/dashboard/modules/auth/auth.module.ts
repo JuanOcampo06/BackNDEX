@@ -1,4 +1,5 @@
 import { Module } from '@nestjs/common';
+import { CambiarContrasenaUseCase } from './application/cambiar-contrasena.use-case';
 import { ConfirmarRestablecimientoUseCase } from './application/confirmar-restablecimiento.use-case';
 import { CONTRASENA_CIFRADOR, ContrasenaCifradorPort } from './application/contrasena-cifrador.port';
 import { LoginUseCase } from './application/login.use-case';
@@ -7,6 +8,7 @@ import { RESTABLECIMIENTOS_REPOSITORY, RestablecimientosRepositoryPort } from '.
 import { SolicitarRestablecimientoUseCase } from './application/solicitar-restablecimiento.use-case';
 import { TOKEN_EMISOR, TokenEmisorPort } from './application/token-emisor.port';
 import { USUARIO_REPOSITORY, UsuarioRepositoryPort } from './application/usuario.repository.port';
+import { CorreoNotificadorRestablecimiento } from './infrastructure/correo-notificador-restablecimiento';
 import { JwtTokenEmisor } from './infrastructure/jwt-token.emisor';
 import { PostgresRestablecimientosRepository } from './infrastructure/postgres-restablecimientos.repository';
 import { PostgresUsuarioRepository } from './infrastructure/postgres-usuario.repository';
@@ -19,7 +21,12 @@ import { ScryptContrasenaCifrador } from './infrastructure/scrypt-contrasena.cif
     { provide: RESTABLECIMIENTOS_REPOSITORY, useClass: PostgresRestablecimientosRepository },
     { provide: CONTRASENA_CIFRADOR, useClass: ScryptContrasenaCifrador },
     { provide: TOKEN_EMISOR, useClass: JwtTokenEmisor },
-    { provide: NOTIFICADOR_RESTABLECIMIENTO, useClass: RegistroNotificadorRestablecimiento },
+    // Con un servidor SMTP en el .env el enlace llega por correo y sin el queda en el registro de la api
+    // es una fabrica para leer la variable cuando arranca la api y no cuando se importa el archivo
+    {
+      provide: NOTIFICADOR_RESTABLECIMIENTO,
+      useFactory: () => (process.env.SMTP_HOST ? new CorreoNotificadorRestablecimiento() : new RegistroNotificadorRestablecimiento()),
+    },
     // La capa de aplicación no conoce NestJS, por eso se construye con una fábrica.
     {
       provide: LoginUseCase,
@@ -45,7 +52,12 @@ import { ScryptContrasenaCifrador } from './infrastructure/scrypt-contrasena.cif
       ) => new ConfirmarRestablecimientoUseCase(usuarios, restablecimientos, cifrador),
       inject: [USUARIO_REPOSITORY, RESTABLECIMIENTOS_REPOSITORY, CONTRASENA_CIFRADOR],
     },
+    {
+      provide: CambiarContrasenaUseCase,
+      useFactory: (usuarios: UsuarioRepositoryPort, cifrador: ContrasenaCifradorPort) => new CambiarContrasenaUseCase(usuarios, cifrador),
+      inject: [USUARIO_REPOSITORY, CONTRASENA_CIFRADOR],
+    },
   ],
-  exports: [LoginUseCase, SolicitarRestablecimientoUseCase, ConfirmarRestablecimientoUseCase],
+  exports: [LoginUseCase, SolicitarRestablecimientoUseCase, ConfirmarRestablecimientoUseCase, CambiarContrasenaUseCase],
 })
 export class AuthModule {}

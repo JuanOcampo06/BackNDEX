@@ -22,7 +22,7 @@ export class RoutesController {
   @ApiOkResponse({ type: RutasResponse })
   @ApiBadRequestResponse({
     description:
-      'Ubicacion invalida (RUTA_INVALIDA), origen o destino a mas de 600 metros de una ciclovia (RUTA_FUERA_DE_COBERTURA) o sin conexion entre las dos (RUTA_SIN_CAMINO)',
+      'Ubicacion invalida (RUTA_INVALIDA). Sin la llave de Google tambien responde origen o destino a mas de 600 metros de una ciclovia (RUTA_FUERA_DE_COBERTURA) o sin conexion entre las dos (RUTA_SIN_CAMINO): con ella esos casos van directo por las calles',
   })
   calcular(
     // Convierte los parametros de la url a su tipo y rechaza los que no existen

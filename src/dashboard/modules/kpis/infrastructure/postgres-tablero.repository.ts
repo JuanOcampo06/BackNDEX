@@ -5,6 +5,7 @@ import {
   ConteoMensual,
   ConteoPorLugar,
   ConteoPorMotivo,
+  ConteoPorSubcategoria,
   ConteoPorTipo,
   ConteoSemanal,
   ConteoSexoEdad,
@@ -42,13 +43,15 @@ const SINIESTROS: Origen = {
   vehiculo: 's.tipo_vehiculo',
 };
 
+// Un usuario de micromovilidad es un ciudadano distinto que hizo al menos un viaje en la app con ese vehiculo
+// si uso dos vehiculos cuenta una vez en cada uno y asi el total es la suma de los tipos
 const USUARIOS: Origen = {
-  tabla: 'compartido.conteos_usuarios c',
-  fecha: 'c.fecha',
-  valor: 'sum(c.cantidad)',
-  localidad: 'c.localidad_id',
+  tabla: 'compartido.viajes_ciudadanos u',
+  fecha: 'u.iniciado_en',
+  valor: 'count(DISTINCT (u.usuario_id, u.tipo_vehiculo))',
+  localidad: 'u.localidad_id',
   fuente: 'app',
-  vehiculo: 'c.tipo_vehiculo',
+  vehiculo: 'u.tipo_vehiculo',
 };
 
 const REPORTES: Origen = {
@@ -206,7 +209,7 @@ export class PostgresTableroRepository implements TableroRepositoryPort, OnModul
   contarUsuariosPorTipo(filtros: FiltrosTablero): Promise<ConteoPorTipo[]> {
     const { donde, valores } = armarCondiciones(USUARIOS, filtros);
     return this.consultar(
-      `SELECT c.tipo_vehiculo AS "tipoVehiculo", sum(c.cantidad)::int AS total
+      `SELECT u.tipo_vehiculo AS "tipoVehiculo", count(DISTINCT u.usuario_id)::int AS total
        FROM ${USUARIOS.tabla} WHERE ${donde} GROUP BY 1`,
       valores,
     );
@@ -245,6 +248,14 @@ export class PostgresTableroRepository implements TableroRepositoryPort, OnModul
     return this.consultar(
       `SELECT to_char(r.creado_en, 'YYYY-MM') AS mes, count(*)::int AS total
        FROM ${FALSOS_POSITIVOS.tabla} WHERE ${donde} GROUP BY 1 ORDER BY 1`,
+      valores,
+    );
+  }
+
+  contarReportesPorSubcategoria(filtros: FiltrosTablero): Promise<ConteoPorSubcategoria[]> {
+    const { donde, valores } = armarCondiciones(REPORTES, filtros);
+    return this.consultar(
+      `SELECT r.subcategoria, r.categoria, count(*)::int AS total FROM ${REPORTES.tabla} WHERE ${donde} GROUP BY 1, 2`,
       valores,
     );
   }

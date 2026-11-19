@@ -29,6 +29,7 @@ function crearRepositorioFalso(alRecibir: (filtros: FiltrosTablero) => void): Ta
     listarReportes: async () => [],
     contarFalsosPositivosPorMotivo: async () => [],
     contarFalsosPositivosPorMes: async () => [],
+    contarReportesPorSubcategoria: async () => [],
   };
 }
 
@@ -105,7 +106,7 @@ describe('Filtros con varios valores del tablero (e2e)', () => {
   it('el mensaje de error dice cuales son los valores permitidos', async () => {
     const respuesta = await request(app.getHttpServer()).get(`${tarjeta}?tipo_vehiculo=bicicleta,carro`).set('Authorization', tokenDashboard());
 
-    expect(respuesta.body.message).toEqual([expect.stringContaining('bicicleta, bicicleta_electrica, patineta_electrica')]);
+    expect(respuesta.body).toEqual({ codigo: 'DATOS_INVALIDOS', mensaje: expect.stringContaining('bicicleta, bicicleta_electrica, patineta_electrica') });
   });
 
   it('la exportacion a Excel tambien acepta varios valores y los muestra en la hoja de filtros', async () => {

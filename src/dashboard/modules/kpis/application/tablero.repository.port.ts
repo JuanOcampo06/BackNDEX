@@ -87,6 +87,13 @@ export interface ReporteDetallado extends ReporteEnMapa {
   mes: string;
 }
 
+// Alertas de una subcategoria con su categoria principal
+export interface ConteoPorSubcategoria {
+  subcategoria: string;
+  categoria: string;
+  total: number;
+}
+
 export interface ConteoPorMotivo {
   motivo: string;
   total: number;
@@ -107,4 +114,5 @@ export interface TableroRepositoryPort {
   listarReportes(filtros: FiltrosTablero): Promise<ReporteDetallado[]>;
   contarFalsosPositivosPorMotivo(filtros: FiltrosTablero): Promise<ConteoPorMotivo[]>;
   contarFalsosPositivosPorMes(filtros: FiltrosTablero): Promise<ConteoMensual[]>;
+  contarReportesPorSubcategoria(filtros: FiltrosTablero): Promise<ConteoPorSubcategoria[]>;
 }

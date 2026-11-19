@@ -4,7 +4,7 @@ import { FiltrosUsuarios, UsuariosRepositoryPort } from '../application/usuarios
 import { CambiosParaGuardar, Usuario, UsuarioParaGuardar } from '../domain/usuario';
 
 // Columnas que se leen de la tabla con los nombres que usa el dominio y la contrasena nunca se lee
-const COLUMNAS = `id, nombre_completo AS "nombreCompleto", correo, rol, entidad,
+const COLUMNAS = `id, nombre_completo AS "nombreCompleto", correo, rol, entidad, ultimo_ingreso AS "ultimoIngreso",
   creado_en AS "creadoEn", actualizado_en AS "actualizadoEn"`;
 
 // Columna de la tabla que corresponde a cada campo que se puede cambiar
@@ -16,14 +16,20 @@ const COLUMNA_POR_CAMPO: Record<keyof CambiosParaGuardar, string> = {
   contrasenaCifrada: 'contrasena_cifrada',
 };
 
-interface FilaUsuario extends Omit<Usuario, 'creadoEn' | 'actualizadoEn'> {
+interface FilaUsuario extends Omit<Usuario, 'ultimoIngreso' | 'creadoEn' | 'actualizadoEn'> {
+  ultimoIngreso: Date | null;
   creadoEn: Date;
   actualizadoEn: Date;
 }
 
 // La base entrega las fechas como Date y el dominio las maneja como texto ISO
 function aUsuario(fila: FilaUsuario): Usuario {
-  return { ...fila, creadoEn: fila.creadoEn.toISOString(), actualizadoEn: fila.actualizadoEn.toISOString() };
+  return {
+    ...fila,
+    ultimoIngreso: fila.ultimoIngreso?.toISOString() ?? null,
+    creadoEn: fila.creadoEn.toISOString(),
+    actualizadoEn: fila.actualizadoEn.toISOString(),
+  };
 }
 
 // Guarda y lee los usuarios del dashboard en la tabla dashboard.usuarios
@@ -61,7 +67,7 @@ export class PostgresUsuariosRepository implements UsuariosRepositoryPort, OnMod
     const resultado = await this.pool.query<FilaUsuario>(
       `INSERT INTO dashboard.usuarios (nombre_completo, correo, rol, entidad, contrasena_cifrada)
        VALUES ($1, $2, $3, $4, $5) RETURNING ${COLUMNAS}`,
-      [usuario.nombreCompleto, usuario.correo, usuario.rol, usuario.entidad, usuario.contrasenaCifrada ?? null],
+      [usuario.nombreCompleto, usuario.correo, usuario.rol, usuario.entidad, usuario.contrasenaCifrada],
     );
     return aUsuario(resultado.rows[0]);
   }

@@ -16,6 +16,7 @@ export const KPIS_EXPORTABLES = [
   'usuarios_por_tipo',
   'boton_panico',
   'reportes',
+  'top_alertas',
   'falsos_positivos',
 ] as const;
 export type KpiExportable = (typeof KPIS_EXPORTABLES)[number];

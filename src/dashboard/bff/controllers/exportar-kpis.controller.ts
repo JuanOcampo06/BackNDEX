@@ -1,4 +1,4 @@
-import { Controller, Get, Query, StreamableFile, UseFilters, UseGuards, ValidationPipe } from '@nestjs/common';
+import { Controller, Get, Query, StreamableFile, UseFilters, UseGuards } from '@nestjs/common';
 import {
   ApiBadRequestResponse,
   ApiBearerAuth,
@@ -14,6 +14,7 @@ import { ExportarKpisUseCase, ObtenerUltimoMesConDatosUseCase, Periodo } from '.
 import { ROL_ADMINISTRADOR } from '../../modules/users';
 import { DomainErrorFilter } from '../domain-error.filter';
 import { ExportarKpisQuery } from '../dto/exportar-kpis.query';
+import { crearValidador } from '../validacion';
 
 const TIPO_XLSX = 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet';
 
@@ -44,7 +45,7 @@ export class ExportarKpisController {
   })
   @ApiBadRequestResponse({ description: 'No llego ningun KPI o alguno no existe o algun filtro es invalido' })
   async exportar(
-    @Query(new ValidationPipe({ transform: true, whitelist: true, forbidNonWhitelisted: true }))
+    @Query(crearValidador())
     consulta: ExportarKpisQuery,
   ): Promise<StreamableFile> {
     // Sin meses se exporta lo mismo que muestra el tablero que termina en el ultimo mes con datos

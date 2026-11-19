@@ -1,5 +1,5 @@
 import { RestablecimientoInvalidoError } from '../domain/restablecimiento-invalido.error';
-import { contrasenaTieneLargoValido, MENSAJE_LARGO_CONTRASENA } from '../domain/usuario';
+import { contrasenaCumpleReglas, MENSAJE_REGLAS_CONTRASENA } from '../../../../shared/reglas-contrasena';
 import { ContrasenaCifradorPort } from './contrasena-cifrador.port';
 import { RestablecimientosRepositoryPort } from './restablecimientos.repository.port';
 import { UsuarioRepositoryPort } from './usuario.repository.port';
@@ -20,8 +20,8 @@ export class ConfirmarRestablecimientoUseCase {
 
   async execute(comando: ConfirmarRestablecimientoCommand): Promise<void> {
     // Se revisa la contrasena antes de gastar el token para que un error de escritura no obligue a pedir otro enlace
-    if (!contrasenaTieneLargoValido(comando.contrasenaNueva)) {
-      throw new RestablecimientoInvalidoError(MENSAJE_LARGO_CONTRASENA);
+    if (!contrasenaCumpleReglas(comando.contrasenaNueva)) {
+      throw new RestablecimientoInvalidoError(MENSAJE_REGLAS_CONTRASENA);
     }
     const usuarioId = await this.restablecimientos.consumir(comando.token, comando.ahora);
     if (usuarioId === null) {
