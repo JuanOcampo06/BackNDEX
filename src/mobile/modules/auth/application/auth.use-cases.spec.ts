@@ -1,3 +1,4 @@
+import { AceptacionTerminos, VERSION_TERMINOS } from '../domain/terminos';
 import { CiudadanoConClave, CiudadanosRepositoryPort } from './ciudadanos.repository.port';
 import { ContrasenaCifradorPort } from './contrasena-cifrador.port';
 import { IniciarSesionUseCase } from './iniciar-sesion.use-case';
@@ -5,40 +6,56 @@ import { RegistrarCiudadanoUseCase } from './registrar-ciudadano.use-case';
 import { TokenEmisorPort } from './token-emisor.port';
 
 // Repositorio falso en memoria y cifrador falso que solo antepone un prefijo
-function crearDobles(): { ciudadanos: CiudadanosRepositoryPort; cifrador: ContrasenaCifradorPort; tokens: TokenEmisorPort } {
+function crearDobles(): {
+  ciudadanos: CiudadanosRepositoryPort;
+  cifrador: ContrasenaCifradorPort;
+  tokens: TokenEmisorPort;
+  aceptaciones: AceptacionTerminos[];
+} {
   const guardados: CiudadanoConClave[] = [];
+  const aceptaciones: AceptacionTerminos[] = [];
   return {
     ciudadanos: {
       existeCorreo: async (correo) => guardados.some((c) => c.correo === correo),
-      crear: async (ciudadano, contrasenaCifrada) => {
+      crear: async (ciudadano, contrasenaCifrada, aceptacion) => {
         const id = guardados.length + 1;
-        guardados.push({ id, ...ciudadano, contrasenaCifrada });
+        guardados.push({ id, ...ciudadano, contrasenaCifrada, correoVerificado: false });
+        aceptaciones.push(aceptacion);
         return { id, ...ciudadano };
       },
       buscarPorCorreo: async (correo) => guardados.find((c) => c.correo === correo) ?? null,
+      cambiarContrasena: async (id, contrasenaCifrada) => {
+        const ciudadano = guardados.find((c) => c.id === id);
+        if (ciudadano) ciudadano.contrasenaCifrada = contrasenaCifrada;
+      },
+      marcarCorreoVerificado: async () => undefined,
     },
     cifrador: {
       cifrar: async (contrasena) => `cifrada:${contrasena}`,
       coincide: async (contrasena, cifrada) => cifrada === `cifrada:${contrasena}`,
     },
     tokens: { emitir: (id) => `token-${id}` },
+    aceptaciones,
   };
 }
+
+// El registro pide la verificacion del correo y aqui se anota a quien se la pidio
+const pedidas: string[] = [];
+const verificacion = { execute: async ({ correo }: { correo: string }) => void pedidas.push(correo) };
 
 const datos = {
   nombreCompleto: ' Ana Lopez ',
   correo: 'Ana@Demo.local',
-  telefono: '3001234567',
   contrasena: 'clave-segura-1',
   fechaNacimiento: '1995-04-23',
   genero: 'femenino',
+  aceptaTerminos: true,
 };
 
 const ciudadanoDeAna = {
   id: 1,
   nombreCompleto: 'Ana Lopez',
   correo: 'ana@demo.local',
-  telefono: '3001234567',
   fechaNacimiento: '1995-04-23',
   genero: 'femenino',
 };
@@ -47,14 +64,14 @@ describe('RegistrarCiudadanoUseCase', () => {
   it('registra al ciudadano con el correo en minusculas y le da un token', async () => {
     const { ciudadanos, cifrador, tokens } = crearDobles();
 
-    const sesion = await new RegistrarCiudadanoUseCase(ciudadanos, cifrador, tokens).execute(datos);
+    const sesion = await new RegistrarCiudadanoUseCase(ciudadanos, cifrador, tokens, verificacion).execute(datos);
 
     expect(sesion).toEqual({ accessToken: 'token-1', ciudadano: ciudadanoDeAna });
   });
 
   it('guarda la contrasena cifrada y nunca en texto plano', async () => {
     const { ciudadanos, cifrador, tokens } = crearDobles();
-    await new RegistrarCiudadanoUseCase(ciudadanos, cifrador, tokens).execute(datos);
+    await new RegistrarCiudadanoUseCase(ciudadanos, cifrador, tokens, verificacion).execute(datos);
 
     const guardado = await ciudadanos.buscarPorCorreo('ana@demo.local');
 
@@ -63,26 +80,54 @@ describe('RegistrarCiudadanoUseCase', () => {
 
   it('rechaza un correo que ya esta registrado', async () => {
     const { ciudadanos, cifrador, tokens } = crearDobles();
-    const registrar = new RegistrarCiudadanoUseCase(ciudadanos, cifrador, tokens);
+    const registrar = new RegistrarCiudadanoUseCase(ciudadanos, cifrador, tokens, verificacion);
     await registrar.execute(datos);
 
     await expect(registrar.execute(datos)).rejects.toMatchObject({ codigo: 'CORREO_DUPLICADO' });
   });
 
-  it('rechaza una contrasena corta, un correo mal escrito y un telefono invalido', async () => {
+  it('rechaza una contrasena corta y un correo mal escrito', async () => {
     const { ciudadanos, cifrador, tokens } = crearDobles();
-    const registrar = new RegistrarCiudadanoUseCase(ciudadanos, cifrador, tokens);
+    const registrar = new RegistrarCiudadanoUseCase(ciudadanos, cifrador, tokens, verificacion);
 
     await expect(registrar.execute({ ...datos, contrasena: 'corta' })).rejects.toMatchObject({ codigo: 'CIUDADANO_INVALIDO' });
     await expect(registrar.execute({ ...datos, correo: 'sin-arroba' })).rejects.toMatchObject({ codigo: 'CIUDADANO_INVALIDO' });
-    await expect(registrar.execute({ ...datos, telefono: 'abc' })).rejects.toMatchObject({ codigo: 'CIUDADANO_INVALIDO' });
+  });
+
+  it('pide enviar el codigo de verificacion al correo del ciudadano ya guardado', async () => {
+    const { ciudadanos, cifrador, tokens } = crearDobles();
+    pedidas.length = 0;
+
+    await new RegistrarCiudadanoUseCase(ciudadanos, cifrador, tokens, verificacion).execute(datos);
+
+    expect(pedidas).toEqual(['ana@demo.local']);
+  });
+
+  it('guarda la constancia de que acepto los terminos con la version y la fecha', async () => {
+    const { ciudadanos, cifrador, tokens, aceptaciones } = crearDobles();
+    const hoy = new Date('2026-11-17T15:00:00Z');
+
+    await new RegistrarCiudadanoUseCase(ciudadanos, cifrador, tokens, verificacion, () => hoy).execute(datos);
+
+    expect(aceptaciones).toEqual([{ version: VERSION_TERMINOS, aceptadoEn: hoy }]);
+  });
+
+  it('no registra a quien no acepta los terminos y condiciones', async () => {
+    const { ciudadanos, cifrador, tokens, aceptaciones } = crearDobles();
+    const registrar = new RegistrarCiudadanoUseCase(ciudadanos, cifrador, tokens, verificacion);
+
+    await expect(registrar.execute({ ...datos, aceptaTerminos: false })).rejects.toMatchObject({ codigo: 'CIUDADANO_INVALIDO', message: expect.stringContaining('terminos') });
+    await expect(registrar.execute({ ...datos, aceptaTerminos: undefined })).rejects.toMatchObject({ codigo: 'CIUDADANO_INVALIDO' });
+
+    expect(aceptaciones).toHaveLength(0);
+    expect(await ciudadanos.existeCorreo('ana@demo.local')).toBe(false);
   });
 });
 
 describe('IniciarSesionUseCase', () => {
   async function conCiudadanoRegistrado(): Promise<IniciarSesionUseCase> {
     const { ciudadanos, cifrador, tokens } = crearDobles();
-    await new RegistrarCiudadanoUseCase(ciudadanos, cifrador, tokens).execute(datos);
+    await new RegistrarCiudadanoUseCase(ciudadanos, cifrador, tokens, verificacion).execute(datos);
     return new IniciarSesionUseCase(ciudadanos, cifrador, tokens);
   }
 
@@ -111,7 +156,7 @@ describe('fecha de nacimiento y genero al registrarse', () => {
 
   function registrar(extra: Record<string, string | undefined>, hoy: Date = HOY) {
     const { ciudadanos, cifrador, tokens } = crearDobles();
-    return new RegistrarCiudadanoUseCase(ciudadanos, cifrador, tokens, () => hoy).execute({ ...datos, ...extra });
+    return new RegistrarCiudadanoUseCase(ciudadanos, cifrador, tokens, verificacion, () => hoy).execute({ ...datos, ...extra });
   }
 
   it('guarda la fecha y el genero y los devuelve', async () => {

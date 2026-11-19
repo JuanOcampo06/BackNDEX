@@ -19,7 +19,7 @@ Toda carpeta vacía lleva un `.gitkeep` para que Git la conserve.
 ├── Dockerfile                         [CONFIG]          Imagen única multietapa con Node 26 LTS (node:26-alpine), USER node y HEALTHCHECK.
 ├── docker-compose.yml                 [CONFIG]          Servicios api, postgres (con el anuario 2025) y adminer (puerto 8081); mongo, redis y rabbitmq comentados.
 ├── .dockerignore                      [CONFIG]          Lo que no entra a la imagen (node_modules, dist, .env...).
-├── .env.example                       [CONFIG]          Plantilla de variables (puertos, PostgreSQL, DATABASE_URL, CORS_ORIGIN, JWT_SECRET obligatorio, DASHBOARD_URL y SMTP_* para el correo); se copia a .env.
+├── .env.example                       [CONFIG]          Plantilla de variables (puertos, PostgreSQL, DATABASE_URL, CORS_ORIGIN, JWT_SECRET obligatorio, DASHBOARD_URL, SMTP_* para el correo y GOOGLE_MAPS_API_KEY para las rutas por calles); se copia a .env.
 ├── .env                               [CONFIG]          Tu configuración local; no se versiona.
 ├── .gitignore                         [CONFIG]          Lo que Git ignora.
 ├── demo.http                          [CONFIG]          Peticiones de prueba: health, login y todos los endpoints del tablero.
@@ -157,6 +157,8 @@ Toda carpeta vacía lleva un `.gitkeep` para que Git la conserve.
         │   │   ├── ciclovias.controller.ts [IMPLEMENTADO] GET ciclovias: ciclovías de la zona del mapa.
         │   │   ├── reports.controller.ts   [IMPLEMENTADO] POST, GET y GET :id de reports (piden token).
         │   │   ├── routes.controller.ts    [IMPLEMENTADO] GET routes: ruta segura, equilibrada y rápida entre dos puntos (pide token).
+        │   │   ├── mapa-calor.controller.ts [IMPLEMENTADO] GET mapa-calor: manchas del mapa de calor de toda la ciudad (pide token).
+        │   │   ├── semaforos.controller.ts [IMPLEMENTADO] GET semaforos: semáforos de las ciclorrutas de la zona del mapa (pide token). Ciclovías ya no devuelve el riesgo.
         │   │   ├── sos.controller.ts       [IMPLEMENTADO] POST, GET y PATCH :id/cancelar de sos (piden token).
         │   │   └── trips.controller.ts     [IMPLEMENTADO] POST, GET, GET :id, POST :id/puntos y PATCH :id/finalizar de trips (piden token).
         │   └── dto/
@@ -171,19 +173,22 @@ Toda carpeta vacía lleva un `.gitkeep` para que Git la conserve.
         │       ├── listar-reportes.query.ts [IMPLEMENTADO] categoria y subcategoria opcionales.
         │       ├── activar-sos.request.ts  [IMPLEMENTADO] Cuerpo del POST /sos (latitud y longitud).
         │       ├── reporte.response.ts     [IMPLEMENTADO] Forma del reporte (solo para Swagger).
+        │       ├── mapa-calor.response.ts [IMPLEMENTADO] Forma del mapa de calor (solo para Swagger).
         │       ├── activacion-sos.response.ts [IMPLEMENTADO] Forma de la activación (solo para Swagger).
         │       └── listar-sos.query.ts     [IMPLEMENTADO] estado opcional.
         └── modules/
-            ├── auth/                  [IMPLEMENTADO]    Registro e inicio de sesión del ciudadano (tabla movil.usuarios) con contraseña cifrada con scrypt.
+            ├── auth/                  [IMPLEMENTADO]    Registro e inicio de sesión del ciudadano (tabla movil.usuarios, sin teléfono) con contraseña cifrada con scrypt, aceptación obligatoria de los términos y condiciones (movil.usuarios.acepto_terminos y constancia en movil.aceptaciones_terminos, versión en domain/terminos.ts) y restablecer contraseña por código al correo.
             │   ├── index.ts / auth.module.ts [IMPLEMENTADO] Puerta del módulo y conexión de los tres puertos con sus adaptadores.
             │   ├── domain/            [IMPLEMENTADO]    Ciudadano, géneros, reglas de nombre, correo, teléfono, contraseña y fecha de nacimiento (mayor de 18 años), y errores.
             │   ├── application/       [IMPLEMENTADO]    Registrar e iniciar sesión + puertos (repositorio, cifrador, emisor de token) + pruebas.
-            │   └── infrastructure/    [IMPLEMENTADO]    postgres-ciudadanos.repository.ts, scrypt-contrasena.cifrador.ts y jwt-token.emisor.ts.
+            │   └── infrastructure/    [IMPLEMENTADO]    postgres-ciudadanos.repository.ts, scrypt-contrasena.cifrador.ts y jwt-token.emisor.ts, más los códigos de un solo uso al correo (verificar el correo al registrarse y restablecer contraseña): postgres-codigos.repository.ts (una tabla por tipo: movil.verificaciones_correo y movil.restablecimientos_contrasena), correo-notificador-codigos.ts (SMTP) y registro-notificador-codigos.ts (sin SMTP_HOST, avisa al arrancar y deja el código en el registro).
+            ├── mapa-calor/            [IMPLEMENTADO]    Mapa de calor con siniestros del anuario y reportes de los últimos 90 días: domain (cuadros, pesos y escala de 0 a 1 + prueba), application (ObtenerMapaCalorUseCase + puerto de fuentes + prueba) e infrastructure (postgres-fuentes-de-calor.ts lee compartido.siniestros_viales con 10 minutos en memoria y compartido.reportes en cada consulta).
+            ├── semaforos/             [IMPLEMENTADO]    Semáforos de las ciclorrutas por zona del mapa (tabla movil.semaforos, solo lectura): domain (semáforo y zona), application (ObtenerSemaforosUseCase + puerto + prueba) e infrastructure (postgres-semaforos.repository.ts).
             ├── routes/                [IMPLEMENTADO]    Ruta segura, equilibrada y rápida sobre la red de ciclovías de compartido.ciclovias (solo lectura).
             │   ├── index.ts / routes.module.ts [IMPLEMENTADO] Puerta del módulo y conexión puerto-adaptador.
-            │   ├── domain/            [IMPLEMENTADO]    Red vial y su construcción, costos de la rápida, la equilibrada y la segura, camino mínimo (Dijkstra), maniobras de giro, ruta y errores + pruebas.
-            │   ├── application/       [IMPLEMENTADO]    CalcularRutasUseCase + puerto de lectura de las ciclovías + pruebas.
-            │   └── infrastructure/    [IMPLEMENTADO]    postgres-red-ciclovias.repository.ts (lee todas las vías y las guarda 10 minutos en memoria).
+            │   ├── domain/            [IMPLEMENTADO]    Red vial y su construcción, índice de tramos de ciclovía, índice de siniestros del anuario, medición de una ruta por calles (cuánto va por ciclovía y cuántos siniestros tiene al lado), anclajes (ciclovías y calles paralelas con menos siniestros por donde desviar una ruta) y comparación de caminos (parecido.ts), costos de la rápida, la equilibrada y la segura, camino mínimo (Dijkstra), maniobras de giro, ruta y errores + pruebas.
+            │   ├── application/       [IMPLEMENTADO]    CalcularRutasUseCase + puertos (lectura de ciclovías y rutas por calles) + pruebas.
+            │   └── infrastructure/    [IMPLEMENTADO]    postgres-red-ciclovias.repository.ts (lee todas las vías y las guarda 10 minutos en memoria). google-rutas-por-calles.adapter.ts (pide a Routes API de Google caminos por calles, con alternativas o por puntos intermedios, si hay GOOGLE_MAPS_API_KEY) y postgres-siniestros.repository.ts (lee la vista compartido.siniestros_viales y la guarda 10 minutos en memoria).
             ├── reports/               [IMPLEMENTADO]    Reportes ciudadanos: escribe en la tabla maestra compartido.reportes (autores en movil.usuarios).
             │   ├── index.ts / reports.module.ts [IMPLEMENTADO] Puerta del módulo y conexión puerto-adaptador.
             │   ├── domain/            [IMPLEMENTADO]    Reporte, categorías principales con sus subcategorías, estados y errores.

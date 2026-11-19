@@ -21,6 +21,8 @@ services:
       SMTP_USER: ${SMTP_USER:-}
       SMTP_PASSWORD: ${SMTP_PASSWORD:-}
       SMTP_FROM: ${SMTP_FROM:-}
+      # Llave de Google con Routes API para trazar las rutas de la app movil por calles reales y vacio deja solo la red de ciclovias
+      GOOGLE_MAPS_API_KEY: ${GOOGLE_MAPS_API_KEY:-}
     ports:
       - "${PORT:-3001}:${PORT:-3001}"
     # La api espera a que la base de datos este lista antes de arrancar

@@ -24,7 +24,7 @@ export class IniciarSesionUseCase {
       throw new CredencialesInvalidasError();
     }
     // La contrasena cifrada nunca sale del modulo
-    const { id, nombreCompleto, correo, telefono, fechaNacimiento, genero } = encontrado;
-    return { accessToken: this.tokens.emitir(id), ciudadano: { id, nombreCompleto, correo, telefono, fechaNacimiento, genero } };
+    const { id, nombreCompleto, correo, fechaNacimiento, genero } = encontrado;
+    return { accessToken: this.tokens.emitir(id), ciudadano: { id, nombreCompleto, correo, fechaNacimiento, genero } };
   }
 }

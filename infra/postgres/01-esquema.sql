@@ -17,11 +17,38 @@ CREATE TABLE movil.usuarios (
   id serial PRIMARY KEY,
   nombre_completo text NOT NULL,
   correo text NOT NULL UNIQUE,
-  telefono text,
   fecha_nacimiento date NOT NULL CHECK (fecha_nacimiento >= DATE '1900-01-01'),
   genero text NOT NULL CHECK (genero IN ('femenino', 'masculino', 'no_binario', 'prefiero_no_decirlo')),
   contrasena_cifrada text NOT NULL,
+  -- true cuando el ciudadano acepto los terminos y condiciones al registrarse y la constancia esta en movil.aceptaciones_terminos
+  acepto_terminos boolean NOT NULL DEFAULT false,
+  -- true cuando el ciudadano escribio en la app el codigo que le llego al correo al registrarse
+  correo_verificado boolean NOT NULL DEFAULT false,
   creado_en timestamptz NOT NULL DEFAULT now()
+);
+
+-- Codigos para verificar el correo de un ciudadano al registrarse y llegan a ese correo
+-- tiene las mismas columnas y reglas que movil.restablecimientos_contrasena: solo se guarda el hash, sirve una sola vez y se bloquea tras varios intentos
+CREATE TABLE movil.verificaciones_correo (
+  id serial PRIMARY KEY,
+  usuario_id int NOT NULL REFERENCES movil.usuarios (id) ON DELETE CASCADE,
+  codigo_hash text NOT NULL,
+  intentos int NOT NULL DEFAULT 0 CHECK (intentos >= 0),
+  vence_en timestamptz NOT NULL,
+  usado_en timestamptz,
+  creado_en timestamptz NOT NULL DEFAULT now()
+);
+
+CREATE INDEX verificaciones_correo_usuario_idx ON movil.verificaciones_correo (usuario_id);
+
+-- Constancia de que el ciudadano acepto los terminos y condiciones: cual version y cuando
+-- se guarda una fila por cada version que acepta y asi si los terminos cambian se puede pedir que acepte la nueva
+CREATE TABLE movil.aceptaciones_terminos (
+  id serial PRIMARY KEY,
+  usuario_id int NOT NULL REFERENCES movil.usuarios (id) ON DELETE CASCADE,
+  version_terminos text NOT NULL,
+  aceptado_en timestamptz NOT NULL DEFAULT now(),
+  UNIQUE (usuario_id, version_terminos)
 );
 
 -- Viajes en bicicleta del ciudadano
@@ -56,6 +83,21 @@ CREATE INDEX viajes_usuario_id_idx ON movil.viajes (usuario_id);
 CREATE INDEX puntos_viaje_viaje_id_idx ON movil.puntos_viaje (viaje_id);
 -- La base garantiza que un ciudadano tenga un solo viaje en curso a la vez
 CREATE UNIQUE INDEX viajes_un_en_curso_por_usuario_idx ON movil.viajes (usuario_id) WHERE estado = 'en_curso';
+
+-- Codigos para restablecer la contrasena de un ciudadano de la app y llegan a su correo
+-- solo se guarda el hash del codigo y cada codigo sirve una sola vez antes de vencer
+-- intentos cuenta los codigos equivocados para que nadie pueda adivinarlo probando uno por uno
+CREATE TABLE movil.restablecimientos_contrasena (
+  id serial PRIMARY KEY,
+  usuario_id int NOT NULL REFERENCES movil.usuarios (id) ON DELETE CASCADE,
+  codigo_hash text NOT NULL,
+  intentos int NOT NULL DEFAULT 0 CHECK (intentos >= 0),
+  vence_en timestamptz NOT NULL,
+  usado_en timestamptz,
+  creado_en timestamptz NOT NULL DEFAULT now()
+);
+
+CREATE INDEX restablecimientos_movil_usuario_idx ON movil.restablecimientos_contrasena (usuario_id);
 
 -- ============================== compartido ==============================
 
@@ -224,3 +266,17 @@ CREATE INDEX actores_viales_siniestro_id_idx ON dashboard.actores_viales (sinies
 -- Por ciudadano porque la app lista los reportes y activaciones de un usuario
 CREATE INDEX reportes_usuario_id_idx ON compartido.reportes (usuario_id);
 CREATE INDEX activaciones_panico_usuario_id_idx ON compartido.activaciones_panico (usuario_id);
+
+-- ============================== vistas para la app ==============================
+
+-- Donde ocurrieron los siniestros del anuario, para que la app movil calcule rutas que los esquiven
+-- la tabla es del tablero y la app no la lee directamente: lee esta vista, igual que el tablero lee los viajes con compartido.viajes_ciudadanos
+-- el riesgo se calcula en el backend y nunca se le muestra al ciudadano
+CREATE VIEW compartido.siniestros_viales AS
+SELECT
+  id,
+  latitud,
+  longitud,
+  tipo_vehiculo = 'bicicleta' AS con_bicicleta,
+  gravedad = 'con_muertos' AS con_muertos
+FROM dashboard.siniestros;

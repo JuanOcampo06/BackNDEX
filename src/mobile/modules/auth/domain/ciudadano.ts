@@ -8,7 +8,6 @@ const MAXIMO_CONTRASENA = 72;
 const EDAD_MINIMA = 18;
 const PRIMER_ANIO_VALIDO = 1900;
 const FORMATO_CORREO = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
-const FORMATO_TELEFONO = /^\+?\d{7,15}$/;
 const FORMATO_FECHA = /^(\d{4})-(\d{2})-(\d{2})$/;
 
 // Ciudadano ya guardado y el id lo pone la base de datos
@@ -17,7 +16,6 @@ export interface Ciudadano {
   id: number;
   nombreCompleto: string;
   correo: string;
-  telefono: string | null;
   fechaNacimiento: string;
   genero: Genero;
 }
@@ -29,10 +27,10 @@ export type NuevoCiudadano = Omit<Ciudadano, 'id'>;
 export interface DatosRegistro {
   nombreCompleto?: string;
   correo?: string;
-  telefono?: string;
   contrasena?: string;
   fechaNacimiento?: string;
   genero?: string;
+  aceptaTerminos?: boolean;
 }
 
 // Aplica las reglas del negocio y devuelve el ciudadano listo para guardar junto a su contrasena
@@ -47,11 +45,13 @@ export function crearNuevoCiudadano(datos: DatosRegistro, hoy: Date): { ciudadan
   ) {
     throw new CiudadanoInvalidoError('El nombre, el correo, la contrasena, la fecha de nacimiento y el genero son obligatorios');
   }
+  if (datos.aceptaTerminos !== true) {
+    throw new CiudadanoInvalidoError('Debes aceptar los terminos y condiciones para crear una cuenta');
+  }
   return {
     ciudadano: {
       nombreCompleto: validarNombre(datos.nombreCompleto),
       correo: validarCorreo(datos.correo),
-      telefono: datos.telefono === undefined ? null : validarTelefono(datos.telefono),
       fechaNacimiento: validarFechaNacimiento(datos.fechaNacimiento, hoy),
       genero: validarGenero(datos.genero),
     },
@@ -76,15 +76,7 @@ export function validarCorreo(correo: string): string {
   return limpio;
 }
 
-function validarTelefono(telefono: string): string {
-  const limpio = telefono.trim();
-  if (!FORMATO_TELEFONO.test(limpio)) {
-    throw new CiudadanoInvalidoError('El telefono debe tener entre 7 y 15 digitos y puede empezar con +');
-  }
-  return limpio;
-}
-
-function validarContrasena(contrasena: string): string {
+export function validarContrasena(contrasena: string): string {
   if (contrasena.length < MINIMO_CONTRASENA || contrasena.length > MAXIMO_CONTRASENA) {
     throw new CiudadanoInvalidoError(`La contrasena debe tener entre ${MINIMO_CONTRASENA} y ${MAXIMO_CONTRASENA} caracteres`);
   }

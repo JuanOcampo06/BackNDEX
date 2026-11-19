@@ -13,9 +13,6 @@ export class CiudadanoResponse {
   @ApiProperty({ example: 'ana.lopez@demo.local' })
   correo!: string;
 
-  @ApiProperty({ example: '3001234567', nullable: true, type: String })
-  telefono!: string | null;
-
   @ApiProperty({ example: '1995-04-23', description: 'Formato AAAA-MM-DD' })
   fechaNacimiento!: string;
 

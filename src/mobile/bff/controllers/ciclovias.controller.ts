@@ -13,14 +13,27 @@ export class CicloviasController {
   // El ValidationPipe convierte las esquinas a numero y rechaza parametros que no existen
   @Get()
   @ApiOperation({ summary: 'Ciclovias de la zona visible del mapa para la app movil en camelCase' })
-  @ApiOkResponse({ description: 'Responde total y ciclovias con id tipo nombre riesgo nodos y coordenadas' })
+  @ApiOkResponse({ description: 'Responde total y ciclovias con id tipo nombre nodos y coordenadas (sin riesgo, que es interno)' })
   @ApiBadRequestResponse({ description: 'Faltan esquinas o minLat minLon maxLat maxLon no tienen sentido' })
-  listar(
+  async listar(
     @Query(new ValidationPipe({ transform: true, whitelist: true, forbidNonWhitelisted: true }))
     consulta: CicloviasQuery,
-  ): Promise<CicloviasEnArea> {
-    return this.obtenerCiclovias.execute({ area: aArea(consulta), tipo: consulta.tipo });
+  ): Promise<CicloviasEnApp> {
+    const { total, ciclovias } = await this.obtenerCiclovias.execute({ area: aArea(consulta), tipo: consulta.tipo });
+    // El riesgo es interno: sirve para calcular las rutas y no sale hacia la app para que nunca se dibuje en el mapa
+    return { total, ciclovias: ciclovias.map(sinRiesgo) };
   }
+}
+
+function sinRiesgo({ id, tipo, nombre, nodos, coordenadas }: CicloviasEnArea['ciclovias'][number]): CicloviaEnApp {
+  return { id, tipo, nombre, nodos, coordenadas };
+}
+
+// Lo que ve la app de cada ciclovia: todo menos el riesgo
+type CicloviaEnApp = Omit<CicloviasEnArea['ciclovias'][number], 'riesgo'>;
+interface CicloviasEnApp {
+  total: number;
+  ciclovias: CicloviaEnApp[];
 }
 
 // Arma el area del mapa y responde 400 si las esquinas no tienen sentido

@@ -1,5 +1,5 @@
-import { ApiProperty, ApiPropertyOptional } from '@nestjs/swagger';
-import { IsEmail, IsIn, IsOptional, IsString, Matches, MaxLength, MinLength } from 'class-validator';
+import { ApiProperty } from '@nestjs/swagger';
+import { IsBoolean, IsEmail, IsIn, IsString, Matches, MaxLength, MinLength } from 'class-validator';
 import { GENEROS } from '../../modules/auth';
 import type { Genero } from '../../modules/auth';
 
@@ -15,11 +15,6 @@ export class RegistroRequest {
   @IsEmail()
   correo!: string;
 
-  @ApiPropertyOptional({ example: '3001234567', description: 'Entre 7 y 15 digitos y puede empezar con +' })
-  @IsOptional()
-  @IsString()
-  telefono?: string;
-
   @ApiProperty({ example: '1995-04-23', description: 'Formato AAAA-MM-DD. La app es solo para mayores de 18 anos' })
   @Matches(/^\d{4}-\d{2}-\d{2}$/, { message: 'fechaNacimiento debe tener el formato AAAA-MM-DD' })
   fechaNacimiento!: string;
@@ -33,4 +28,8 @@ export class RegistroRequest {
   @MinLength(8)
   @MaxLength(72)
   contrasena!: string;
+
+  @ApiProperty({ example: true, description: 'Debe ser true: sin aceptar los terminos y condiciones no se crea la cuenta' })
+  @IsBoolean()
+  aceptaTerminos!: boolean;
 }

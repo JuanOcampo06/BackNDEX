@@ -3,6 +3,7 @@ import { Test } from '@nestjs/testing';
 import request from 'supertest';
 import { AppModule } from '../src/app.module';
 import { RED_CICLOVIAS_REPOSITORY } from '../src/mobile/modules/routes/application/red-ciclovias.repository.port';
+import { SINIESTROS_REPOSITORY } from '../src/mobile/modules/routes/application/siniestros.repository.port';
 import type { ViaCiclista } from '../src/mobile/modules/routes/domain/via-ciclista';
 import { firmarToken } from '../src/platform/auth';
 
@@ -39,6 +40,9 @@ describe('Rutas de la app movil (e2e)', () => {
     const modulo = await Test.createTestingModule({ imports: [AppModule] })
       .overrideProvider(RED_CICLOVIAS_REPOSITORY)
       .useValue({ obtenerVias: async () => vias })
+      // Sin base de datos en las pruebas: sin siniestros
+      .overrideProvider(SINIESTROS_REPOSITORY)
+      .useValue({ obtenerSiniestros: async () => [] })
       .compile();
     app = modulo.createNestApplication();
     app.setGlobalPrefix('api');

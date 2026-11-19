@@ -2,6 +2,7 @@ import { distanciaEntre, Punto } from '../../../../shared/distancia';
 import { CaminoMinimo } from './camino-minimo';
 import { CriterioRuta, TipoTramo } from './catalogos';
 import { duracionDe } from './costos';
+import { RutaMedida } from './medicion';
 import { calcularPasos, PasoRuta } from './maniobras';
 import { Nodo, RedVial } from './red-vial';
 
@@ -41,6 +42,22 @@ export function armarRuta(criterio: CriterioRuta, origen: Punto, destino: Punto,
     porcentajeEnCiclovia: distanciaM === 0 ? 0 : redondear((enCiclovia / distanciaM) * 100, 1),
     coordenadas: coordenadas.map((punto) => [punto.latitud, punto.longitud]),
     pasos: calcularPasos(coordenadas),
+  };
+}
+
+// Arma la ruta con un camino que ya viene trazado por calles reales y medido trozo a trozo
+// la distancia, el tiempo y el porcentaje por ciclovia salen de esos trozos
+export function armarRutaMedida(criterio: CriterioRuta, medida: RutaMedida): Ruta {
+  const puntos = sinRepetidos(medida.trazado);
+  const distanciaM = suma(medida.tramos.map((tramo) => tramo.distanciaM));
+  const enCiclovia = suma(medida.tramos.filter((tramo) => tramo.tipo !== 'conexion').map((tramo) => tramo.distanciaM));
+  return {
+    tipo: criterio,
+    distanciaM: redondear(distanciaM, 1),
+    duracionS: Math.round(suma(medida.tramos.map((tramo) => duracionDe(tramo.tipo, tramo.distanciaM)))),
+    porcentajeEnCiclovia: distanciaM === 0 ? 0 : redondear((enCiclovia / distanciaM) * 100, 1),
+    coordenadas: puntos.map((punto) => [punto.latitud, punto.longitud]),
+    pasos: calcularPasos(puntos),
   };
 }
 

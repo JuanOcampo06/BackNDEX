@@ -7,3 +7,7 @@ export type { Sesion } from './application/sesion';
 export { DomainError } from '../../../shared/domain-error';
 export { RegistrarCiudadanoUseCase } from './application/registrar-ciudadano.use-case';
 export { IniciarSesionUseCase } from './application/iniciar-sesion.use-case';
+export { SolicitarRestablecimientoUseCase } from './application/solicitar-restablecimiento.use-case';
+export { ConfirmarRestablecimientoUseCase } from './application/confirmar-restablecimiento.use-case';
+export { SolicitarVerificacionUseCase } from './application/solicitar-verificacion.use-case';
+export { VerificarCorreoUseCase } from './application/verificar-correo.use-case';
