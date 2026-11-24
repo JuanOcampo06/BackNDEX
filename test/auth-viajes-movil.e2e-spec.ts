@@ -41,12 +41,12 @@ function crearVerificacionesFalso(): CodigosRepositoryPort {
   return {
     crear: async (usuarioId, creadoEn, venceEn) => {
       codigos.set(usuarioId, { creadoEn, venceEn, usado: false, intentos: 0 });
-      return '123456';
+      return '1234';
     },
     haySolicitudDesde: async (usuarioId, desde) => (codigos.get(usuarioId)?.creadoEn ?? new Date(0)) > desde,
     consumir: async (usuarioId, codigo, ahora) => {
       const actual = codigos.get(usuarioId);
-      if (actual && !actual.usado && actual.venceEn > ahora && actual.intentos < 5 && codigo === '123456') {
+      if (actual && !actual.usado && actual.venceEn > ahora && actual.intentos < 5 && codigo === '1234') {
         actual.usado = true;
         return true;
       }
@@ -175,12 +175,12 @@ describe('Registro, login y viajes de la app movil (e2e)', () => {
       await http().post(`${base}/auth/register`).send({ ...registro, correo: 'verifica@demo.local' });
 
       expect(avisosDeVerificacion).toHaveLength(1);
-      expect(avisosDeVerificacion[0]).toMatchObject({ correo: 'verifica@demo.local', codigo: '123456' });
+      expect(avisosDeVerificacion[0]).toMatchObject({ correo: 'verifica@demo.local', codigo: '1234' });
 
-      const malo = await http().post(`${base}/auth/verify-email`).send({ correo: 'verifica@demo.local', codigo: '000000' });
+      const malo = await http().post(`${base}/auth/verify-email`).send({ correo: 'verifica@demo.local', codigo: '0000' });
       const formato = await http().post(`${base}/auth/verify-email`).send({ correo: 'verifica@demo.local', codigo: '12' });
-      const bueno = await http().post(`${base}/auth/verify-email`).send({ correo: 'verifica@demo.local', codigo: '123456' });
-      const repetido = await http().post(`${base}/auth/verify-email`).send({ correo: 'verifica@demo.local', codigo: '123456' });
+      const bueno = await http().post(`${base}/auth/verify-email`).send({ correo: 'verifica@demo.local', codigo: '1234' });
+      const repetido = await http().post(`${base}/auth/verify-email`).send({ correo: 'verifica@demo.local', codigo: '1234' });
 
       expect(malo.status).toBe(400);
       expect(malo.body.codigo).toBe('VERIFICACION_INVALIDA');

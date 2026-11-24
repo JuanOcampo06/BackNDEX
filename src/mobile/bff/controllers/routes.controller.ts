@@ -1,12 +1,14 @@
 import { Controller, Get, Query, UseFilters, UseGuards, ValidationPipe } from '@nestjs/common';
 import { ApiBadRequestResponse, ApiBearerAuth, ApiOkResponse, ApiOperation, ApiTags, ApiUnauthorizedResponse } from '@nestjs/swagger';
 import { JwtAuthGuard } from '../../../platform/auth';
-import { CalcularRutasUseCase, ResultadoRutas } from '../../modules/routes';
+import { CalcularRutasUseCase, RecalcularRutaUseCase, ResultadoRutas, RutaRecalculada } from '../../modules/routes';
 import { DomainErrorFilter } from '../domain-error.filter';
 import { CalcularRutasQuery } from '../dto/calcular-rutas.query';
-import { RutasResponse } from '../dto/rutas.response';
+import { RecalcularRutaQuery } from '../dto/recalcular-ruta.query';
+import { RutaRecalculadaResponse, RutasResponse } from '../dto/rutas.response';
 
 // Rutas de la app movil: la segura, la equilibrada y la rapida entre dos puntos
+// y recalcular la ruta cuando el ciudadano se sale de ella
 // cuelga de /api/mobile/v1/routes, pide token y responde en camelCase
 @ApiTags('App movil - Rutas')
 @ApiBearerAuth()
@@ -15,7 +17,10 @@ import { RutasResponse } from '../dto/rutas.response';
 @UseGuards(JwtAuthGuard)
 @UseFilters(DomainErrorFilter)
 export class RoutesController {
-  constructor(private readonly calcularRutas: CalcularRutasUseCase) {}
+  constructor(
+    private readonly calcularRutas: CalcularRutasUseCase,
+    private readonly recalcularRuta: RecalcularRutaUseCase,
+  ) {}
 
   @Get()
   @ApiOperation({ summary: 'Calcular la ruta segura, la equilibrada y la rapida entre un origen y un destino' })
@@ -31,6 +36,26 @@ export class RoutesController {
     return this.calcularRutas.execute({
       origen: { latitud: consulta.origenLat, longitud: consulta.origenLon },
       destino: { latitud: consulta.destinoLat, longitud: consulta.destinoLon },
+    });
+  }
+
+  @Get('recalcular')
+  @ApiOperation({
+    summary: 'Recalcular la ruta desde donde esta el ciudadano cuando se sale de la ruta',
+    description:
+      'La app lo llama cuando el ciudadano se aleja de la linea de la ruta. Devuelve una sola ruta, del mismo tipo que venia siguiendo, desde su ubicacion actual hasta el mismo destino',
+  })
+  @ApiOkResponse({ type: RutaRecalculadaResponse })
+  @ApiBadRequestResponse({
+    description: 'Ubicacion invalida o el ciudadano ya esta a menos de 30 metros del destino (RUTA_INVALIDA), o tipo que no existe',
+  })
+  recalcular(
+    @Query(new ValidationPipe({ transform: true, whitelist: true, forbidNonWhitelisted: true })) consulta: RecalcularRutaQuery,
+  ): Promise<RutaRecalculada> {
+    return this.recalcularRuta.execute({
+      actual: { latitud: consulta.actualLat, longitud: consulta.actualLon },
+      destino: { latitud: consulta.destinoLat, longitud: consulta.destinoLon },
+      tipo: consulta.tipo,
     });
   }
 }

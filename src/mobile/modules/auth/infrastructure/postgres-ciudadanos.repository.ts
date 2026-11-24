@@ -9,6 +9,7 @@ import { AceptacionTerminos } from '../domain/terminos';
 const COLUMNAS = `id, nombre_completo AS "nombreCompleto", correo, to_char(fecha_nacimiento, 'YYYY-MM-DD') AS "fechaNacimiento", genero`;
 
 // Guarda y lee los ciudadanos de la app movil en movil.usuarios
+// acepto_terminos y correo_verificado se guardan como el texto 'true' o 'false' y al leerlos se vuelven boolean
 @Injectable()
 export class PostgresCiudadanosRepository implements CiudadanosRepositoryPort, OnModuleDestroy {
   private readonly pool = crearPoolPostgres();
@@ -30,7 +31,7 @@ export class PostgresCiudadanosRepository implements CiudadanosRepositoryPort, O
       await conexion.query('BEGIN');
       const resultado = await conexion.query<Ciudadano>(
         `INSERT INTO movil.usuarios (nombre_completo, correo, fecha_nacimiento, genero, contrasena_cifrada, acepto_terminos)
-         VALUES ($1, $2, $3, $4, $5, true)
+         VALUES ($1, $2, $3, $4, $5, 'true')
          RETURNING ${COLUMNAS}`,
         [ciudadano.nombreCompleto, ciudadano.correo, ciudadano.fechaNacimiento, ciudadano.genero, contrasenaCifrada],
       );
@@ -52,7 +53,7 @@ export class PostgresCiudadanosRepository implements CiudadanosRepositoryPort, O
 
   async buscarPorCorreo(correo: string): Promise<CiudadanoConClave | null> {
     const resultado = await this.pool.query<CiudadanoConClave>(
-      `SELECT ${COLUMNAS}, contrasena_cifrada AS "contrasenaCifrada", correo_verificado AS "correoVerificado" FROM movil.usuarios WHERE correo = $1`,
+      `SELECT ${COLUMNAS}, contrasena_cifrada AS "contrasenaCifrada", correo_verificado = 'true' AS "correoVerificado" FROM movil.usuarios WHERE correo = $1`,
       [correo],
     );
     return resultado.rows.length > 0 ? resultado.rows[0] : null;
@@ -63,6 +64,6 @@ export class PostgresCiudadanosRepository implements CiudadanosRepositoryPort, O
   }
 
   async marcarCorreoVerificado(id: number): Promise<void> {
-    await this.pool.query('UPDATE movil.usuarios SET correo_verificado = true WHERE id = $1', [id]);
+    await this.pool.query(`UPDATE movil.usuarios SET correo_verificado = 'true' WHERE id = $1`, [id]);
   }
 }

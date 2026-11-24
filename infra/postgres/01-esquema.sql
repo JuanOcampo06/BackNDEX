@@ -20,10 +20,12 @@ CREATE TABLE movil.usuarios (
   fecha_nacimiento date NOT NULL CHECK (fecha_nacimiento >= DATE '1900-01-01'),
   genero text NOT NULL CHECK (genero IN ('femenino', 'masculino', 'no_binario', 'prefiero_no_decirlo')),
   contrasena_cifrada text NOT NULL,
-  -- true cuando el ciudadano acepto los terminos y condiciones al registrarse y la constancia esta en movil.aceptaciones_terminos
-  acepto_terminos boolean NOT NULL DEFAULT false,
-  -- true cuando el ciudadano escribio en la app el codigo que le llego al correo al registrarse
-  correo_verificado boolean NOT NULL DEFAULT false,
+  -- Los si o no de esta tabla se guardan como el texto 'true' o 'false' para que se lean completos al revisar la tabla
+  -- (un boolean se ve como t o f en Adminer) y el CHECK no deja guardar otro valor
+  -- 'true' cuando el ciudadano acepto los terminos y condiciones al registrarse y la constancia esta en movil.aceptaciones_terminos
+  acepto_terminos text NOT NULL DEFAULT 'false' CHECK (acepto_terminos IN ('true', 'false')),
+  -- 'true' cuando el ciudadano escribio en la app el codigo que le llego al correo al registrarse
+  correo_verificado text NOT NULL DEFAULT 'false' CHECK (correo_verificado IN ('true', 'false')),
   creado_en timestamptz NOT NULL DEFAULT now()
 );
 
@@ -50,6 +52,48 @@ CREATE TABLE movil.aceptaciones_terminos (
   aceptado_en timestamptz NOT NULL DEFAULT now(),
   UNIQUE (usuario_id, version_terminos)
 );
+
+-- Preferencias que el ciudadano configura en la app (tema, avatar, alertas y voz) guardadas en su cuenta
+-- para que al entrar desde otro celular todo quede como lo dejo; una fila por ciudadano y sin fila la app usa los valores por defecto
+-- los si o no se guardan como el texto 'true' o 'false' igual que en movil.usuarios
+CREATE TABLE movil.preferencias (
+  usuario_id int PRIMARY KEY REFERENCES movil.usuarios (id) ON DELETE CASCADE,
+  tema text NOT NULL DEFAULT 'sistema' CHECK (tema IN ('claro', 'oscuro', 'sistema')),
+  avatar text NOT NULL DEFAULT 'flecha' CHECK (avatar IN ('vehiculo', 'flecha', 'chiva', 'tortuga', 'bicicleta', 'bicicleta_electrica', 'patineta')),
+  reportes_cercanos text NOT NULL DEFAULT 'true' CHECK (reportes_cercanos IN ('true', 'false')),
+  sonido text NOT NULL DEFAULT 'false' CHECK (sonido IN ('true', 'false')),
+  vibracion text NOT NULL DEFAULT 'true' CHECK (vibracion IN ('true', 'false')),
+  distancia_alerta_m int NOT NULL DEFAULT 300 CHECK (distancia_alerta_m IN (100, 300, 500)),
+  voz text NOT NULL DEFAULT 'true' CHECK (voz IN ('true', 'false')),
+  notificaciones_ruta text NOT NULL DEFAULT 'true' CHECK (notificaciones_ruta IN ('true', 'false')),
+  actualizado_en timestamptz NOT NULL DEFAULT now()
+);
+
+-- Contactos de emergencia del ciudadano (maximo 3, la app y el backend lo controlan) guardados en su cuenta
+-- para que al entrar desde otro celular sigan ahi; orden es la posicion en la lista y el primero sale primero en el boton SOS
+-- solo los aceptados salen en el boton SOS y si se borra el ciudadano se borran sus contactos
+CREATE TABLE movil.contactos_emergencia (
+  id serial PRIMARY KEY,
+  usuario_id int NOT NULL REFERENCES movil.usuarios (id) ON DELETE CASCADE,
+  nombre text NOT NULL CHECK (char_length(nombre) BETWEEN 1 AND 60),
+  parentesco text NOT NULL DEFAULT '' CHECK (char_length(parentesco) <= 30),
+  -- Celular colombiano solo con numeros
+  telefono text NOT NULL CHECK (telefono ~ '^3[0-9]{9}$'),
+  correo text NOT NULL CHECK (char_length(correo) <= 254),
+  -- pendiente hasta que el contacto conteste la invitacion del correo; un rechazado queda para que la app avise y luego lo borre
+  estado text NOT NULL DEFAULT 'pendiente' CHECK (estado IN ('pendiente', 'aceptado', 'rechazado')),
+  -- Color del circulo en la app: 0 coral, 1 azul, 2 amarillo
+  color int NOT NULL CHECK (color IN (0, 1, 2)),
+  orden int NOT NULL,
+  -- Invitacion por correo: solo se guarda el hash del enlace, que deja de servir al contestar, al vencer o al enviar otra
+  invitacion_hash text UNIQUE,
+  invitacion_enviada_en timestamptz,
+  invitacion_vence_en timestamptz,
+  respondido_en timestamptz,
+  creado_en timestamptz NOT NULL DEFAULT now()
+);
+
+CREATE INDEX contactos_emergencia_usuario_id_idx ON movil.contactos_emergencia (usuario_id);
 
 -- Viajes en bicicleta del ciudadano
 -- un viaje nace en curso y al finalizarlo se guarda la distancia recorrida en metros

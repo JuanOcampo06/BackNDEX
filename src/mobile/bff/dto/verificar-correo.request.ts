@@ -14,7 +14,7 @@ export class VerificarCorreoRequest {
   @IsEmail()
   correo!: string;
 
-  @ApiProperty({ example: '483920', description: 'Codigo de 6 digitos que llego al correo al registrarse' })
-  @Matches(/^\d{6}$/, { message: 'El codigo son 6 digitos' })
+  @ApiProperty({ example: '4839', description: 'Codigo de 4 digitos que llego al correo al registrarse' })
+  @Matches(/^\d{4}$/, { message: 'El codigo son 4 digitos' })
   codigo!: string;
 }

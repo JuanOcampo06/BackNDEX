@@ -31,8 +31,8 @@ function crearDobles(correoVerificado = false) {
   };
   const verificaciones: CodigosRepositoryPort = {
     crear: async (_id, creadoEn, venceEn) => {
-      codigo.actual = { texto: '654321', venceEn, creadoEn, intentos: 0, usado: false };
-      return '654321';
+      codigo.actual = { texto: '6543', venceEn, creadoEn, intentos: 0, usado: false };
+      return '6543';
     },
     haySolicitudDesde: async (_id, desde) => codigo.actual !== null && codigo.actual.creadoEn > desde,
     consumir: async (_id, texto, hoy) => {
@@ -58,7 +58,7 @@ describe('SolicitarVerificacionUseCase', () => {
 
     await new SolicitarVerificacionUseCase(d.ciudadanos, d.verificaciones, d.notificador).execute({ correo: ' Ana@Demo.local ', ahora });
 
-    expect(d.enviados).toEqual([{ correo: 'ana@demo.local', nombreCompleto: 'Ana Lopez', codigo: '654321', venceEn: enSegundos(15 * 60) }]);
+    expect(d.enviados).toEqual([{ correo: 'ana@demo.local', nombreCompleto: 'Ana Lopez', codigo: '6543', venceEn: enSegundos(15 * 60) }]);
   });
 
   it('no envia nada si el correo no esta registrado o ya esta verificado', async () => {
@@ -91,7 +91,7 @@ describe('VerificarCorreoUseCase', () => {
     await new SolicitarVerificacionUseCase(d.ciudadanos, d.verificaciones, d.notificador).execute({ correo: 'ana@demo.local', ahora });
     return { ...d, caso: new VerificarCorreoUseCase(d.ciudadanos, d.verificaciones, d.tokens) };
   }
-  const comando = { correo: 'ana@demo.local', codigo: '654321', ahora: enSegundos(60) };
+  const comando = { correo: 'ana@demo.local', codigo: '6543', ahora: enSegundos(60) };
 
   it('con el codigo correcto verifica el correo y entrega la sesion sin la contrasena', async () => {
     const { caso, cuenta } = await conCodigoPedido();
@@ -115,7 +115,7 @@ describe('VerificarCorreoUseCase', () => {
   it('rechaza un codigo equivocado o vencido y deja el correo sin verificar', async () => {
     const { caso, cuenta } = await conCodigoPedido();
 
-    await expect(caso.execute({ ...comando, codigo: '000000' })).rejects.toMatchObject({ codigo: 'VERIFICACION_INVALIDA' });
+    await expect(caso.execute({ ...comando, codigo: '0000' })).rejects.toMatchObject({ codigo: 'VERIFICACION_INVALIDA' });
     await expect(caso.execute({ ...comando, ahora: enSegundos(16 * 60) })).rejects.toMatchObject({ codigo: 'VERIFICACION_INVALIDA' });
 
     expect(cuenta.correoVerificado).toBe(false);
@@ -124,7 +124,7 @@ describe('VerificarCorreoUseCase', () => {
   it('despues de cinco codigos equivocados ya no sirve ni el correcto', async () => {
     const { caso } = await conCodigoPedido();
     for (let i = 0; i < 5; i++) {
-      await expect(caso.execute({ ...comando, codigo: '000000' })).rejects.toMatchObject({ codigo: 'VERIFICACION_INVALIDA' });
+      await expect(caso.execute({ ...comando, codigo: '0000' })).rejects.toMatchObject({ codigo: 'VERIFICACION_INVALIDA' });
     }
 
     await expect(caso.execute(comando)).rejects.toMatchObject({ codigo: 'VERIFICACION_INVALIDA' });

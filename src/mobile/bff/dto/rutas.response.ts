@@ -59,3 +59,12 @@ export class RutasResponse {
   @ApiProperty({ example: false, description: 'false mientras las ciclovias no tengan riesgo calculado: la segura solo evita calles y cruces y cuando haya datos tambien esquiva los tramos de riesgo alto' })
   riesgoDisponible!: boolean;
 }
+
+// Forma de la respuesta al recalcular la ruta (solo para documentar en Swagger)
+export class RutaRecalculadaResponse {
+  @ApiProperty({ type: RutaResponse, description: 'La ruta nueva desde donde esta el ciudadano, del mismo tipo que venia siguiendo' })
+  ruta!: RutaResponse;
+
+  @ApiProperty({ example: true, description: 'Igual que en el calculo de rutas' })
+  riesgoDisponible!: boolean;
+}

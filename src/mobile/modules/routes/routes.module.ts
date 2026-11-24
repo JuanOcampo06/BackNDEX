@@ -1,5 +1,6 @@
 import { Module } from '@nestjs/common';
 import { CalcularRutasUseCase } from './application/calcular-rutas.use-case';
+import { RecalcularRutaUseCase } from './application/recalcular-ruta.use-case';
 import { RED_CICLOVIAS_REPOSITORY, RedCicloviasRepositoryPort } from './application/red-ciclovias.repository.port';
 import { RUTAS_POR_CALLES, RutasPorCallesPort } from './application/rutas-por-calles.port';
 import { SINIESTROS_REPOSITORY, SiniestrosRepositoryPort } from './application/siniestros.repository.port';
@@ -22,7 +23,13 @@ import { PostgresSiniestrosRepository } from './infrastructure/postgres-siniestr
         new CalcularRutasUseCase(ciclovias, calles, siniestros),
       inject: [RED_CICLOVIAS_REPOSITORY, RUTAS_POR_CALLES, SINIESTROS_REPOSITORY],
     },
+    // Recalcular usa el mismo calculo de rutas para no armar la red dos veces
+    {
+      provide: RecalcularRutaUseCase,
+      useFactory: (calcularRutas: CalcularRutasUseCase) => new RecalcularRutaUseCase(calcularRutas),
+      inject: [CalcularRutasUseCase],
+    },
   ],
-  exports: [CalcularRutasUseCase],
+  exports: [CalcularRutasUseCase, RecalcularRutaUseCase],
 })
 export class RoutesModule {}

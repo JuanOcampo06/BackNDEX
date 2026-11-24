@@ -9,9 +9,9 @@ import { CodigosRepositoryPort } from '../application/codigos.repository.port';
 export const TABLA_RESTABLECIMIENTOS = 'movil.restablecimientos_contrasena';
 export const TABLA_VERIFICACIONES = 'movil.verificaciones_correo';
 
-// El codigo son seis digitos: un millon de posibilidades que solo se pueden probar unas pocas veces
-const LIMITE_DEL_CODIGO = 1_000_000;
-const DIGITOS_DEL_CODIGO = 6;
+// El codigo son cuatro digitos (diez mil posibilidades) y como solo se puede probar 5 veces adivinarlo es muy dificil
+const LIMITE_DEL_CODIGO = 10_000;
+const DIGITOS_DEL_CODIGO = 4;
 
 // Despues de estos codigos equivocados el codigo pedido deja de servir y hay que pedir otro
 const MAXIMO_INTENTOS = 5;

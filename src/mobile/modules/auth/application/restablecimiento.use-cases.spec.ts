@@ -34,8 +34,8 @@ function crearDobles() {
   };
   const restablecimientos: CodigosRepositoryPort = {
     crear: async (_id, creadoEn, venceEn) => {
-      codigos.vigente = { codigo: '123456', venceEn, creadoEn, intentos: 0, usado: false };
-      return '123456';
+      codigos.vigente = { codigo: '1234', venceEn, creadoEn, intentos: 0, usado: false };
+      return '1234';
     },
     haySolicitudDesde: async (_id, desde) => codigos.vigente !== null && codigos.vigente.creadoEn > desde,
     consumir: async (_id, codigo, hoy) => {
@@ -59,7 +59,7 @@ describe('SolicitarRestablecimientoUseCase', () => {
 
     await new SolicitarRestablecimientoUseCase(d.ciudadanos, d.restablecimientos, d.notificador).execute({ correo: ' Ana@Demo.local ', ahora });
 
-    expect(d.enviados).toEqual([{ correo: 'ana@demo.local', nombreCompleto: 'Ana Lopez', codigo: '123456', venceEn: enSegundos(15 * 60) }]);
+    expect(d.enviados).toEqual([{ correo: 'ana@demo.local', nombreCompleto: 'Ana Lopez', codigo: '1234', venceEn: enSegundos(15 * 60) }]);
   });
 
   it('no envia nada ni avisa si el correo no esta registrado', async () => {
@@ -89,7 +89,7 @@ describe('ConfirmarRestablecimientoUseCase', () => {
     await new SolicitarRestablecimientoUseCase(d.ciudadanos, d.restablecimientos, d.notificador).execute({ correo: 'ana@demo.local', ahora });
     return { ...d, caso: new ConfirmarRestablecimientoUseCase(d.ciudadanos, d.restablecimientos, d.cifrador) };
   }
-  const comando = { correo: 'ana@demo.local', codigo: '123456', contrasenaNueva: 'clave-nueva-1', ahora: enSegundos(60) };
+  const comando = { correo: 'ana@demo.local', codigo: '1234', contrasenaNueva: 'clave-nueva-1', ahora: enSegundos(60) };
 
   it('cambia la contrasena cifrada con el codigo correcto', async () => {
     const { caso, cuenta } = await conCodigoPedido();
@@ -109,7 +109,7 @@ describe('ConfirmarRestablecimientoUseCase', () => {
   it('rechaza un codigo equivocado o vencido y deja la contrasena como estaba', async () => {
     const { caso, cuenta } = await conCodigoPedido();
 
-    await expect(caso.execute({ ...comando, codigo: '000000' })).rejects.toMatchObject({ codigo: 'RESTABLECIMIENTO_INVALIDO' });
+    await expect(caso.execute({ ...comando, codigo: '0000' })).rejects.toMatchObject({ codigo: 'RESTABLECIMIENTO_INVALIDO' });
     await expect(caso.execute({ ...comando, ahora: enSegundos(16 * 60) })).rejects.toMatchObject({ codigo: 'RESTABLECIMIENTO_INVALIDO' });
 
     expect(cuenta.contrasenaCifrada).toBe('cifrada:vieja-clave-1');
@@ -118,7 +118,7 @@ describe('ConfirmarRestablecimientoUseCase', () => {
   it('despues de cinco codigos equivocados ya no sirve ni el correcto', async () => {
     const { caso } = await conCodigoPedido();
     for (let i = 0; i < 5; i++) {
-      await expect(caso.execute({ ...comando, codigo: '000000' })).rejects.toMatchObject({ codigo: 'RESTABLECIMIENTO_INVALIDO' });
+      await expect(caso.execute({ ...comando, codigo: '0000' })).rejects.toMatchObject({ codigo: 'RESTABLECIMIENTO_INVALIDO' });
     }
 
     await expect(caso.execute(comando)).rejects.toMatchObject({ codigo: 'RESTABLECIMIENTO_INVALIDO' });

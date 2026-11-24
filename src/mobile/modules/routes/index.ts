@@ -7,3 +7,5 @@ export type { PasoRuta } from './domain/maniobras';
 export type { ResultadoRutas } from './application/calcular-rutas.use-case';
 export { DomainError } from '../../../shared/domain-error';
 export { CalcularRutasUseCase } from './application/calcular-rutas.use-case';
+export { RecalcularRutaUseCase } from './application/recalcular-ruta.use-case';
+export type { RutaRecalculada } from './application/recalcular-ruta.use-case';

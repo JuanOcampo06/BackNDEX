@@ -14,8 +14,8 @@ export class ConfirmarRestablecimientoMovilRequest {
   @IsEmail()
   correo!: string;
 
-  @ApiProperty({ example: '483920', description: 'Codigo de 6 digitos que llego al correo' })
-  @Matches(/^\d{6}$/, { message: 'El codigo son 6 digitos' })
+  @ApiProperty({ example: '4839', description: 'Codigo de 4 digitos que llego al correo' })
+  @Matches(/^\d{4}$/, { message: 'El codigo son 4 digitos' })
   codigo!: string;
 
   @ApiProperty({ example: 'clave-nueva-1', description: 'Entre 8 y 72 caracteres, igual que al registrarse' })

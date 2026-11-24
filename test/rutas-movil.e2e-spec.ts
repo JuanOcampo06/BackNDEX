@@ -110,4 +110,27 @@ describe('Rutas de la app movil (e2e)', () => {
     expect(respuesta.status).toBe(400);
     expect(respuesta.body.codigo).toBe('RUTA_SIN_CAMINO');
   });
+
+  describe('recalcular', () => {
+    // El ciudadano ya avanzo un poco desde el origen y sigue yendo al mismo destino
+    const recalculo = { actualLat: 4.6001, actualLon: -74.098, destinoLat: 4.6001, destinoLon: -74.0899, tipo: 'segura' };
+    const recalcular = (parametros: Record<string, unknown>) =>
+      request(app.getHttpServer()).get(`${ruta}/recalcular`).query(parametros).set('Authorization', autorizacion);
+
+    it('devuelve solo la ruta del tipo elegido y empieza donde esta el ciudadano', async () => {
+      const respuesta = await recalcular(recalculo);
+
+      expect(respuesta.status).toBe(200);
+      expect(respuesta.body.ruta.tipo).toBe('segura');
+      expect(respuesta.body.ruta.coordenadas[0]).toEqual([recalculo.actualLat, recalculo.actualLon]);
+      expect(respuesta.body.riesgoDisponible).toBe(true);
+    });
+
+    it('responde 400 con un tipo que no existe o sin token', async () => {
+      const tipoMalo = await recalcular({ ...recalculo, tipo: 'corta' });
+      const sinToken = await request(app.getHttpServer()).get(`${ruta}/recalcular`).query(recalculo);
+
+      expect([tipoMalo.status, sinToken.status]).toEqual([400, 401]);
+    });
+  });
 });
